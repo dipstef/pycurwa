@@ -18,7 +18,7 @@ from curl import post_request, set_proxy, curl_request, set_interface, set_ipv6_
 
 class HTTPRequestBase(object):
     def __init__(self, cookies=None, options=None):
-        self.c = pycurl.Curl()
+        self.curl = pycurl.Curl()
 
         self.cj = cookies  # cookiejar
 
@@ -30,12 +30,12 @@ class HTTPRequestBase(object):
 
     def _init_handle(self):
         """ sets common options to curl handle """
-        curl_request(self.c)
+        curl_request(self.curl)
 
     def _set_options(self, options):
         interface, proxy, ipv6 = options.interface(), options.proxy(), options.ipv6_enabled()
 
-        curl = self.c
+        curl = self.curl
 
         if interface:
             set_interface(curl, str(interface))
@@ -69,7 +69,7 @@ class HTTPRequestBase(object):
         return
 
     def clear_cookies(self):
-        clear_cookies(self.c)
+        clear_cookies(self.curl)
 
     def _set_request_context(self, url, params, post_data, referer, cookies, multipart=False):
         """ sets everything needed for the request """
@@ -79,7 +79,7 @@ class HTTPRequestBase(object):
             params = urlencode(params)
             url = "%s?%s" % (url, params)
 
-        curl = self.c
+        curl = self.curl
 
         set_url(curl, url)
 
@@ -98,7 +98,7 @@ class HTTPRequestBase(object):
 
     def verify_header(self):
         """ raise an exceptions on bad headers """
-        code = int(self.c.getinfo(pycurl.RESPONSE_CODE))
+        code = int(self.curl.getinfo(pycurl.RESPONSE_CODE))
 
         if code in bad_headers:
             # 404 will NOT raise an exception
@@ -162,8 +162,8 @@ class HTTPRequest(HTTPRequestBase):
         self.lastURL = None
         self.lastEffectiveURL = None
 
-        self.c.setopt(pycurl.WRITEFUNCTION, self.write)
-        self.c.setopt(pycurl.HEADERFUNCTION, self._write_header)
+        self.curl.setopt(pycurl.WRITEFUNCTION, self.write)
+        self.curl.setopt(pycurl.HEADERFUNCTION, self._write_header)
         self.log = getLogger("log")
 
     def _head_request(self, curl):
@@ -184,7 +184,7 @@ class HTTPRequest(HTTPRequestBase):
 
         self.header = ""
 
-        curl = self.c
+        curl = self.curl
         curl.setopt(pycurl.HTTPHEADER, self.headers)
 
         if just_header:
@@ -207,7 +207,7 @@ class HTTPRequest(HTTPRequestBase):
 
     def checkHeader(self):
         """ check if header indicates failure"""
-        return int(self.c.getinfo(pycurl.RESPONSE_CODE)) not in bad_headers
+        return int(self.curl.getinfo(pycurl.RESPONSE_CODE)) not in bad_headers
 
     def write(self, buf):
         self._rep = StringIO()
@@ -241,8 +241,8 @@ class HTTPRequest(HTTPRequestBase):
         if hasattr(self, "cj"):
             del self.cj
         if hasattr(self, "c"):
-            self.c.close()
-            del self.c
+            self.curl.close()
+            del self.curl
 
 
 def main():

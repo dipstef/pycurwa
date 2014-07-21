@@ -110,18 +110,19 @@ class ChunkInfo(object):
 
 
 class HTTPChunk(HTTPRequestBase):
-    def __init__(self, id, download, range=None, resume=False):
+    def __init__(self, chunk_id, download, info, bytes_range):
         super(HTTPChunk, self).__init__(download.cj, options=download.options)
 
-        self.id = id
+        self.id = chunk_id
 
+        self._info = info
         self._download = download # HTTPDownload instance
-        self.range = range # tuple (start, end)
+        self._range = bytes_range # tuple (start, end)
 
-        self.resume = resume
+        self._resume = info.resume
         self.log = download.log
 
-        self.size = range[1] - range[0] if range else -1
+        self.size = bytes_range[1] - bytes_range[0] if bytes_range else -1
         self.arrived = 0
 
         self._header_parsed = False #indicates if the header has been processed
@@ -133,7 +134,7 @@ class HTTPChunk(HTTPRequestBase):
         self._rep = None
 
         self.sleep = 0.000
-        self.lastSize = 0
+        self._last_size = 0
 
     def __repr__(self):
         return "<HTTPChunk id=%d, size=%d, arrived=%d>" % (self.id, self.size, self.arrived)
@@ -141,60 +142,61 @@ class HTTPChunk(HTTPRequestBase):
     def get_handle(self):
         """ returns a Curl handle ready to use for perform/multiperform """
 
-        self._set_request_context(self._download.url, self._download.get, self._download.post, self._download.referer,
+        self._set_request_context(self._download.url, self._download.get, self._download.post, self._download.referrer,
                                   self._download.cj)
 
-        self.c.setopt(pycurl.WRITEFUNCTION, self._write_body)
-        self.c.setopt(pycurl.HEADERFUNCTION, self._write_header)
+        self.curl.setopt(pycurl.WRITEFUNCTION, self._write_body)
+        self.curl.setopt(pycurl.HEADERFUNCTION, self._write_header)
 
         # request all bytes, since some servers in russia seems to have a defect arihmetic unit
 
-        fs_name = fs_encode(self._download.info.get_chunk_name(self.id))
+        fs_name = fs_encode(self._info.get_chunk_name(self.id))
 
-        if self.resume:
+        if self._resume:
             self.fp = open(fs_name, "ab")
 
             self.arrived = self.fp.tell()
+
             if not self.arrived:
                 self.arrived = os.stat(fs_name).st_size
 
-            if self.range:
+            if self._range:
                 #do nothing if chunk already finished
-                if self.arrived + self.range[0] >= self.range[1]: return None
+                if self.arrived + self._range[0] >= self._range[1]: return None
 
-                if self.id == len(self._download.info.chunks) - 1: #as last chunk dont set end range, so we get everything
-                    range = "%i-" % (self.arrived + self.range[0])
+                if self.id == len(self._info.chunks) - 1: #as last chunk dont set end range, so we get everything
+                    range = "%i-" % (self.arrived + self._range[0])
                 else:
-                    range = "%i-%i" % (self.arrived + self.range[0], min(self.range[1] + 1, self._download.size - 1))
+                    range = "%i-%i" % (self.arrived + self._range[0], min(self._range[1] + 1, self._download.size - 1))
 
                 self.log.debug("Chunked resume with range %s" % range)
-                self.c.setopt(pycurl.RANGE, range)
+                self.curl.setopt(pycurl.RANGE, range)
             else:
                 self.log.debug("Resume File from %i" % self.arrived)
-                self.c.setopt(pycurl.RESUME_FROM, self.arrived)
+                self.curl.setopt(pycurl.RESUME_FROM, self.arrived)
 
         else:
-            if self.range:
-                if self.id == len(self._download.info.chunks) - 1: # see above
-                    range = "%i-" % self.range[0]
+            if self._range:
+                if self.id == len(self._info.chunks) - 1: # see above
+                    range = "%i-" % self._range[0]
                 else:
-                    range = "%i-%i" % (self.range[0], min(self.range[1] + 1, self._download.size - 1))
+                    range = "%i-%i" % (self._range[0], min(self._range[1] + 1, self._download.size - 1))
 
                 self.log.debug("Chunked with range %s" % range)
-                self.c.setopt(pycurl.RANGE, range)
+                self.curl.setopt(pycurl.RANGE, range)
 
             self.fp = open(fs_name, "wb")
 
-        return self.c
+        return self.curl
 
     def _write_header(self, buf):
         self.header += buf
 
         #@TODO forward headers?, this is possibly unneeeded, when we just parse valid 200 headers
         # as first chunk, we will parse the headers
-        if not self.range and self.header.endswith("\r\n\r\n"):
+        if not self._range and self.header.endswith("\r\n\r\n"):
             self._parse_header()
-        elif not self.range and buf.startswith("150") and "data connection" in buf: #ftp file size parsing
+        elif not self._range and buf.startswith("150") and "data connection" in buf: #ftp file size parsing
             size = re.search(r"(\d+) bytes", buf)
             if size:
                 self._download.size = int(size.group(1))
@@ -222,17 +224,17 @@ class HTTPChunk(HTTPRequestBase):
             # otherwise reduce sleep time percentual (values are based on tests)
             # So in general cpu time is saved without reducing bandwith too much
 
-            if size < self.lastSize:
+            if size < self._last_size:
                 self.sleep += 0.002
             else:
                 self.sleep *= 0.7
 
-            self.lastSize = size
+            self._last_size = size
 
             time.sleep(self.sleep)
 
-        if self.range and self.arrived > self.size:
-            return 0 #close if we have enough data
+        if self._range and self.arrived > self.size:
+            return 0
 
     def _parse_header(self):
         """parse data from recieved header"""
@@ -248,22 +250,22 @@ class HTTPChunk(HTTPRequestBase):
                 self._download.disposition_name = name
                 self.log.debug("Content-Disposition: %s" % name)
 
-            if not self.resume and line.startswith("content-length"):
+            if not self._resume and line.startswith("content-length"):
                 self._download.size = int(line.split(":")[1])
 
         self._header_parsed = True
 
     def stop(self):
         """The download will not proceed after next call of writeBody"""
-        self.range = [0, 0]
+        self._range = [0, 0]
         self.size = 0
 
     def reset_range(self):
         """ Reset the range, so the download will load all data available  """
-        self.range = None
+        self._range = None
 
     def set_range(self, range):
-        self.range = range
+        self._range = range
         self.size = range[1] - range[0]
 
     def flush_file(self):
@@ -277,9 +279,7 @@ class HTTPChunk(HTTPRequestBase):
         if self.fp:
             self.fp.close()
 
-        self.c.close()
-        if hasattr(self, "p"):
-            del self._download
+        self.curl.close()
 
 
 class WrongFormat(Exception):
