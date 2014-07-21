@@ -1,4 +1,0 @@
-pycurwa
-=======
-
-Pycurl wrapper
