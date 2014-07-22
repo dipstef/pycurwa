@@ -11,10 +11,8 @@ class HttpDownloadRange(HttpDownloadRequest):
         super(HttpDownloadRange, self).__init__(url, file_path, cookies, log, bucket, resume)
 
     def _handle_resume(self):
-        if self._is_closed_range() and self.downloaded >= self._range.end:
-            return None
-
-        self._set_bytes_range(self.arrived)
+        if not self._is_range_completed():
+            self._set_bytes_range(self.arrived)
 
     def _handle_not_resumed(self):
         super(HttpDownloadRange, self)._handle_not_resumed()
@@ -30,14 +28,17 @@ class HttpDownloadRange(HttpDownloadRequest):
         return bytes_range
 
     def _write_body(self, buf):
-        super(HttpDownloadRange, self)._write_body(buf)
-        if self._is_closed_range() and self.arrived > self._range.size:
+        if self._is_range_completed():
             return 0
+        super(HttpDownloadRange, self)._write_body(buf)
 
     def _parse_header(self, buf):
         # as first chunk, we will parse the headers
         if self._range.start == 0:
             super(HttpDownloadRange, self)._parse_header(buf)
+
+    def _is_range_completed(self):
+        return self._is_closed_range() and self.arrived > self._range.size
 
     def stop(self):
         self._range = Range(0, 0)
@@ -66,6 +67,7 @@ class HTTPChunk(HttpDownloadRange):
         super(HTTPChunk, self).__init__(download.url, chunk.path, download.cookies, download.log, chunk.range,
                                         download.bucket, chunk.resume)
         self._download = download
+        self._chunk = chunk
 
     def __str__(self):
         if self._is_closed_range():
@@ -93,4 +95,3 @@ class FirstChunk(HTTPChunk):
     def _set_header(self, header):
         self._download.disposition_name = header.file_name
         self._download.size = header.size
-        self._download.chunk_support = header.chunk_support

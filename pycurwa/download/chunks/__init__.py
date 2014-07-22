@@ -1,6 +1,7 @@
 import codecs
 from collections import OrderedDict
 import json
+import os
 
 from unicoder import to_unicode, encoded
 
@@ -53,11 +54,14 @@ class Chunks(object):
     def get_chunk(self, index):
         return self._chunks[index]
 
-    def get_chunk_path(self, index):
-        return self.get_chunk(index).path
-
     def get_chunk_range(self, index):
         return self.get_chunk(index).range
+
+    def __iter__(self):
+        return iter(self._chunks)
+
+    def __getitem__(self, chunk_number):
+        return self._chunks[chunk_number]
 
 
 def _chunks_file(path):
@@ -77,6 +81,13 @@ class ChunksFile(Chunks):
     def save(self):
         with codecs.open(self.path_encoded, 'w', 'utf-8') as chunks_file:
             return json.dump(self._json_dict(), chunks_file, indent=4, encoding='utf-8')
+
+    def remove(self):
+        try:
+            os.remove(self.path_encoded)
+        except OSError:
+            #Already removed
+            pass
 
     def __str__(self):
         ret = 'File: %s, %d chunks: \n' % (encoded(self.file_path), self.size)
@@ -144,8 +155,8 @@ class ExistingDownloadChunks(DownloadChunksFile):
 
 class CreateChunksFile(DownloadChunksFile):
 
-    def __init__(self, url, file_path, expected_size, chunks_number):
-        super(CreateChunksFile, self).__init__(url, file_path, expected_size, chunks=[])
+    def __init__(self, url, file_path, expected_size, chunks_number, resume=False):
+        super(CreateChunksFile, self).__init__(url, file_path, expected_size, chunks=[], resume=resume)
         self._create_chunks(chunks_number)
         self.save()
 
@@ -164,9 +175,9 @@ class CreateChunksFile(DownloadChunksFile):
 
 
 class OneChunk(CreateChunksFile):
-    def __init__(self, url, file_path, expected_size):
-        super(OneChunk, self).__init__(url, file_path, expected_size, chunks_number=1)
+    def __init__(self, url, file_path, expected_size, resume=False):
+        super(OneChunk, self).__init__(url, file_path, expected_size, chunks_number=1, resume=resume)
 
 
 def load_chunks(url, file_path, resume=False):
-    return ExistingDownloadChunks(url, resume, file_path)
+    return ExistingDownloadChunks(url, file_path, resume=resume)

@@ -37,10 +37,7 @@ class HTTPDownload(object):
 
         self.size = 0
 
-        self.chunk_support = False
-
     def download(self, chunks=1, resume=False):
-        ''' returns new filename or None '''
         chunks = max(1, chunks)
 
         try:
@@ -72,7 +69,6 @@ class HTTPDownload(object):
             if not statistics.is_completed():
                 raise Exception('Not Completed')
 
-            print 'Saving: ', download.chunks, download.is_done()
             statistics.file_path = self._save_chunks(download, self.file_path)
 
             return statistics
@@ -84,45 +80,45 @@ class HTTPDownload(object):
         for chunk in download.chunks:
             chunk.flush_file()
 
-        first_chunk = self._copy_chunks(download.info)
+        first_chunk = _copy_chunks(download.chunks_file)
         if self.disposition_name and self._use_disposition:
             file_name = save_join(dirname(file_name), self.disposition_name)
 
         move(first_chunk, fs_encode(file_name))
-        download.info.remove()
+        download.chunks_file.remove()
         return file_name
 
-    def _copy_chunks(self, info):
-        first_chunk_path = fs_encode(info.get_chunk_path(0))
 
-        if info.count > 1:
-            with open(first_chunk_path, 'rb+') as fo:
-                try:
-                    for i in range(1, info.count):
-                        self._copy_chunk(info, i, fo)
-                except UnexpectedChunkContent:
-                    remove(first_chunk_path)
-                    #there are probably invalid chunks
-                    info.remove()
+def _copy_chunks(info):
+    first_chunk_path = info[0].path
 
-        return first_chunk_path
+    if info.count > 1:
+        with open(first_chunk_path, 'rb+') as fo:
+            try:
+                for i in range(1, info.count):
+                    fo.seek(info[i - 1].range.end + 1)
 
-    #copy in chunks, consumes less memory
-    def _copy_chunk(self, info, chunk_number, fo, buf_size=32 * 1024):
-        # input file
-        #seek to beginning of chunk, to get rid of overlapping chunks
-        fo.seek(info.get_chunk_range(chunk_number - 1)[1] + 1)
+                    _copy_chunk(info[i], fo)
+            except UnexpectedChunkContent:
+                remove(first_chunk_path)
+                # there are probably invalid chunks
+                info.remove()
 
-        chunk_name = fs_encode('%s.chunk%d' % (self.file_path, chunk_number))
+    return first_chunk_path
 
-        with open(chunk_name, 'rb') as fi:
-            while True:
-                data = fi.read(buf_size)
-                if not data:
-                    break
-                fo.write(data)
 
-        if fo.tell() < info.get_chunk_range(chunk_number)[1]:
-            raise UnexpectedChunkContent()
+# copy in chunks, consumes less memory
+def _copy_chunk(chunk, fo, buf_size=32 * 1024):
+    # input file
+    # seek to beginning of chunk, to get rid of overlapping chunks
+    with open(chunk.path, 'rb') as fi:
+        while True:
+            data = fi.read(buf_size)
+            if not data:
+                break
+            fo.write(data)
 
-        remove(chunk_name)
+    if fo.tell() < chunk.range.end:
+        raise UnexpectedChunkContent()
+
+    remove(chunk.path)

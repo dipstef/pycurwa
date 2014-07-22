@@ -41,10 +41,7 @@ class HttpDownloadRequest(HTTPRequestBase):
         if self._resume:
             self._fp = open(file_path, 'ab')
 
-            self.arrived = self._fp.tell()
-
-            if not self.arrived:
-                self.arrived = os.stat(self.file_path).st_size
+            self.arrived = self._fp.tell() or os.stat(self.file_path).st_size
 
             self._handle_resume()
         else:
