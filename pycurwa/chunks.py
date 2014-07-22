@@ -1,10 +1,13 @@
 import codecs
 import os
 import re
-import pycurl
 import time
-from request import HTTPRequestBase
-from util import fs_encode
+
+import pycurl
+
+from .error import WrongFormat
+from .request import HTTPRequestBase
+from .util import fs_encode
 
 
 class ChunkInfo(object):
@@ -45,54 +48,51 @@ class ChunkInfo(object):
     def save(self):
         fs_name = fs_encode("%s.chunks" % self.name)
 
-        with codecs.open(fs_name, "w", "utf_8") as file_header:
-            file_header.write("name:%s\n" % self.name)
-            file_header.write("size:%s\n" % self.size)
+        with codecs.open(fs_name, "w", "utf_8") as chunks_file:
+            chunks_file.write("name:%s\n" % self.name)
+            chunks_file.write("size:%s\n" % self.size)
 
             for i, c in enumerate(self.chunks):
-                file_header.write("#%d:\n" % i)
-                file_header.write("\tname:%s\n" % c[0])
-                file_header.write("\trange:%i-%i\n" % c[1])
+                chunks_file.write("#%d:\n" % i)
+                chunks_file.write("\tname:%s\n" % c[0])
+                chunks_file.write("\trange:%i-%i\n" % c[1])
 
 
     @staticmethod
     def load(name):
         fs_name = fs_encode("%s.chunks" % name)
 
-        if not os.path.exists(fs_name):
-            raise IOError()
+        with codecs.open(fs_name, "r", "utf_8") as fh:
 
-        fh = codecs.open(fs_name, "r", "utf_8")
+            name = fh.readline()[:-1]
+            size = fh.readline()[:-1]
 
-        name = fh.readline()[:-1]
-        size = fh.readline()[:-1]
-
-        if name.startswith("name:") and size.startswith("size:"):
-            name = name[5:]
-            size = size[5:]
-        else:
-            fh.close()
-            raise WrongFormat()
-
-        ci = ChunkInfo(name)
-        ci.loaded = True
-        ci.set_size(size)
-        while True:
-            if not fh.readline(): #skip line
-                break
-            name = fh.readline()[1:-1]
-            range = fh.readline()[1:-1]
-
-            if name.startswith("name:") and range.startswith("range:"):
+            if name.startswith("name:") and size.startswith("size:"):
                 name = name[5:]
-                range = range[6:].split("-")
+                size = size[5:]
             else:
+                fh.close()
                 raise WrongFormat()
 
-            ci.add_chunk(name, (long(range[0]), long(range[1])))
+            chunk_info = ChunkInfo(name)
+            chunk_info.loaded = True
+            chunk_info.set_size(size)
 
-        fh.close()
-        return ci
+            while True:
+                if not fh.readline(): #skip line
+                    break
+                name = fh.readline()[1:-1]
+                bytes_range = fh.readline()[1:-1]
+
+                if name.startswith("name:") and bytes_range.startswith("range:"):
+                    name = name[5:]
+                    bytes_range = bytes_range[6:].split("-")
+                else:
+                    raise WrongFormat()
+
+                chunk_info.add_chunk(name, (long(bytes_range[0]), long(bytes_range[1])))
+
+            return chunk_info
 
     def remove(self):
         fs_name = fs_encode("%s.chunks" % self.name)
@@ -109,107 +109,80 @@ class ChunkInfo(object):
         return self.chunks[index][1]
 
 
-class HTTPChunk(HTTPRequestBase):
-    def __init__(self, chunk_id, download, info, bytes_range):
-        super(HTTPChunk, self).__init__(download.cj, options=download.options)
+class DownloadHeader(object):
 
-        self.id = chunk_id
+    def __init__(self, file_name=None, size=0, chunks_allowed=False):
+        self.file_name = file_name
+        self.size = size
+        self.chunk_support = chunks_allowed
 
-        self._info = info
-        self._download = download # HTTPDownload instance
-        self._range = bytes_range # tuple (start, end)
+    def parse(self, header_string, resume=False):
+        for line in header_string:
+            line = line.strip().lower()
+            if line.startswith("accept-ranges") and "bytes" in line:
+                self.chunk_support = True
 
-        self._resume = info.resume
-        self.log = download.log
+            if line.startswith("content-disposition") and "filename=" in line:
+                name = line.partition("filename=")[2]
+                name = name.replace('"', "").replace("'", "").replace(";", "").strip()
 
-        self.size = bytes_range[1] - bytes_range[0] if bytes_range else -1
+                self.file_name = name
+
+            if not resume and line.startswith("content-length"):
+                self.size = int(line.split(":")[1])
+
+
+class HttpDownloadRequest(HTTPRequestBase):
+
+    def __init__(self, url, file_path, cookies, log, bucket=None, resume=False, get=None, post=None, referrer=None):
+        super(HttpDownloadRequest, self).__init__(cookies)
+
         self.arrived = 0
 
-        self._header_parsed = False #indicates if the header has been processed
+        self._header_parsed = None
 
-        self.fp = None #file handle
+        self.fp = None
 
-        self._bom_checked = False # check and remove byte order mark
-
-        self._rep = None
+        # check and remove byte order mark
+        self._bom_checked = False
 
         self.sleep = 0.000
         self._last_size = 0
+        self._resume = resume
 
-    def __repr__(self):
-        return "<HTTPChunk id=%d, size=%d, arrived=%d>" % (self.id, self.size, self.arrived)
+        self.log = log
+        self._bucket = bucket
 
-    def get_handle(self):
-        """ returns a Curl handle ready to use for perform/multiperform """
+        self.file_path = fs_encode(file_path)
 
-        self._set_request_context(self._download.url, self._download.get, self._download.post, self._download.referrer,
-                                  self._download.cj)
+        self._set_request_context(url, get, post, referrer, cookies)
 
         self.curl.setopt(pycurl.WRITEFUNCTION, self._write_body)
         self.curl.setopt(pycurl.HEADERFUNCTION, self._write_header)
 
-        # request all bytes, since some servers in russia seems to have a defect arihmetic unit
-
-        fs_name = fs_encode(self._info.get_chunk_name(self.id))
+        # request all bytes, since some servers in russia seems to have a defect arithmetic unit
 
         if self._resume:
-            self.fp = open(fs_name, "ab")
+            self.fp = open(file_path, "ab")
 
             self.arrived = self.fp.tell()
 
             if not self.arrived:
-                self.arrived = os.stat(fs_name).st_size
+                self.arrived = os.stat(self.file_path).st_size
 
-            if self._range:
-                #do nothing if chunk already finished
-                if self.arrived + self._range[0] >= self._range[1]: return None
-
-                if self.id == len(self._info.chunks) - 1: #as last chunk dont set end range, so we get everything
-                    range = "%i-" % (self.arrived + self._range[0])
-                else:
-                    range = "%i-%i" % (self.arrived + self._range[0], min(self._range[1] + 1, self._download.size - 1))
-
-                self.log.debug("Chunked resume with range %s" % range)
-                self.curl.setopt(pycurl.RANGE, range)
-            else:
-                self.log.debug("Resume File from %i" % self.arrived)
-                self.curl.setopt(pycurl.RESUME_FROM, self.arrived)
-
+            self._handle_resume()
         else:
-            if self._range:
-                if self.id == len(self._info.chunks) - 1: # see above
-                    range = "%i-" % self._range[0]
-                else:
-                    range = "%i-%i" % (self._range[0], min(self._range[1] + 1, self._download.size - 1))
+            self._handle_not_resumed()
 
-                self.log.debug("Chunked with range %s" % range)
-                self.curl.setopt(pycurl.RANGE, range)
+    def _handle_resume(self):
+        self.log.debug("Resume File from %i" % self.arrived)
+        self.curl.setopt(pycurl.RESUME_FROM, self.arrived)
 
-            self.fp = open(fs_name, "wb")
-
-        return self.curl
-
-    def _write_header(self, buf):
-        self.header += buf
-
-        #@TODO forward headers?, this is possibly unneeeded, when we just parse valid 200 headers
-        # as first chunk, we will parse the headers
-        if not self._range and self.header.endswith("\r\n\r\n"):
-            self._parse_header()
-        elif not self._range and buf.startswith("150") and "data connection" in buf: #ftp file size parsing
-            size = re.search(r"(\d+) bytes", buf)
-            if size:
-                self._download.size = int(size.group(1))
-                self._download.chunk_support = True
-
-        self._header_parsed = True
+    def _handle_not_resumed(self):
+        self.fp = open(self.file_path, "wb")
 
     def _write_body(self, buf):
-        #ignore BOM, it confuses unrar
-        if not self._bom_checked:
-            if [ord(b) for b in buf[:3]] == [239, 187, 191]:
-                buf = buf[3:]
-            self._bom_checked = True
+        buf = self._check_bom(buf)
 
         size = len(buf)
 
@@ -217,56 +190,64 @@ class HTTPChunk(HTTPRequestBase):
 
         self.fp.write(buf)
 
-        if self._download.bucket:
-            self._download.bucket.sleep_above_rate(size)
+        if self._bucket:
+            self._bucket.sleep_above_rate(size)
         else:
-            # Avoid small buffers, increasing sleep time slowly if buffer size gets smaller
-            # otherwise reduce sleep time percentual (values are based on tests)
-            # So in general cpu time is saved without reducing bandwith too much
-
-            if size < self._last_size:
-                self.sleep += 0.002
-            else:
-                self.sleep *= 0.7
+            self._update_sleep(size)
 
             self._last_size = size
 
             time.sleep(self.sleep)
 
-        if self._range and self.arrived > self.size:
-            return 0
+    def _check_bom(self, buf):
+        # ignore BOM, it confuses unrar
+        if not self._bom_checked:
+            if [ord(b) for b in buf[:3]] == [239, 187, 191]:
+                buf = buf[3:]
+            self._bom_checked = True
+        return buf
 
-    def _parse_header(self):
-        """parse data from recieved header"""
-        for orgline in self.decode_response(self.header).splitlines():
-            line = orgline.strip().lower()
-            if line.startswith("accept-ranges") and "bytes" in line:
-                self._download.chunk_support = True
+    def _update_sleep(self, size):
+        # Avoid small buffers, increasing sleep time slowly if buffer size gets smaller
+        # otherwise reduce sleep time by percentage (values are based on tests)
+        # So in general cpu time is saved without reducing bandwidth too much
+        if size < self._last_size:
+            self.sleep += 0.002
+        else:
+            self.sleep *= 0.7
 
-            if line.startswith("content-disposition") and "filename=" in line:
-                name = orgline.partition("filename=")[2]
-                name = name.replace('"', "").replace("'", "").replace(";", "").strip()
+    def _write_header(self, buf):
+        self.header += buf
 
-                self._download.disposition_name = name
-                self.log.debug("Content-Disposition: %s" % name)
+        self._parse_header(buf)
 
-            if not self._resume and line.startswith("content-length"):
-                self._download.size = int(line.split(":")[1])
+    def _parse_header(self, buf):
+        # @TODO forward headers?, this is possibly un-needed, when we just parse valid 200 headers
 
-        self._header_parsed = True
+        if self.header.endswith("\r\n\r\n"):
+            self._header_parsed = self._parse_http_header()
+        #ftp file size parsing
+        elif buf.startswith("150") and "data connection" in buf:
+            self._header_parsed = self._parse_ftp_header(buf)
 
-    def stop(self):
-        """The download will not proceed after next call of writeBody"""
-        self._range = [0, 0]
-        self.size = 0
+    def _parse_http_header(self):
+        header = DownloadHeader()
 
-    def reset_range(self):
-        """ Reset the range, so the download will load all data available  """
-        self._range = None
+        header_string = self.decode_response(self.header).splitlines()
+        header.parse(header_string, resume=self._resume)
 
-    def set_range(self, range):
-        self._range = range
-        self.size = range[1] - range[0]
+        return header
+
+    def _parse_ftp_header(self, buf):
+        header = DownloadHeader()
+
+        size = re.search(r"(\d+) bytes", buf)
+
+        if size:
+            header.size = int(size.group(1))
+            header.chunk_support = True
+
+        return header
 
     def flush_file(self):
         """  flush and close file """
@@ -282,18 +263,110 @@ class HTTPChunk(HTTPRequestBase):
         self.curl.close()
 
 
-class WrongFormat(Exception):
-    pass
+class HttpDownloadRange(HttpDownloadRequest):
+
+    def __init__(self, url, file_path, cookies, log, bytes_range, full_size=None, bucket=None, resume=False):
+        self._range = bytes_range
+        self._full_size = full_size
+        super(HttpDownloadRange, self).__init__(url, file_path, cookies, log, bucket, resume)
+
+    def _handle_resume(self):
+        if self._range:
+            self._set_resume_range()
+        else:
+            super(HttpDownloadRange, self)._handle_resume()
+
+    def _set_resume_range(self):
+        # do nothing if chunk already finished
+        if self.arrived + self._range[0] >= self._range[1]:
+            return None
+
+        self._set_bytes_range(self.arrived)
+
+    def _handle_not_resumed(self):
+        super(HttpDownloadRange, self)._handle_not_resumed()
+        if self._range:
+            self._set_bytes_range()
+
+    def _set_bytes_range(self, arrived=0):
+        # as last chunk don't set end bytes_range, so we get everything
+        if not self._full_size:
+            bytes_range = "%i-" % (arrived + self._range_from)
+        else:
+            bytes_range = "%i-%i" % (arrived + self._range_from, min(self._range_to + 1, self._full_size - 1))
+
+        self.curl.setopt(pycurl.RANGE, bytes_range)
+        return bytes_range
+
+    def _write_body(self, buf):
+        super(HttpDownloadRange, self)._write_body(buf)
+        if self._range and self.arrived > self._range_size:
+            return 0
+
+    def _parse_header(self, buf):
+        # as first chunk, we will parse the headers
+        if not self._range:
+            super(HttpDownloadRange, self)._parse_header(buf)
+
+    def stop(self):
+        """The download will not proceed after next call of _write_body"""
+        self._range = [0, 0]
+
+    def reset_range(self):
+        """ Reset the range, so the download will load all data available  """
+        self._range = None
+
+    def set_range(self, bytes_range):
+        self._range = bytes_range
+
+    @property
+    def _range_from(self):
+        return self._range[0]
+
+    @property
+    def _range_to(self):
+        return self._range[1]
+
+    @property
+    def _range_size(self):
+        return self._range_to - self._range_from
 
 
-class UnexpectedChunkContent(Exception):
-    def __init__(self):
-        super(UnexpectedChunkContent, self).__init__("Downloaded content was smaller than expected. "
-                                                     "Try to reduce download connections.")
+class HTTPChunk(HttpDownloadRange):
+
+    def __init__(self, chunk_id, download, info, bytes_range):
+        download_size = download.size if chunk_id < len(info.chunks) - 1 else None
+
+        file_path = info.get_chunk_name(chunk_id)
+
+        super(HTTPChunk, self).__init__(download.url, file_path, download.cookies, download.log, bytes_range,
+                                        download_size, download.bucket, info.resume)
+
+        self.id = chunk_id
+
+        self._info = info
+
+        self._download = download
+
+    def __repr__(self):
+        return "<HTTPChunk id=%d, size=%d, arrived=%d>" % (self.id, self._range_size, self.arrived)
 
 
-class FallbackToSingleConnection(Exception):
-    def __init__(self, error):
-        message = "Download chunks failed, fallback to single connection | %s" % (str(error))
-        super(FallbackToSingleConnection, self).__init__(message)
-        self.message = message
+class FirstChunk(HTTPChunk):
+    def __init__(self, download, info):
+        super(FirstChunk, self).__init__(0, download, info, None)
+
+    def _parse_http_header(self):
+        header = super(FirstChunk, self)._parse_http_header()
+        self._set_header(header)
+        return header
+
+    def _parse_ftp_header(self, buf):
+        header = super(FirstChunk, self)._parse_ftp_header(buf)
+        self._set_header(header)
+        return header
+
+    def _set_header(self, header):
+        self._download.disposition_name = header.file_name
+        self._download.size = header.size
+        self._download.chunk_support = header.chunk_support
