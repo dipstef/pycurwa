@@ -12,7 +12,6 @@ class DownloadStats(object):
         self._last_speeds = [0, 0]
 
         self._progress_notify = progress_notify
-        self.size = 0
 
     def refresh_speed(self, now, seconds=1):
         return self._last_check + seconds < now

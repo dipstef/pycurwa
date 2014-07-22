@@ -28,11 +28,12 @@ class ChunksDownload(object):
         self._download = download
 
         chunks_info = _load_chunks_info(self.file_path, resume)
-        self.info = chunks_info
 
-        self._chunks_number = chunks_number
+        self.info = chunks_info
+        self._chunks_number = chunks_number if not chunks_info.existing else chunks_info.get_count()
+
         download.size = self.info.size
-        download.chunk_support = self.info.get_count() > 1 or self.info.get_count() == chunks_number == 1
+        download.chunk_support = chunks_info.existing
 
         # This is a resume, if we were chunked originally assume still can
         if chunks_info.get_count() > 1:
@@ -156,7 +157,7 @@ def _load_chunks_info(file_path, resume):
 
 def _load_chunks_resume_info(file_path):
     try:
-        info = ChunkInfo.load(file_path)
+        info = ChunkInfo.load(file_path, resume=True)
         info.resume = True  # resume is only possible with valid info file
     except IOError, e:
         info = ChunkInfo(file_path)

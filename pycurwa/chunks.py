@@ -6,24 +6,24 @@ import time
 import pycurl
 from unicoder import to_unicode
 
-from .error import WrongFormat
+from .error import WrongFormat, BadHeader, RangeNotSatisfiable
 from .request import HTTPRequestBase
 from .util import fs_encode
 
 
 class ChunkInfo(object):
-    def __init__(self, name, size=0, resume=False, exisitng=False):
+    def __init__(self, name, size=0, resume=False, existing=False):
         #add url
         self.name = to_unicode(name)
         self.size = size
         self.resume = resume
-        self.existing = exisitng
+        self.existing = existing
         self.chunks = []
 
     def __repr__(self):
-        ret = "ChunkInfo: %s, %s\n" % (self.name, self.size)
+        ret = 'ChunkInfo: %s, %s\n' % (self.name, self.size)
         for i, c in enumerate(self.chunks):
-            ret += "%s# %s\n" % (i, c[1])
+            ret += '%s# %s\n' % (i, c[1])
 
         return ret
 
@@ -44,40 +44,39 @@ class ChunkInfo(object):
         for i in range(chunks):
             end = self.size - 1 if (i == chunks - 1) else current + chunk_size
 
-            self.add_chunk("%s.chunk%s" % (self.name, i), (current, end))
+            self.add_chunk('%s.chunk%s' % (self.name, i), (current, end))
 
             current += chunk_size + 1
 
     def save(self):
-        fs_name = fs_encode("%s.chunks" % self.name)
+        fs_name = fs_encode('%s.chunks' % self.name)
 
-        with codecs.open(fs_name, "w", "utf_8") as chunks_file:
-            chunks_file.write("name:%s\n" % self.name)
-            chunks_file.write("size:%s\n" % self.size)
+        with codecs.open(fs_name, 'w', 'utf_8') as chunks_file:
+            chunks_file.write('name:%s\n' % self.name)
+            chunks_file.write('size:%s\n' % self.size)
 
             for i, c in enumerate(self.chunks):
-                chunks_file.write("#%d:\n" % i)
-                chunks_file.write("\tname:%s\n" % c[0])
-                chunks_file.write("\trange:%i-%i\n" % c[1])
+                chunks_file.write('#%d:\n' % i)
+                chunks_file.write('\tname:%s\n' % c[0])
+                chunks_file.write('\trange:%i-%i\n' % c[1])
 
 
     @staticmethod
-    def load(name):
-        fs_name = fs_encode("%s.chunks" % name)
+    def load(name, resume=False):
+        fs_name = fs_encode('%s.chunks' % name)
 
-        with codecs.open(fs_name, "r", "utf_8") as fh:
+        with codecs.open(fs_name, 'r', 'utf_8') as fh:
 
             name = fh.readline()[:-1]
             size = fh.readline()[:-1]
 
-            if name.startswith("name:") and size.startswith("size:"):
+            if name.startswith('name:') and size.startswith('size:'):
                 name = name[5:]
-                size = size[5:]
+                size = int(size[5:])
             else:
-                fh.close()
                 raise WrongFormat()
 
-            chunk_info = ChunkInfo(name, size=size, exisitng=True)
+            chunk_info = ChunkInfo(name, size=size, resume=resume, existing=True)
 
             while True:
                 if not fh.readline():
@@ -85,9 +84,9 @@ class ChunkInfo(object):
                 name = fh.readline()[1:-1]
                 bytes_range = fh.readline()[1:-1]
 
-                if name.startswith("name:") and bytes_range.startswith("range:"):
+                if name.startswith('name:') and bytes_range.startswith('range:'):
                     name = name[5:]
-                    bytes_range = bytes_range[6:].split("-")
+                    bytes_range = bytes_range[6:].split('-')
                 else:
                     raise WrongFormat()
 
@@ -96,7 +95,7 @@ class ChunkInfo(object):
             return chunk_info
 
     def remove(self):
-        fs_name = fs_encode("%s.chunks" % self.name)
+        fs_name = fs_encode('%s.chunks' % self.name)
         if os.path.exists(fs_name):
             os.remove(fs_name)
 
@@ -120,29 +119,30 @@ class DownloadHeader(object):
     def parse(self, header_string, resume=False):
         for line in header_string:
             line = line.strip().lower()
-            if line.startswith("accept-ranges") and "bytes" in line:
+            if line.startswith('accept-ranges') and 'bytes' in line:
                 self.chunk_support = True
 
-            if line.startswith("content-disposition") and "filename=" in line:
-                name = line.partition("filename=")[2]
-                name = name.replace('"', "").replace("'", "").replace(";", "").strip()
+            if line.startswith('content-disposition') and 'filename=' in line:
+                name = line.partition('filename=')[2]
+                name = name.replace(''', '').replace(''', '').replace(';', '').strip()
 
                 self.file_name = name
 
-            if not resume and line.startswith("content-length"):
-                self.size = int(line.split(":")[1])
+            if not resume and line.startswith('content-length'):
+                self.size = int(line.split(':')[1])
 
 
 class HttpDownloadRequest(HTTPRequestBase):
 
     def __init__(self, url, file_path, cookies, log, bucket=None, resume=False, get=None, post=None, referrer=None):
         super(HttpDownloadRequest, self).__init__(cookies)
+        self.url = url
 
         self.arrived = 0
 
         self._header_parsed = None
 
-        self.fp = None
+        self._fp = None
 
         # check and remove byte order mark
         self._bom_checked = False
@@ -164,9 +164,9 @@ class HttpDownloadRequest(HTTPRequestBase):
         # request all bytes, since some servers in russia seems to have a defect arithmetic unit
 
         if self._resume:
-            self.fp = open(file_path, "ab")
+            self._fp = open(file_path, 'ab')
 
-            self.arrived = self.fp.tell()
+            self.arrived = self._fp.tell()
 
             if not self.arrived:
                 self.arrived = os.stat(self.file_path).st_size
@@ -176,11 +176,11 @@ class HttpDownloadRequest(HTTPRequestBase):
             self._handle_not_resumed()
 
     def _handle_resume(self):
-        self.log.debug("Resume File from %i" % self.arrived)
+        self.log.debug('Resume File from %i' % self.arrived)
         self.curl.setopt(pycurl.RESUME_FROM, self.arrived)
 
     def _handle_not_resumed(self):
-        self.fp = open(self.file_path, "wb")
+        self._fp = open(self.file_path, 'wb')
 
     def _write_body(self, buf):
         buf = self._check_bom(buf)
@@ -189,7 +189,7 @@ class HttpDownloadRequest(HTTPRequestBase):
 
         self.arrived += size
 
-        self.fp.write(buf)
+        self._fp.write(buf)
 
         if self._bucket:
             self._bucket.sleep_above_rate(size)
@@ -225,10 +225,10 @@ class HttpDownloadRequest(HTTPRequestBase):
     def _parse_header(self, buf):
         # @TODO forward headers?, this is possibly un-needed, when we just parse valid 200 headers
 
-        if self.header.endswith("\r\n\r\n"):
+        if self.header.endswith('\r\n\r\n'):
             self._header_parsed = self._parse_http_header()
         #ftp file size parsing
-        elif buf.startswith("150") and "data connection" in buf:
+        elif buf.startswith('150') and 'data connection' in buf:
             self._header_parsed = self._parse_ftp_header(buf)
 
     def _parse_http_header(self):
@@ -242,7 +242,7 @@ class HttpDownloadRequest(HTTPRequestBase):
     def _parse_ftp_header(self, buf):
         header = DownloadHeader()
 
-        size = re.search(r"(\d+) bytes", buf)
+        size = re.search(r'(\d+) bytes', buf)
 
         if size:
             header.size = int(size.group(1))
@@ -251,16 +251,12 @@ class HttpDownloadRequest(HTTPRequestBase):
         return header
 
     def flush_file(self):
-        """  flush and close file """
-        self.fp.flush()
-        os.fsync(self.fp.fileno()) #make sure everything was written to disk
-        self.fp.close() #needs to be closed, or merging chunks will fail
+        self._fp.flush()
+        os.fsync(self._fp.fileno()) #make sure everything was written to disk
+        self._fp.close() #needs to be closed, or merging chunks will fail
 
     def close(self):
-        """ closes everything, unusable after this """
-        if self.fp:
-            self.fp.close()
-
+        self._fp.close()
         self.curl.close()
 
 
@@ -292,9 +288,9 @@ class HttpDownloadRange(HttpDownloadRequest):
     def _set_bytes_range(self, arrived=0):
         # as last chunk don't set end bytes_range, so we get everything
         if not self._full_size:
-            bytes_range = "%i-" % (arrived + self._range_from)
+            bytes_range = '%i-' % (arrived + self._range_from)
         else:
-            bytes_range = "%i-%i" % (arrived + self._range_from, min(self._range_to + 1, self._full_size - 1))
+            bytes_range = '%i-%i' % (arrived + self._range_from, min(self._range_to + 1, self._full_size - 1))
 
         self.curl.setopt(pycurl.RANGE, bytes_range)
         return bytes_range
@@ -310,11 +306,11 @@ class HttpDownloadRange(HttpDownloadRequest):
             super(HttpDownloadRange, self)._parse_header(buf)
 
     def stop(self):
-        """The download will not proceed after next call of _write_body"""
+        '''The download will not proceed after next call of _write_body'''
         self._range = [0, 0]
 
     def reset_range(self):
-        """ Reset the range, so the download will load all data available  """
+        ''' Reset the range, so the download will load all data available  '''
         self._range = None
 
     def set_range(self, bytes_range):
@@ -332,6 +328,14 @@ class HttpDownloadRange(HttpDownloadRequest):
     def _range_size(self):
         return self._range_to - self._range_from if self._range else 0
 
+    def verify_header(self):
+        try:
+            return super(HttpDownloadRange, self).verify_header()
+        except BadHeader, e:
+            if e.code == 416:
+                raise RangeNotSatisfiable(self.url, self.file_path, self._range)
+            raise e
+
 
 class HTTPChunk(HttpDownloadRange):
 
@@ -339,18 +343,16 @@ class HTTPChunk(HttpDownloadRange):
         download_size = download.size if chunk_id < len(info.chunks) - 1 else None
 
         file_path = info.get_chunk_name(chunk_id)
+        self.id = chunk_id
 
         super(HTTPChunk, self).__init__(download.url, file_path, download.cookies, download.log, bytes_range,
                                         download_size, download.bucket, info.resume)
-
-        self.id = chunk_id
-
         self._info = info
 
         self._download = download
 
     def __repr__(self):
-        return "<HTTPChunk id=%d, size=%d, arrived=%d>" % (self.id, self._range_size, self.arrived)
+        return '<HTTPChunk id=%d, size=%d, arrived=%d>' % (self.id, self._range_size, self.arrived)
 
 
 class FirstChunk(HTTPChunk):

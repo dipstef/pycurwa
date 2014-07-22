@@ -30,3 +30,10 @@ class FallbackToSingleConnection(Exception):
         message = "Download chunks failed, fallback to single connection | %s" % (str(error))
         super(FallbackToSingleConnection, self).__init__(message)
         self.message = message
+
+
+class RangeNotSatisfiable(BadHeader):
+
+    def __init__(self, url, file_path, bytes_range):
+        super(RangeNotSatisfiable, self).__init__(416)
+        self.message = 'Range not satisfiable: %s: %s: %s' % (url, file_path, str(bytes_range))

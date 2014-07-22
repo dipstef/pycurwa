@@ -6,31 +6,21 @@ from cStringIO import StringIO
 from urllib import urlencode
 
 from unicoder import byte_string
-from urlo import quote
+from urlo import quote, params_url
 import pycurl
 
 from error import Abort, BadHeader, bad_headers
 from options import Options
-from curl import post_request, set_proxy, curl_request, set_interface, set_ipv6_resolve, set_ipv4_resolve, \
-    set_low_speed_timeout, set_auth, get_cookies, set_cookies, clear_cookies, set_url, set_referrer
+from .curl import post_request, curl_request, set_low_speed_timeout, set_auth, get_cookies, set_cookies, clear_cookies, \
+    set_url, set_referrer, get_status_code, set_network_options
 
 
 def _set_options(curl, options):
     interface, proxy, ipv6 = options.interface(), options.proxy(), options.ipv6_enabled()
 
-    if interface:
-        set_interface(curl, str(interface))
-
-    if proxy:
-        set_proxy(curl, proxy)
-
-    if ipv6:
-        set_ipv6_resolve(curl)
-    else:
-        set_ipv4_resolve(curl)
+    set_network_options(curl, interface, proxy, ipv6)
 
     auth, timeout = options.auth(), options.timeout()
-
     if auth in options:
         set_auth(curl, auth)
 
@@ -51,48 +41,38 @@ class HTTPRequestBase(object):
             _set_options(self.curl, Options(options))
 
     def _init_handle(self):
-        ''' sets common options to curl handle '''
         curl_request(self.curl)
 
     def _add_curl_cookies(self, curl):
-        ''' put cookies from curl handle to cj '''
         if self.cookies:
             self.cookies.add_cookies(get_cookies(curl))
 
     def _set_curl_cookies(self, curl):
-        ''' add cookies from cj to curl handle '''
         if self.cookies:
             for cookie in self.cookies.get_cookies():
                 set_cookies(curl, cookie)
-        return
 
     def clear_cookies(self):
         clear_cookies(self.curl)
 
     def _set_request_context(self, url, params, post_data, referrer, cookies, multi_part=False):
-        ''' sets everything needed for the request '''
-        url = quote(byte_string(url))
+        url = byte_string(url)
+        url = params_url(url, urlencode(params)) if params else url
 
-        if params:
-            params = urlencode(params)
-            url = '%s?%s' % (url, params)
-
-        curl = self.curl
-
-        set_url(curl, url)
+        set_url(self.curl, url)
 
         if post_data:
-            post_request(curl, post_data, multi_part)
+            post_request(self.curl, post_data, multi_part)
         else:
-            curl.setopt(pycurl.POST, 0)
+            self.curl.setopt(pycurl.POST, 0)
 
         if referrer:
-            set_referrer(curl, str(referrer))
+            set_referrer(self.curl, str(referrer))
 
         if cookies:
-            curl.setopt(pycurl.COOKIEFILE, '')
-            curl.setopt(pycurl.COOKIEJAR, '')
-            self._set_curl_cookies(curl)
+            self.curl.setopt(pycurl.COOKIEFILE, '')
+            self.curl.setopt(pycurl.COOKIEJAR, '')
+            self._set_curl_cookies(self.curl)
 
     def decode_response(self, rep):
         ''' decode with correct encoding, relies on header '''
@@ -123,12 +103,10 @@ class HTTPRequestBase(object):
         return rep
 
     def _write_header(self, buf):
-        ''' writes header '''
         self.header += buf
 
     def verify_header(self):
-        ''' raise an exceptions on bad headers '''
-        code = int(self.curl.getinfo(pycurl.RESPONSE_CODE))
+        code = get_status_code(self.curl)
 
         if code in bad_headers:
             # 404 will NOT raise an exception
@@ -222,7 +200,6 @@ class HTTPRequest(HTTPRequestBase):
         self.headers = []
 
     def close(self):
-        ''' cleanup, unusable after this '''
         self._rep.close()
         self.curl.close()
 

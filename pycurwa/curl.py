@@ -101,5 +101,20 @@ def set_referrer(curl, referrer):
     curl.setopt(pycurl.REFERER, referrer)
 
 
+def set_network_options(curl, interface=None, proxy=None, use_ipv6=False):
+    if interface:
+        set_interface(curl, str(interface))
+    if proxy:
+        set_proxy(curl, proxy)
+    if use_ipv6:
+        set_ipv6_resolve(curl)
+    else:
+        set_ipv4_resolve(curl)
+
+
 def get_cookies(curl):
     return curl.getinfo(pycurl.INFO_COOKIELIST)
+
+
+def get_status_code(curl):
+    return int(curl.getinfo(pycurl.RESPONSE_CODE))
