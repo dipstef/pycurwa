@@ -1,20 +1,18 @@
 import codecs
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
+import json
 import os
 
-from unicoder import to_unicode, byte_string, encoded
+from unicoder import to_unicode, encoded
 
 from ..error import WrongFormat
 from ..util import fs_encode
 
 
-class FileChunks(object):
-
+class Chunks(object):
     def __init__(self, file_path, chunks):
         #add url
         self.file_path = to_unicode(file_path)
-        self.path = '%s.chunks' % self.file_path
-
         self._chunks = chunks
 
     @property
@@ -25,10 +23,42 @@ class FileChunks(object):
     def chunks(self):
         return list(self._chunks)
 
+    def json(self):
+        return json.dumps(self._json_dict(), indent=4, encoding='utf-8')
+
+    def _json_dict(self):
+        json_dict = OrderedDict()
+
+        json_dict['path'] = self.file_path
+        json_dict['size'] = self.size
+
+        chunks = OrderedDict()
+        for number, chunk in enumerate(self._chunks):
+            chunk_dict = OrderedDict()
+            chunk_dict['path'] = chunk.path
+            chunk_dict['size'] = chunk.size
+            chunk_dict['start'] = chunk.start
+            chunk_dict['end'] = chunk.end
+            chunks[number] = chunk_dict
+
+        json_dict['chunks'] = chunks
+
+        return json_dict
+
+
+class FileChunks(Chunks):
+
+    def __init__(self, file_path, chunks):
+        super(FileChunks, self).__init__(file_path, chunks)
+        self.path = '%s.chunks' % self.file_path
 
     @property
     def path_encoded(self):
         return fs_encode(self.path)
+
+    def save(self):
+        with codecs.open(self.path_encoded, 'w', 'utf-8') as chunks_file:
+            return json.dump(self._json_dict(), chunks_file, indent=4, encoding='utf-8')
 
     def __str__(self):
         ret = 'File: %s, %d chunks: \n' % (encoded(self.file_path), self.size)
@@ -40,9 +70,21 @@ class FileChunks(object):
 
 class DownloadChunks(FileChunks):
 
-    def __init__(self, url, file_path, chunks):
+    def __init__(self, url, expected_size, file_path, chunks):
         super(DownloadChunks, self).__init__(file_path, chunks)
         self.url = url
+        self._expected_size = expected_size
+
+    @property
+    def size(self):
+        return self._expected_size
+
+    @property
+    def chunks_size(self):
+        return super(DownloadChunks, self).size
+
+    def is_completed(self):
+        return self._expected_size == self.chunks_size
 
     def __str__(self):
         ret = 'Download %s: %s, %d chunks: \n' % (encoded(self.url), encoded(self.file_path), self.size)
@@ -51,6 +93,12 @@ class DownloadChunks(FileChunks):
             ret += '%s# %s\n' % (i, chunk)
 
         return ret
+
+    def _json_dict(self):
+        json_dict = OrderedDict()
+        json_dict['url'] = self.url
+        json_dict.update(super(DownloadChunks, self)._json_dict())
+        return json_dict
 
 
 class Chunks(object):
