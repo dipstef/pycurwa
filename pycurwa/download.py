@@ -11,14 +11,14 @@ import pycurl
 
 from .chunks import ChunkInfo, HTTPChunk, FirstChunk
 from .error import Abort, BadHeader
-from pycurwa.error import UnexpectedChunkContent
+from .error import UnexpectedChunkContent
 from .stats import DownloadStats
 from .util import fs_encode, save_join
 
 
 class ChunksDownload(object):
 
-    def __init__(self, file_path, download, resume=False):
+    def __init__(self, file_path, download, chunks_number=1, resume=False):
         self.chunks = []
 
         self.file_path = file_path
@@ -29,8 +29,10 @@ class ChunksDownload(object):
 
         chunks_info = _load_chunks_info(self.file_path, resume)
         self.info = chunks_info
+
+        self._chunks_number = chunks_number
         download.size = self.info.size
-        download.chunk_support = self.info.get_count() > 1
+        download.chunk_support = self.info.get_count() > 1 or self.info.get_count() == chunks_number == 1
 
         # This is a resume, if we were chunked originally assume still can
         if chunks_info.get_count() > 1:
@@ -53,19 +55,25 @@ class ChunksDownload(object):
     def add_chunks_completed(self, completed):
         self.chunks_completed.update(completed)
 
-    def create_chunks(self, chunks_number):
+    def create_chunks(self):
+        while not self._chunks_can_be_created():
+            self.curl.perform()
+            self.curl.select(1)
+
+        self._create_chunks()
+
+    def _create_chunks(self):
         if not self.info.resume:
             self.info.set_size(self._download.size)
-            self.info.create_chunks(chunks_number)
+            self.info.create_chunks(self._chunks_number)
             self.info.save()
 
         chunks_number = self.info.get_count()
         self.initial.set_range(self.info.get_chunk_range(0))
-
-        self._create_chunks(chunks_number)
+        self._add_chunks(chunks_number)
         self._chunks_created = True
 
-    def _create_chunks(self, chunks_number):
+    def _add_chunks(self, chunks_number):
         for i in range(1, chunks_number):
             chunk = HTTPChunk(i, self._download, self.info, self.info.get_chunk_range(i))
 
@@ -82,7 +90,7 @@ class ChunksDownload(object):
         self.chunks.append(chunk)
         self.curl.add_handle(handle or chunk.curl)
 
-    def chunks_can_be_created(self):
+    def _chunks_can_be_created(self):
         return not self._chunks_created and self._download.chunk_support and self.size
 
     def perform(self):
@@ -104,7 +112,7 @@ class ChunksDownload(object):
         try:
             self.curl.remove_handle(chunk.curl)
         except pycurl.error, e:
-            self.log.debug('Error removing chunk: %s' % str(e))
+            print_err('Error removing chunk: %s' % str(e))
         finally:
             chunk.close()
 
@@ -175,13 +183,78 @@ class HTTPDownload(object):
         self.abort = False
         self.disposition_name = None
 
-        self.chunks = []
-
         self.log = getLogger('log')
 
         self.size = 0
 
         self.chunk_support = False
+
+    def download(self, chunks=1, resume=False):
+        ''' returns new filename or None '''
+
+        chunks = max(1, chunks)
+
+        try:
+            stats = self._download(chunks, resume)
+        except pycurl.error, e:
+            #code 33 - no resume
+            code = e.args[0]
+            if code == 33:
+                # try again without resume
+                self.log.debug('Errno 33 -> Restart without resume')
+                stats = self._download(chunks, False)
+            else:
+                raise
+
+        return stats
+
+    def _download(self, chunks_number, resume):
+        download = ChunksDownload(self.file_path, self, chunks_number, resume)
+
+        try:
+            download.create_chunks()
+
+            stats = DownloadStats(self.file_path, self.size, download.chunks)
+
+            while not download.done:
+                download.perform()
+
+                now = time()
+                _check_chunks_done(now, download)
+
+                if not download.done:
+                    # calc speed once per second, averaging over 3 seconds
+                    if stats.refresh_speed(now, seconds=1):
+                        stats.update_progress(now)
+
+                    if self.abort:
+                        raise Abort()
+
+                    #sleep(0.003) #supress busy waiting - limits dl speed to  (1 / x) * buffersize
+                    download.curl.select(1)
+
+            if not stats.is_completed():
+                raise Exception('Not Completed')
+
+            print 'Saving: ', download.chunks, download.done
+            stats.file_path = self._save_chunks(download, self.file_path)
+
+            return stats
+        finally:
+            download.close()
+
+    def _save_chunks(self, download, file_name):
+        # make sure downloads are written to disk
+        for chunk in download.chunks:
+            chunk.flush_file()
+
+        first_chunk = self._copy_chunks(download.info)
+        if self.disposition_name and self._use_disposition:
+            file_name = save_join(dirname(file_name), self.disposition_name)
+
+        move(first_chunk, fs_encode(file_name))
+        download.info.remove()
+        return file_name
 
     def _copy_chunks(self, info):
         first_chunk_path = fs_encode(info.get_chunk_name(0))
@@ -193,7 +266,8 @@ class HTTPDownload(object):
                         self._copy_chunk(info, i, fo)
                 except UnexpectedChunkContent:
                     remove(first_chunk_path)
-                    info.remove() #there are probably invalid chunks
+                    #there are probably invalid chunks
+                    info.remove()
 
         return first_chunk_path
 
@@ -217,111 +291,45 @@ class HTTPDownload(object):
 
         remove(chunk_name)
 
-    def download(self, chunks=1, resume=False):
-        ''' returns new filename or None '''
 
-        chunks = max(1, chunks)
+def _check_chunks_done(now, download):
+    initial_chunk = download.initial
+    chunks_completed = download.chunks_completed
 
-        try:
-            stats = self._download(chunks, resume)
-        except pycurl.error, e:
-            #code 33 - no resume
-            code = e.args[0]
-            if code == 33:
-                # try again without resume
-                self.log.debug('Errno 33 -> Restart without resume')
-                stats = self._download(chunks, False)
-            else:
-                raise
+    # reduce these calls
+    while download.checked_less_than(now, seconds=0.5):
+        # list of failed curl handles
+        failed, completed, handles_remaining = _split_done_and_failed(download)
 
-        return stats
+        download.add_chunks_completed(completed)
 
-    def _download(self, chunks_number, resume):
-        download = ChunksDownload(self.file_path, self, resume)
+        for chunk, error in failed:
+            print_err('Chunk %d failed: %s' % (chunk.id + 1, str(error)))
 
-        self.chunks = download.chunks
+        if not handles_remaining:  # no more infos to get
+            # check if init is not finished so we reset download connections
+            # note that other chunks are closed and downloaded with init too
+            if failed:
+                chunks_failed = [chunk for chunk, error in failed]
+                ex = failed[-1][1]
 
-        while not download.chunks_can_be_created():
-            download.perform()
-            download.curl.select(1)
+                if initial_chunk not in chunks_failed and initial_chunk.curl not in chunks_completed:
+                    # 416 Range not satisfiable check
+                    print_err(('Download chunks failed, fallback to single connection | %s' % (str(ex))))
 
-        download.create_chunks(chunks_number)
+                    download.revert_to_one_connection()
+                else:
+                    raise ex
 
-        stats = DownloadStats(self.file_path, self.size, download.chunks)
+            download.last_check = now
 
-        while not download.done:
-            download.perform()
+            if len(chunks_completed) >= len(download.chunks):
+                if len(chunks_completed) > len(download.chunks):
+                    print_err('Finished download chunks size incorrect, please report bug.')
 
-            now = time()
-            self._check_chunks_done(now, download)
+                download.completed()
 
-            if not download.done:
-                # calc speed once per second, averaging over 3 seconds
-                if stats.refresh_speed(now, seconds=1):
-                    stats.update_progress(now)
-
-                if self.abort:
-                    raise Abort()
-
-                #sleep(0.003) #supress busy waiting - limits dl speed to  (1 / x) * buffersize
-                download.curl.select(1)
-
-        stats.file_path = self._save_chunks(download, self.file_path)
-
-        download.close()
-        return stats
-
-    def _save_chunks(self, download, file_name):
-        # make sure downloads are written to disk
-        for chunk in download.chunks:
-            chunk.flush_file()
-
-        first_chunk = self._copy_chunks(download.info)
-        if self.disposition_name and self._use_disposition:
-            file_name = save_join(dirname(file_name), self.disposition_name)
-
-        move(first_chunk, fs_encode(file_name))
-        download.info.remove()
-        return file_name
-
-    def _check_chunks_done(self, now, download):
-        initial_chunk = download.initial
-        chunks_completed = download.chunks_completed
-
-        # reduce these calls
-        while download.checked_less_than(now, seconds=0.5):
-            # list of failed curl handles
-            failed, completed, handles_remaining = _split_done_and_failed(download)
-
-            download.add_chunks_completed(completed)
-
-            for chunk, error in failed:
-                self.log.debug('Chunk %d failed: %s' % (chunk.id + 1, str(error)))
-
-            if not handles_remaining:  # no more infos to get
-                # check if init is not finished so we reset download connections
-                # note that other chunks are closed and downloaded with init too
-                if failed:
-                    chunks_failed = [chunk for chunk, error in failed]
-                    ex = failed[-1][1]
-
-                    if initial_chunk not in chunks_failed and initial_chunk.curl not in chunks_completed:
-                        #416 Range not satisfiable check
-                        print_err(('Download chunks failed, fallback to single connection | %s' % (str(ex))))
-
-                        download.revert_to_one_connection()
-                    else:
-                        raise ex
-
-                download.last_check = now
-
-                if len(chunks_completed) >= len(download.chunks):
-                    if len(chunks_completed) > len(download.chunks):
-                        self.log.warning('Finished download chunks size incorrect, please report bug.')
-
-                    download.completed()
-
-                break
+            break
 
 
 def _split_done_and_failed(download):

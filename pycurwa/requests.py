@@ -34,6 +34,7 @@ class Bucket(object):
                     seconds = -self._tokens/float(self._speed_rate)
 
                     if seconds > 0:
+                        print 'Sleeping: ', seconds
                         sleep(seconds)
 
     def __nonzero__(self):

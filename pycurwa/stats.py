@@ -47,3 +47,6 @@ class DownloadStats(object):
         if not self.size:
             return 0
         return (self.arrived * 100) / self.size
+
+    def is_completed(self):
+        return self.arrived == self.size

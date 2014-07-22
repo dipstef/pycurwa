@@ -4,6 +4,7 @@ import re
 import time
 
 import pycurl
+from unicoder import to_unicode
 
 from .error import WrongFormat
 from .request import HTTPRequestBase
@@ -11,10 +12,12 @@ from .util import fs_encode
 
 
 class ChunkInfo(object):
-    def __init__(self, name):
-        self.name = unicode(name)
-        self.size = 0
-        self.resume = False
+    def __init__(self, name, size=0, resume=False, exisitng=False):
+        #add url
+        self.name = to_unicode(name)
+        self.size = size
+        self.resume = resume
+        self.existing = exisitng
         self.chunks = []
 
     def __repr__(self):
@@ -74,12 +77,10 @@ class ChunkInfo(object):
                 fh.close()
                 raise WrongFormat()
 
-            chunk_info = ChunkInfo(name)
-            chunk_info.loaded = True
-            chunk_info.set_size(size)
+            chunk_info = ChunkInfo(name, size=size, exisitng=True)
 
             while True:
-                if not fh.readline(): #skip line
+                if not fh.readline():
                     break
                 name = fh.readline()[1:-1]
                 bytes_range = fh.readline()[1:-1]
@@ -329,7 +330,7 @@ class HttpDownloadRange(HttpDownloadRequest):
 
     @property
     def _range_size(self):
-        return self._range_to - self._range_from
+        return self._range_to - self._range_from if self._range else 0
 
 
 class HTTPChunk(HttpDownloadRange):
