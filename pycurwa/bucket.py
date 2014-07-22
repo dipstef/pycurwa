@@ -13,7 +13,7 @@ class Bucket(object):
         with self._lock:
             self._speed_rate = int(rate)
 
-    def sleep_if_above_rate(self, transferred):
+    def sleep_if_above_rate(self, received):
         """ return time the process have to sleep, after consumed specified amount """
         #min. 10kb, may become unresponsive otherwise
         if self._speed_rate >= 10240:
@@ -25,7 +25,7 @@ class Bucket(object):
                     self._tokens = min(self._speed_rate, self._tokens + delta)
                     self._last_transfer_time = now
 
-                self._tokens -= transferred
+                self._tokens -= received
 
                 if self._tokens < 0:
                     seconds = -self._tokens/float(self._speed_rate)

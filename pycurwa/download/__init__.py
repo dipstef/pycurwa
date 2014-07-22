@@ -61,8 +61,6 @@ class HTTPDownload(object):
         download = ChunksDownload(self.file_path, self, chunks_number, resume)
 
         try:
-            download.create_chunks()
-
             statistics = DownloadStats(self.file_path, self.size, download.chunks)
 
             for time_checked in download.download_checks():

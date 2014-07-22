@@ -2,9 +2,11 @@ import json
 from pycurwa.download.chunks import DownloadChunksFile
 from pycurwa.download.chunks.chunk import Chunk
 
-chunk0 = Chunk('./test.zip.chunk0', 0, 127)
-chunk1 = Chunk('./test.zip.chunk1', 128, 255)
-chunk2 = Chunk('./test.zip.chunk2', 256, 344)
+chunk0 = Chunk(1, 3, './test.zip.chunk0', (0, 127))
+chunk1 = Chunk(2, 3, './test.zip.chunk1', (128, 255))
+chunk2 = Chunk(3, 3, './test.zip.chunk2', (256, 344))
+
+print chunk0
 
 print json.dumps(chunk0)
 print json.dumps(chunk1)

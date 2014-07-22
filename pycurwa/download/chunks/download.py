@@ -3,7 +3,7 @@ from time import time
 
 from procol.console import print_err
 
-from . import Chunks, load_chunks, CreateChunksFile, OneChunk
+from . import Chunks, load_chunks, CreateChunksFile, OneChunk, ChunkFile
 from .request import HTTPChunk, FirstChunk
 from ...curl import PyCurlMulti, perform_multi
 from ...error import PyCurlError, BadHeader
@@ -18,7 +18,7 @@ class ChunksDownloading(object):
         self.info = chunks
 
         self.chunks_completed = set()
-        self._curl_chunks = []
+        self.chunks = []
 
     def download_checks(self):
         while not self.is_done():
@@ -32,17 +32,30 @@ class ChunksDownloading(object):
                 self.curl.select(1)
 
     def is_done(self):
-        return len(self.chunks_completed) >= len(self._curl_chunks)
+        return len(self.chunks_completed) >= len(self.chunks)
+
+    def close(self):
+        #remove old handles
+        for chunk in self.chunks:
+            self._close_chunk(chunk)
+
+    def _close_chunk(self, chunk):
+        try:
+            self.curl.remove_handle(chunk.curl)
+        except PyCurlError, e:
+            print_err('Error removing chunk: %s' % str(e))
+        finally:
+            chunk.close()
 
 
 class DownloadChunks(ChunksDownloading):
 
-    def __init__(self, file_path, download, chunks_info):
+    def __init__(self, file_path, download, chunks):
         self._download = download
 
-        super(DownloadChunks, self).__init__(file_path, chunks_info)
+        super(DownloadChunks, self).__init__(file_path, chunks)
 
-        self._chunks_number = chunks_info.count
+        self._chunks_number = chunks.count
 
         self.last_check = None
         self.log = download.log
@@ -55,35 +68,19 @@ class DownloadChunks(ChunksDownloading):
         self.chunks_completed.update(completed)
 
     def _add_chunks(self):
-        for i in range(1, self.info.count):
-            chunk = HTTPChunk(i, self._download, self.info, self.info.get_chunk_range(i))
+        for chunk in self.info.chunks:
+            http_chunk = HTTPChunk(chunk, self._download)
 
-            self._add_chunk(chunk)
-
-    def _add_chunk(self, chunk):
-        self._curl_chunks.append(chunk)
-        self.curl.add_handle(chunk.curl)
+            self.chunks.append(http_chunk)
+            self.curl.add_handle(http_chunk.curl)
 
     @property
     def size(self):
         return self._download.size
 
-    def close(self):
-        #remove old handles
-        for chunk in self._curl_chunks:
-            self._close_chunk(chunk)
-
-    def _close_chunk(self, chunk):
-        try:
-            self.curl.remove_handle(chunk.curl)
-        except PyCurlError, e:
-            print_err('Error removing chunk: %s' % str(e))
-        finally:
-            chunk.close()
-
     def revert_to_one_connection(self):
         # list of chunks to clean and remove
-        to_clean = [chunk for i, chunk in enumerate(self._curl_chunks) if i > 1]
+        to_clean = [chunk for i, chunk in enumerate(self.chunks) if i > 0]
 
         for chunk in to_clean:
             self._remove(chunk)
@@ -92,12 +89,12 @@ class DownloadChunks(ChunksDownloading):
 
     @property
     def initial(self):
-        return self._curl_chunks[0]
+        return self.chunks[0]
 
     def _remove(self, chunk):
         self._delete_chunk(chunk)
 
-        self._curl_chunks.remove(chunk)
+        self.chunks.remove(chunk)
 
     def _delete_chunk(self, chunk):
         self._close_chunk(chunk)
@@ -106,7 +103,7 @@ class DownloadChunks(ChunksDownloading):
         remove(chunk_name)
 
     def chunk_for_handle(self, handle):
-        for chunk in self._curl_chunks:
+        for chunk in self.chunks:
             if chunk.curl == handle:
                 return chunk
 
@@ -116,8 +113,8 @@ class DownloadChunks(ChunksDownloading):
 
 class DownloadExistingChunks(DownloadChunks):
 
-    def __init__(self, file_path, download, chunks_info):
-        super(DownloadExistingChunks, self).__init__(file_path, download, chunks_info)
+    def __init__(self, file_path, download, chunks):
+        super(DownloadExistingChunks, self).__init__(file_path, download, chunks)
 
 
 class DownloadMissingChunks(DownloadChunks):
@@ -127,15 +124,18 @@ class DownloadMissingChunks(DownloadChunks):
         super(DownloadMissingChunks, self).__init__(file_path, download, chunks)
 
     def _create_chunks(self, file_path, download, chunks_number):
-        info = OneChunk(download.url, file_path, expected_size=1024)
+        chunk = ChunkFile(1, 1, '%s.chunk%s' % (file_path, 0), (0, 1024))
+        initial = FirstChunk(chunk, download)
 
-        initial = FirstChunk(download, info)
+        with PyCurlMulti() as curl:
+            curl.add_handle(initial.curl)
 
-        while not download.size:
-            self.curl.perform()
-            self.curl.select(1)
+            while not download.size:
+                curl.perform()
+                curl.select(1)
 
-        self._delete_chunk(initial)
+            curl.remove_handle(initial.curl)
+            initial.close()
 
         return CreateChunksFile(download.url, file_path, download.size, chunks_number)
 
@@ -186,6 +186,9 @@ def _check_chunks_done(download):
                     raise ex
 
             download.last_check = now
+
+            if len(chunks_completed) == len(download.chunks):
+                pass
 
             if len(chunks_completed) > len(download.chunks):
                 print_err('Finished download chunks size incorrect, please report bug.')

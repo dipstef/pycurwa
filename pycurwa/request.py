@@ -13,7 +13,8 @@ import pycurl
 from error import Abort, BadHeader, bad_headers
 from options import Options
 from .curl import post_request, curl_request, set_low_speed_timeout, set_auth, get_cookies, set_cookies, clear_cookies, \
-    set_url, set_referrer, get_status_code, set_network_options
+    set_url, set_referrer, get_status_code, set_network_options, PyCurl, unset_post, unset_cookie_files, \
+    set_body_header_fun, set_headers, get_effective_url
 
 
 def _set_options(curl, options):
@@ -31,9 +32,9 @@ def _set_options(curl, options):
 
 class HTTPRequestBase(object):
     def __init__(self, cookies=None, options=None):
-        self.curl = pycurl.Curl()
+        self.curl = PyCurl()
 
-        self.cookies = cookies  # cookiejar
+        self.cookies = cookies
 
         self.header = ''
 
@@ -65,14 +66,13 @@ class HTTPRequestBase(object):
         if post_data:
             post_request(self.curl, post_data, multi_part)
         else:
-            self.curl.setopt(pycurl.POST, 0)
+            unset_post(self.curl)
 
         if referrer:
             set_referrer(self.curl, str(referrer))
 
         if cookies:
-            self.curl.setopt(pycurl.COOKIEFILE, '')
-            self.curl.setopt(pycurl.COOKIEJAR, '')
+            unset_cookie_files(self.curl)
             self._set_curl_cookies(self.curl)
 
     def decode_response(self, rep):
@@ -124,10 +124,9 @@ class HTTPRequest(HTTPRequestBase):
         self.headers = []  # temporary request header
 
         self.lastURL = None
-        self.lastEffectiveURL = None
+        self.response_url = None
 
-        self.curl.setopt(pycurl.WRITEFUNCTION, self.write)
-        self.curl.setopt(pycurl.HEADERFUNCTION, self._write_header)
+        set_body_header_fun(self.curl, body=self._write_body, header=self._write_header)
         self._rep = StringIO()
 
         self.log = getLogger('log')
@@ -150,7 +149,7 @@ class HTTPRequest(HTTPRequestBase):
         self.header = ''
 
         curl = self.curl
-        curl.setopt(pycurl.HTTPHEADER, self.headers)
+        set_headers(self.curl, self.headers)
 
         if just_header:
             rep = self._head_request(curl)
@@ -160,7 +159,8 @@ class HTTPRequest(HTTPRequestBase):
 
         curl.setopt(pycurl.POSTFIELDS, '')
 
-        self.lastEffectiveURL = curl.getinfo(pycurl.EFFECTIVE_URL)
+        self.response_url = get_effective_url(self.curl)
+
         self.code = self.verify_header()
 
         self._add_curl_cookies(curl)
@@ -170,8 +170,7 @@ class HTTPRequest(HTTPRequestBase):
 
         return rep
 
-    def write(self, buf):
-        ''' writes response '''
+    def _write_body(self, buf):
         if self.abort:
             raise Abort()
 

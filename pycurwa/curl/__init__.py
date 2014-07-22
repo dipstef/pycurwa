@@ -1,9 +1,27 @@
+from contextlib import closing
 import pycurl
 from unicoder import byte_string
 from httpy.client.requests import user_agent
 from ..util import url_encode
 
-PyCurlMulti = pycurl.CurlMulti
+PyCurl = pycurl.Curl
+
+
+class ClosingCurl(closing):
+
+    def __init__(self, curl_class):
+        self._curl = curl_class()
+        super(ClosingCurl, self).__init__(self._curl)
+
+    def __getattr__(self, item):
+        return getattr(self._curl, item)
+
+
+class PyCurlMulti(ClosingCurl):
+
+    def __init__(self):
+        super(PyCurlMulti, self).__init__(pycurl.CurlMulti)
+
 
 _default_headers = ["Accept: */*",
                     "Accept-Language: en-US,en",
@@ -37,8 +55,16 @@ def curl_request(curl, verbose=False):
     curl.setopt(pycurl.HTTPHEADER, _default_headers)
 
 
-def post_request(curl, post, multi_part=False):
+def set_post(curl):
     curl.setopt(pycurl.POST, 1)
+
+
+def unset_post(curl):
+    curl.setopt(pycurl.POST, 0)
+
+
+def post_request(curl, post, multi_part=False):
+    set_post(curl)
 
     if not multi_part:
         if type(post) == unicode:
@@ -93,12 +119,21 @@ def clear_cookies(curl):
     set_cookies(curl, '')
 
 
+def unset_cookie_files(curl):
+    curl.setopt(pycurl.COOKIEFILE, '')
+    curl.setopt(pycurl.COOKIEJAR, '')
+
+
 def set_url(curl, url):
     curl.setopt(pycurl.URL, url)
 
 
 def set_referrer(curl, referrer):
     curl.setopt(pycurl.REFERER, referrer)
+
+
+def set_headers(curl, headers):
+    curl.setopt(pycurl.HTTPHEADER, headers)
 
 
 def set_network_options(curl, interface=None, proxy=None, use_ipv6=False):
@@ -112,11 +147,30 @@ def set_network_options(curl, interface=None, proxy=None, use_ipv6=False):
         set_ipv4_resolve(curl)
 
 
+def set_range(curl, bytes_range):
+    curl.setopt(pycurl.RANGE, bytes_range)
+
+
+def set_resume(curl, resume):
+    curl.setopt(pycurl.RESUME_FROM, resume)
+
+
+def set_body_header_fun(curl, body=None, header=None):
+    if body:
+        curl.setopt(pycurl.WRITEFUNCTION, body)
+    if header:
+        curl.setopt(pycurl.HEADERFUNCTION, header)
+
+
 def perform_multi(curl):
     while True:
         ret, num_handles = curl.perform()
         if ret != pycurl.E_CALL_MULTI_PERFORM:
             break
+
+
+def get_effective_url(curl):
+    return curl.getinfo(pycurl.EFFECTIVE_URL)
 
 
 def get_cookies(curl):

@@ -3,10 +3,20 @@ import os
 from ...util import fs_encode
 
 
-class Chunk(namedtuple('Chunk', ['path', 'range'])):
+class Chunk(namedtuple('Chunk', ['number', 'chunks', 'path', 'range'])):
 
-    def __new__(cls, path, start, end):
-        return super(Chunk, cls).__new__(cls, fs_encode(path), Range(start, end))
+    def __new__(cls, number, chunks, path, bytes_range):
+        assert number
+        assert number <= chunks
+        return super(Chunk, cls).__new__(cls, number, chunks, fs_encode(path), Range(*bytes_range))
+
+    @property
+    def is_last(self):
+        return self.number == self.chunks
+
+    @property
+    def id(self):
+        return self.number - 1
 
     @property
     def size(self):
@@ -22,6 +32,7 @@ class Chunk(namedtuple('Chunk', ['path', 'range'])):
 
 
 class ChunkFileSave(Chunk):
+    resume = False
 
     @property
     def current_size(self):
@@ -32,20 +43,21 @@ class ChunkFileSave(Chunk):
 
 
 class ChunkFileResume(ChunkFileSave):
-    pass
+    resume = True
 
 
 class ChunkFile(ChunkFileSave):
 
-    def __new__(cls, path, start, end, resume=False):
+    def __new__(cls, number, chunks, path, bytes_range, resume=False):
         if resume and os.path.exists(path):
-            return ChunkFileResume(path, start, end)
-        return ChunkFileSave(path, start, end)
+            return ChunkFileResume(number, chunks, path, bytes_range)
+
+        return ChunkFileSave(number, chunks, path, bytes_range)
 
 
 class Range(namedtuple('Range', ['start', 'end'])):
+
     def __new__(cls, start, end):
-        assert start < end
         return super(Range, cls).__new__(cls, start, end)
 
     @property

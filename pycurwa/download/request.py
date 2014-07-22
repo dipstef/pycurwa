@@ -2,10 +2,10 @@ import os
 import re
 import time
 
-import pycurl
+from ..curl import set_resume, set_body_header_fun
 
-from pycurwa.request import HTTPRequestBase
-from pycurwa.util import fs_encode
+from ..request import HTTPRequestBase
+from ..util import fs_encode
 
 
 class HttpDownloadRequest(HTTPRequestBase):
@@ -23,7 +23,7 @@ class HttpDownloadRequest(HTTPRequestBase):
         # check and remove byte order mark
         self._bom_checked = False
 
-        self.sleep = 0.000
+        self._sleep = 0.000
         self._last_size = 0
         self._resume = resume
 
@@ -34,8 +34,7 @@ class HttpDownloadRequest(HTTPRequestBase):
 
         self._set_request_context(url, get, post, referrer, cookies)
 
-        self.curl.setopt(pycurl.WRITEFUNCTION, self._write_body)
-        self.curl.setopt(pycurl.HEADERFUNCTION, self._write_header)
+        set_body_header_fun(self.curl, body=self._write_body, header=self._write_header)
 
         # request all bytes, since some servers in russia seems to have a defect arithmetic unit
 
@@ -52,8 +51,7 @@ class HttpDownloadRequest(HTTPRequestBase):
             self._handle_not_resumed()
 
     def _handle_resume(self):
-        self.log.debug('Resume File from %i' % self.arrived)
-        self.curl.setopt(pycurl.RESUME_FROM, self.arrived)
+        set_resume(self.curl, self.arrived)
 
     def _handle_not_resumed(self):
         self._fp = open(self.file_path, 'wb')
@@ -68,13 +66,13 @@ class HttpDownloadRequest(HTTPRequestBase):
         self._fp.write(buf)
 
         if self._bucket:
-            self._bucket.sleep_if_above_rate(size)
+            self._bucket.sleep_if_above_rate(received=size)
         else:
             self._update_sleep(size)
 
             self._last_size = size
 
-            time.sleep(self.sleep)
+            time.sleep(self._sleep)
 
     def _check_bom(self, buf):
         # ignore BOM, it confuses unrar
@@ -89,9 +87,9 @@ class HttpDownloadRequest(HTTPRequestBase):
         # otherwise reduce sleep time by percentage (values are based on tests)
         # So in general cpu time is saved without reducing bandwidth too much
         if size < self._last_size:
-            self.sleep += 0.002
+            self._sleep += 0.002
         else:
-            self.sleep *= 0.7
+            self._sleep *= 0.7
 
     def _write_header(self, buf):
         self.header += buf
@@ -128,8 +126,10 @@ class HttpDownloadRequest(HTTPRequestBase):
 
     def flush_file(self):
         self._fp.flush()
-        os.fsync(self._fp.fileno()) #make sure everything was written to disk
-        self._fp.close() #needs to be closed, or merging chunks will fail
+        #make sure everything was written to disk
+        os.fsync(self._fp.fileno())
+        #needs to be closed, or merging chunks will fail
+        self._fp.close()
 
     def close(self):
         self._fp.close()

@@ -30,14 +30,17 @@ class Chunks(object):
 
         json_dict['path'] = self.file_path
         json_dict['size'] = self.size
+        json_dict['number'] = len(self._chunks)
 
-        chunks = OrderedDict()
-        for number, chunk in enumerate(self._chunks):
+        chunks = []
+
+        for chunk in self._chunks:
             chunk_dict = OrderedDict()
+            chunk_dict['number'] = chunk.number
             chunk_dict['path'] = chunk.path
             chunk_dict['size'] = chunk.size
             chunk_dict['range'] = [chunk.start, chunk.end]
-            chunks[number] = chunk_dict
+            chunks.append(chunk_dict)
 
         json_dict['chunks'] = chunks
 
@@ -119,6 +122,7 @@ class DownloadChunksFile(ChunksFile):
 
 
 class ExistingDownloadChunks(DownloadChunksFile):
+
     def __init__(self, url, file_path, resume=False):
         chunks_file = fs_encode(_chunks_file(file_path))
 
@@ -127,11 +131,12 @@ class ExistingDownloadChunks(DownloadChunksFile):
 
         assert url == json_dict['url']
         expected_size = json_dict['size']
-        chunks_dict = json_dict['chunks']
+        total = json_dict['number']
+        chunks_list = json_dict['chunks']
 
         chunks = []
-        for chunk_dict in chunks_dict.values():
-            chunk_file = ChunkFile(chunk_dict['path'], chunk_dict['range'][0], chunk_dict['range'][1], resume)
+        for chunk_dict in chunks_list:
+            chunk_file = ChunkFile(chunk_dict['number'], total, chunk_dict['path'], chunk_dict['range'], resume)
             chunks.append(chunk_file)
 
         super(ExistingDownloadChunks, self).__init__(url, file_path, expected_size, chunks, resume)
@@ -146,18 +151,16 @@ class CreateChunksFile(DownloadChunksFile):
 
     def _create_chunks(self, chunks_number):
         chunk_size = self.size / chunks_number
+        total = chunks_number - 1
 
         current = 0
-        for i in range(chunks_number):
-            end = self.size - 1 if (i == chunks_number - 1) else current + chunk_size
-            self._add_chunk(i, (current, end))
+        for number in range(chunks_number):
+            end = self.size - 1 if number == total else current + chunk_size
+
+            path = '%s.chunk%s' % (self.file_path, number)
+            self._chunks.append(ChunkFile(number+1, chunks_number, path, (current, end)))
 
             current += chunk_size + 1
-
-    def _add_chunk(self, number, bytes_range):
-        path = '%s.chunk%s' % (self.file_path, number)
-
-        self._chunks.append(Chunk(path, bytes_range[0], bytes_range[1]))
 
 
 class OneChunk(CreateChunksFile):
