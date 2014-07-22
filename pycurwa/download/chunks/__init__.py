@@ -5,8 +5,8 @@ import os
 
 from unicoder import to_unicode, encoded
 
-from ..error import WrongFormat
-from ..util import fs_encode
+from ...error import WrongFormat
+from ...util import fs_encode
 
 
 class Chunks(object):
@@ -45,11 +45,15 @@ class Chunks(object):
 
         return json_dict
 
+    @property
+    def count(self):
+        return len(self._chunks)
 
-class FileChunks(Chunks):
+
+class ChunksFile(Chunks):
 
     def __init__(self, file_path, chunks):
-        super(FileChunks, self).__init__(file_path, chunks)
+        super(ChunksFile, self).__init__(file_path, chunks)
         self.path = '%s.chunks' % self.file_path
 
     @property
@@ -68,12 +72,13 @@ class FileChunks(Chunks):
         return ret
 
 
-class DownloadChunks(FileChunks):
+class DownloadChunks(ChunksFile):
 
     def __init__(self, url, expected_size, file_path, chunks):
-        super(DownloadChunks, self).__init__(file_path, chunks)
         self.url = url
+        assert expected_size
         self._expected_size = expected_size
+        super(DownloadChunks, self).__init__(file_path, chunks)
 
     @property
     def size(self):
@@ -199,10 +204,14 @@ class Chunk(namedtuple('Chunk', ['path', 'range'])):
         return self.range.end
 
 
-class ChunksFile(object):
+class ChunkFile(Chunk):
 
-    def __new__(cls, file_path, *more):
-        return super(ChunksFile, cls).__new__(*more)
+    @property
+    def current_size(self):
+        return os.path.getsize(self.path)
+
+    def is_completed(self):
+        return self.current_size == self.size
 
 
 class ExistingChunksFile(object):

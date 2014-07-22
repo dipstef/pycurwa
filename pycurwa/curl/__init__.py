@@ -3,6 +3,8 @@ from unicoder import byte_string
 from util import url_encode
 from httpy.client.requests import user_agent
 
+PyCurlMulti = pycurl.CurlMulti
+
 _default_headers = ["Accept: */*",
                     "Accept-Language: en-US,en",
                     "Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7",
@@ -33,8 +35,6 @@ def curl_request(curl, verbose=False):
         curl.setopt(pycurl.ENCODING, "gzip, deflate")
 
     curl.setopt(pycurl.HTTPHEADER, _default_headers)
-
-
 
 
 def post_request(curl, post, multi_part=False):
@@ -110,6 +110,13 @@ def set_network_options(curl, interface=None, proxy=None, use_ipv6=False):
         set_ipv6_resolve(curl)
     else:
         set_ipv4_resolve(curl)
+
+
+def perform_multi(curl):
+    while True:
+        ret, num_handles = curl.perform()
+        if ret != pycurl.E_CALL_MULTI_PERFORM:
+            break
 
 
 def get_cookies(curl):

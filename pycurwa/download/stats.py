@@ -13,10 +13,14 @@ class DownloadStats(object):
 
         self._progress_notify = progress_notify
 
-    def refresh_speed(self, now, seconds=1):
+    def _refresh_speed(self, now, seconds=1):
         return self._last_check + seconds < now
 
-    def update_progress(self, now):
+    def update_progress(self, now, refresh_rate=1):
+        if self._refresh_speed(now, seconds=refresh_rate):
+            self._update_progress(now)
+
+    def _update_progress(self, now):
         diff = [c.arrived - self._last_arrived_size(i) for i, c in enumerate(self.chunks)]
 
         self._last_speeds[1] = self._last_speeds[0]

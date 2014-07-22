@@ -1,4 +1,7 @@
 from httplib import responses
+import pycurl
+
+PyCurlError = pycurl.error
 
 
 class Abort(Exception):
