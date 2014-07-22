@@ -9,11 +9,12 @@ from procol.console import print_err
 
 import pycurl
 
-from .chunks import ChunkInfo, HTTPChunk, FirstChunk
-from .error import Abort, BadHeader
-from .error import UnexpectedChunkContent
+from .chunks import Chunks
+from .request import HTTPChunk, FirstChunk
 from .stats import DownloadStats
-from .util import fs_encode, save_join
+
+from ..error import Abort, BadHeader, UnexpectedChunkContent
+from ..util import fs_encode, save_join
 
 
 class ChunksDownload(object):
@@ -148,19 +149,19 @@ class ChunksDownload(object):
 
 
 def _load_chunks_info(file_path, resume):
-    info = _load_chunks_resume_info(file_path) if resume else ChunkInfo(file_path)
+    info = _load_chunks_resume_info(file_path) if resume else Chunks(file_path)
     if not info.resume:
-        info = ChunkInfo(file_path)
+        info = Chunks(file_path)
         info.add_chunk('%s.chunk0' % file_path, (0, 0))
     return info
 
 
 def _load_chunks_resume_info(file_path):
     try:
-        info = ChunkInfo.load(file_path, resume=True)
+        info = Chunks.load(file_path, resume=True)
         info.resume = True  # resume is only possible with valid info file
     except IOError, e:
-        info = ChunkInfo(file_path)
+        info = Chunks(file_path)
     return info
 
 

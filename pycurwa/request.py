@@ -3,10 +3,11 @@
 from codecs import getincrementaldecoder, lookup, BOM_UTF8
 from logging import getLogger
 from cStringIO import StringIO
+from time import time
 from urllib import urlencode
 
 from unicoder import byte_string
-from urlo import quote, params_url
+from urlo import params_url
 import pycurl
 
 from error import Abort, BadHeader, bad_headers
@@ -204,12 +205,31 @@ class HTTPRequest(HTTPRequestBase):
         self.curl.close()
 
 
-def main():
-    url = 'http://pyload.org'
+class CookieJar(object):
+    def __init__(self, domain):
+        self._cookies = {}
+        self.domain = domain
 
-    c = HTTPRequest()
-    print c.load(url)
+    def add_cookies(self, cookies_list):
+        for c in cookies_list:
+            name = c.split("\t")[5]
+            self._cookies[name] = c
 
+    def get_cookies(self):
+        return self._cookies.values()
 
-if __name__ == '__main__':
-    main()
+    def parse_cookie(self, name):
+        if name in self._cookies:
+            return self._cookies[name].split("\t")[6]
+        else:
+            return None
+
+    def get_cookie(self, name):
+        return self.parse_cookie(name)
+
+    def set_cookie(self, domain, name, value, path="/", exp=time()+3600*24*180):
+        s = ".%s	TRUE	%s	FALSE	%s	%s	%s" % (domain, path, exp, name, value)
+        self._cookies[name] = s
+
+    def clear(self):
+        self._cookies = {}

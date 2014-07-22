@@ -1,44 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from threading import Lock
-from time import time, sleep
+
 from urlo import get_domain
 
-
-class Bucket(object):
-    def __init__(self, max_speed=0):
-        self._speed_rate = max_speed
-        self._tokens = 0
-        self._last_transfer_time = time()
-        self._lock = Lock()
-
-    def set_max_speed(self, rate):
-        with self._lock:
-            self._speed_rate = int(rate)
-
-    def sleep_above_rate(self, transferred):
-        """ return time the process have to sleep, after consumed specified amount """
-        #min. 10kb, may become unresponsive otherwise
-        if self._speed_rate >= 10240:
-            with self._lock:
-
-                if self._tokens < self._speed_rate:
-                    now = time()
-                    delta = self._speed_rate * (now - self._last_transfer_time)
-                    self._tokens = min(self._speed_rate, self._tokens + delta)
-                    self._last_transfer_time = now
-
-                self._tokens -= transferred
-
-                if self._tokens < 0:
-                    seconds = -self._tokens/float(self._speed_rate)
-
-                    if seconds > 0:
-                        print 'Sleeping: ', seconds
-                        sleep(seconds)
-
-    def __nonzero__(self):
-        return False if self._speed_rate < 10240 else True
+from pycurwa.bucket import Bucket
+from pycurwa.request import CookieJar
 
 
 class RequestFactory(object):
@@ -63,33 +30,3 @@ class RequestFactory(object):
             cookie_jar = CookieJar(domain)
             self.cookie_jars[domain] = cookie_jar
         return cookie_jar
-
-
-class CookieJar(object):
-    def __init__(self, domain):
-        self._cookies = {}
-        self.domain = domain
-
-    def add_cookies(self, cookies_list):
-        for c in cookies_list:
-            name = c.split("\t")[5]
-            self._cookies[name] = c
-
-    def get_cookies(self):
-        return self._cookies.values()
-
-    def parse_cookie(self, name):
-        if name in self._cookies:
-            return self._cookies[name].split("\t")[6]
-        else:
-            return None
-
-    def get_cookie(self, name):
-        return self.parse_cookie(name)
-
-    def set_cookie(self, domain, name, value, path="/", exp=time()+3600*24*180):
-        s = ".%s	TRUE	%s	FALSE	%s	%s	%s" % (domain, path, exp, name, value)
-        self._cookies[name] = s
-
-    def clear(self):
-        self._cookies = {}

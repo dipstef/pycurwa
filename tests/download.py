@@ -1,5 +1,5 @@
+from pycurwa.bucket import Bucket
 from pycurwa.download import HTTPDownload
-from pycurwa.requests import Bucket
 
 
 def main():
