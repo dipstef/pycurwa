@@ -34,11 +34,8 @@ class ChunksDownload(object):
         self._chunks_number = chunks_number if not chunks_info.existing else chunks_info.get_count()
 
         download.size = self.info.size
+        #if we have already chunks we assume downloads supports chunks
         download.chunk_support = chunks_info.existing
-
-        # This is a resume, if we were chunked originally assume still can
-        if chunks_info.get_count() > 1:
-            self._download.chunk_support = True
 
         self.initial = self._create_initial_chunk()
 
@@ -108,9 +105,9 @@ class ChunksDownload(object):
     def close(self):
         #remove old handles
         for chunk in self.chunks:
-            self.close_chunk(chunk)
+            self._close_chunk(chunk)
 
-    def close_chunk(self, chunk):
+    def _close_chunk(self, chunk):
         try:
             self.curl.remove_handle(chunk.curl)
         except pycurl.error, e:
@@ -118,26 +115,26 @@ class ChunksDownload(object):
         finally:
             chunk.close()
 
-    def remove(self, chunk):
-        self.close_chunk(chunk)
-
-        self.chunks.remove(chunk)
-
-        chunk_name = fs_encode(self.info.get_chunk_name(chunk.id))
-        remove(chunk_name)
-
     def revert_to_one_connection(self):
         # list of chunks to clean and remove
         to_clean = filter(lambda x: x is not self.initial, self.chunks)
 
         for chunk in to_clean:
-            self.remove(chunk)
+            self._remove(chunk)
 
         #let first chunk load the rest and update the info file
         self.initial.reset_range()
         self.info.clear()
         self.info.add_chunk('%s.chunk0' % self.file_path, (0, self.size))
         self.info.save()
+
+    def _remove(self, chunk):
+        self._close_chunk(chunk)
+
+        self.chunks.remove(chunk)
+
+        chunk_name = fs_encode(self.info.get_chunk_name(chunk.id))
+        remove(chunk_name)
 
     def chunk_for_handle(self, handle):
         for chunk in self.chunks:
@@ -255,7 +252,7 @@ class HTTPDownload(object):
             file_name = save_join(dirname(file_name), self.disposition_name)
 
         move(first_chunk, fs_encode(file_name))
-        download.info.remove()
+        download.info._remove()
         return file_name
 
     def _copy_chunks(self, info):
@@ -269,7 +266,7 @@ class HTTPDownload(object):
                 except UnexpectedChunkContent:
                     remove(first_chunk_path)
                     #there are probably invalid chunks
-                    info.remove()
+                    info._remove()
 
         return first_chunk_path
 

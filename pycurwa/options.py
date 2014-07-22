@@ -29,10 +29,10 @@ class Options(dict):
 
 class Auth(namedtuple('Auth', ['user', 'password'])):
     def __new__(cls, user, password):
-        return super(Auth, cls).__new__((user, password))
+        return super(Auth, cls).__new__(cls, user, password)
 
 
 class Proxy(namedtuple('Proxy', ['type', 'address', 'port', 'auth'])):
 
     def __new__(cls, proxy_type, address, port, auth=None):
-        return super(Proxy, cls).__new__(cls, [proxy_type, address, port, auth])
+        return super(Proxy, cls).__new__(cls, proxy_type, address, port, auth)
