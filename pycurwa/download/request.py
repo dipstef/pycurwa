@@ -68,7 +68,7 @@ class HttpDownloadRequest(HTTPRequestBase):
         self._fp.write(buf)
 
         if self._bucket:
-            self._bucket.sleep_above_rate(size)
+            self._bucket.sleep_if_above_rate(size)
         else:
             self._update_sleep(size)
 

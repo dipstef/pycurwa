@@ -1,11 +1,10 @@
 import codecs
-from collections import namedtuple, OrderedDict
+from collections import OrderedDict
 import json
-import os
 
 from unicoder import to_unicode, encoded
 
-from ...error import WrongFormat
+from pycurwa.download.chunks.chunk import Chunk, ChunkFile
 from ...util import fs_encode
 
 
@@ -37,8 +36,7 @@ class Chunks(object):
             chunk_dict = OrderedDict()
             chunk_dict['path'] = chunk.path
             chunk_dict['size'] = chunk.size
-            chunk_dict['start'] = chunk.start
-            chunk_dict['end'] = chunk.end
+            chunk_dict['range'] = [chunk.start, chunk.end]
             chunks[number] = chunk_dict
 
         json_dict['chunks'] = chunks
@@ -49,12 +47,25 @@ class Chunks(object):
     def count(self):
         return len(self._chunks)
 
+    def get_chunk(self, index):
+        return self._chunks[index]
+
+    def get_chunk_path(self, index):
+        return self.get_chunk(index).path
+
+    def get_chunk_range(self, index):
+        return self.get_chunk(index).range
+
+
+def _chunks_file(path):
+    return '%s.chunks' % path
+
 
 class ChunksFile(Chunks):
 
     def __init__(self, file_path, chunks):
         super(ChunksFile, self).__init__(file_path, chunks)
-        self.path = '%s.chunks' % self.file_path
+        self.path = _chunks_file(file_path)
 
     @property
     def path_encoded(self):
@@ -72,13 +83,14 @@ class ChunksFile(Chunks):
         return ret
 
 
-class DownloadChunks(ChunksFile):
+class DownloadChunksFile(ChunksFile):
 
-    def __init__(self, url, expected_size, file_path, chunks):
+    def __init__(self, url, file_path, expected_size, chunks, resume=False):
         self.url = url
         assert expected_size
         self._expected_size = expected_size
-        super(DownloadChunks, self).__init__(file_path, chunks)
+        super(DownloadChunksFile, self).__init__(file_path, chunks)
+        self.resume = resume
 
     @property
     def size(self):
@@ -86,7 +98,7 @@ class DownloadChunks(ChunksFile):
 
     @property
     def chunks_size(self):
-        return super(DownloadChunks, self).size
+        return super(DownloadChunksFile, self).size
 
     def is_completed(self):
         return self._expected_size == self.chunks_size
@@ -102,154 +114,56 @@ class DownloadChunks(ChunksFile):
     def _json_dict(self):
         json_dict = OrderedDict()
         json_dict['url'] = self.url
-        json_dict.update(super(DownloadChunks, self)._json_dict())
+        json_dict.update(super(DownloadChunksFile, self)._json_dict())
         return json_dict
 
 
-class Chunks(object):
-    def __init__(self, name, size=0, resume=False, existing=False):
-        #add url
-        self.file_path = to_unicode(name)
-        self.path = '%s.chunks' % self.file_path
+class ExistingDownloadChunks(DownloadChunksFile):
+    def __init__(self, url, file_path, resume=False):
+        chunks_file = fs_encode(_chunks_file(file_path))
 
-        self.size = size
-        self.resume = resume
-        self.existing = existing
-        self.chunks = []
+        with codecs.open(chunks_file, 'r', 'utf-8') as fh:
+            json_dict = json.load(fh)
 
-    def set_size(self, size):
-        self.size = int(size)
+        assert url == json_dict['url']
+        expected_size = json_dict['size']
+        chunks_dict = json_dict['chunks']
 
-    def add_chunk(self, name, byte_range):
-        self.chunks.append((name, byte_range))
+        chunks = []
+        for chunk_dict in chunks_dict.values():
+            chunk_file = ChunkFile(chunk_dict['path'], chunk_dict['range'][0], chunk_dict['range'][1], resume)
+            chunks.append(chunk_file)
 
-    def clear(self):
-        self.chunks = []
+        super(ExistingDownloadChunks, self).__init__(url, file_path, expected_size, chunks, resume)
 
-    def create_chunks(self, chunks):
-        self.clear()
-        chunk_size = self.size / chunks
+
+class CreateChunksFile(DownloadChunksFile):
+
+    def __init__(self, url, file_path, expected_size, chunks_number):
+        super(CreateChunksFile, self).__init__(url, file_path, expected_size, chunks=[])
+        self._create_chunks(chunks_number)
+        self.save()
+
+    def _create_chunks(self, chunks_number):
+        chunk_size = self.size / chunks_number
 
         current = 0
-        for i in range(chunks):
-            end = self.size - 1 if (i == chunks - 1) else current + chunk_size
-
-            self.add_chunk('%s.chunk%s' % (self.file_path, i), (current, end))
+        for i in range(chunks_number):
+            end = self.size - 1 if (i == chunks_number - 1) else current + chunk_size
+            self._add_chunk(i, (current, end))
 
             current += chunk_size + 1
 
-    def save(self):
-        with codecs.open(self.path_encoded, 'w', 'utf_8') as chunks_file:
-            chunks_file.write('name:%s\n' % self.file_path)
-            chunks_file.write('size:%s\n' % self.size)
+    def _add_chunk(self, number, bytes_range):
+        path = '%s.chunk%s' % (self.file_path, number)
 
-            for i, c in enumerate(self.chunks):
-                chunks_file.write('#%d:\n' % i)
-                chunks_file.write('\tname:%s\n' % c[0])
-                chunks_file.write('\trange:%i-%i\n' % c[1])
-
-    def remove(self):
-        try:
-            os.remove(self.path_encoded)
-        except OSError:
-            #Already removed
-            pass
-
-    def get_count(self):
-        return len(self.chunks)
-
-    def get_chunk_name(self, index):
-        return self.chunks[index][0]
-
-    def get_chunk_range(self, index):
-        return self.chunks[index][1]
-
-    @property
-    def path_encoded(self):
-        return fs_encode(self.path)
-
-    def __repr__(self):
-        ret = 'Chunks File: %s, %s\n' % (self.path, self.size)
-        for i, c in enumerate(self.chunks):
-            ret += '%s# %s\n' % (i, c[1])
-
-        return ret
+        self._chunks.append(Chunk(path, bytes_range[0], bytes_range[1]))
 
 
-class Range(namedtuple('Range', ['start', 'end'])):
-    def __new__(cls, start, end):
-        assert start < end
-        return super(Range, cls).__new__(cls, start, end)
-
-    @property
-    def size(self):
-        return (self.end - self.start) + 1
+class OneChunk(CreateChunksFile):
+    def __init__(self, url, file_path, expected_size):
+        super(OneChunk, self).__init__(url, file_path, expected_size, chunks_number=1)
 
 
-class Chunk(namedtuple('Chunk', ['path', 'range'])):
-
-    def __new__(cls, path, start, end):
-        return super(Chunk, cls).__new__(cls, fs_encode(path), Range(start, end))
-
-    @property
-    def size(self):
-        return self.range.size
-
-    @property
-    def start(self):
-        return self.range.start
-
-    @property
-    def end(self):
-        return self.range.end
-
-
-class ChunkFile(Chunk):
-
-    @property
-    def current_size(self):
-        return os.path.getsize(self.path)
-
-    def is_completed(self):
-        return self.current_size == self.size
-
-
-class ExistingChunksFile(object):
-
-    def __init__(self):
-        super(ExistingChunksFile, self).__init__()
-
-
-    @staticmethod
-    def load(name, resume=False):
-        fs_name = fs_encode('%s.chunks' % name)
-
-        #json.loads(ensure_ascii=False)
-        with codecs.open(fs_name, 'r', 'utf_8') as fh:
-
-            name = fh.readline()[:-1]
-            size = fh.readline()[:-1]
-
-            if name.startswith('name:') and size.startswith('size:'):
-                name = name[5:]
-                size = int(size[5:])
-            else:
-                raise WrongFormat()
-
-            chunk_info = Chunks(name, size=size, resume=resume, existing=True)
-
-            while True:
-                if not fh.readline():
-                    break
-                name = fh.readline()[1:-1]
-                bytes_range = fh.readline()[1:-1]
-
-                if name.startswith('name:') and bytes_range.startswith('range:'):
-                    name = name[5:]
-                    bytes_range = bytes_range[6:].split('-')
-                else:
-                    raise WrongFormat()
-
-                chunk_info.add_chunk(name, (long(bytes_range[0]), long(bytes_range[1])))
-
-            return chunk_info
+def load_chunks(url, file_path, resume=False):
+    return ExistingDownloadChunks(url, resume, file_path)

@@ -74,7 +74,7 @@ class HTTPDownload(object):
             if not statistics.is_completed():
                 raise Exception('Not Completed')
 
-            print 'Saving: ', download.chunks, download.done
+            print 'Saving: ', download.chunks, download.is_done()
             statistics.file_path = self._save_chunks(download, self.file_path)
 
             return statistics
@@ -95,12 +95,12 @@ class HTTPDownload(object):
         return file_name
 
     def _copy_chunks(self, info):
-        first_chunk_path = fs_encode(info.get_chunk_name(0))
+        first_chunk_path = fs_encode(info.get_chunk_path(0))
 
-        if info.get_count() > 1:
+        if info.count > 1:
             with open(first_chunk_path, 'rb+') as fo:
                 try:
-                    for i in range(1, info.get_count()):
+                    for i in range(1, info.count):
                         self._copy_chunk(info, i, fo)
                 except UnexpectedChunkContent:
                     remove(first_chunk_path)

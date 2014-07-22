@@ -1,7 +1,7 @@
 import pycurl
 from unicoder import byte_string
-from util import url_encode
 from httpy.client.requests import user_agent
+from ..util import url_encode
 
 PyCurlMulti = pycurl.CurlMulti
 

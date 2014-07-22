@@ -85,7 +85,7 @@ class HTTPChunk(HttpDownloadRange):
     def __init__(self, chunk_id, download, info, bytes_range):
         download_size = download.size if chunk_id < len(info.chunks) - 1 else None
 
-        file_path = info.get_chunk_name(chunk_id)
+        file_path = info.get_chunk_path(chunk_id)
         self.id = chunk_id
 
         super(HTTPChunk, self).__init__(download.url, file_path, download.cookies, download.log, bytes_range,

@@ -1,8 +1,6 @@
 from threading import Lock
 from time import time, sleep
 
-__author__ = 'dipstef'
-
 
 class Bucket(object):
     def __init__(self, max_speed=0):
@@ -15,7 +13,7 @@ class Bucket(object):
         with self._lock:
             self._speed_rate = int(rate)
 
-    def sleep_above_rate(self, transferred):
+    def sleep_if_above_rate(self, transferred):
         """ return time the process have to sleep, after consumed specified amount """
         #min. 10kb, may become unresponsive otherwise
         if self._speed_rate >= 10240:
@@ -33,8 +31,8 @@ class Bucket(object):
                     seconds = -self._tokens/float(self._speed_rate)
 
                     if seconds > 0:
-                        print 'Sleeping: ', seconds
+                        #print 'Sleeping: ', seconds
                         sleep(seconds)
 
     def __nonzero__(self):
-        return False if self._speed_rate < 10240 else True
+        return not self._speed_rate < 10240
