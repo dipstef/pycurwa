@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from codecs import getincrementaldecoder, lookup, BOM_UTF8
 from logging import getLogger
 from cStringIO import StringIO
 from time import time
@@ -15,6 +14,7 @@ from options import Options
 from .curl import post_request, curl_request, set_low_speed_timeout, set_auth, get_cookies, set_cookies, clear_cookies, \
     set_url, set_referrer, get_status_code, set_network_options, Curl, unset_post, unset_cookie_files, \
     set_body_header_fun, set_headers, get_effective_url
+from .response import decode_response
 
 
 def _set_options(curl, options):
@@ -77,31 +77,7 @@ class HTTPRequestBase(object):
 
     def decode_response(self, rep):
         ''' decode with correct encoding, relies on header '''
-        header = self.header.splitlines()
-        encoding = 'utf8'  # default encoding
-
-        for line in header:
-            line = line.lower().replace(' ', '')
-            if not line.startswith('content-type:') or \
-                    ('text' not in line and 'application' not in line):
-                continue
-
-            none, delimiter, charset = line.rpartition('charset=')
-            if delimiter:
-                charset = charset.split(';')
-                if charset:
-                    encoding = charset[0]
-
-        # self.log.debug('Decoded %s' % encoding )
-        if lookup(encoding).name == 'utf-8' and rep.startswith(BOM_UTF8):
-            encoding = 'utf-8-sig'
-
-        decoder = getincrementaldecoder(encoding)('replace')
-        rep = decoder.decode(rep, True)
-
-        # TODO: html_un-escape as default
-
-        return rep
+        return decode_response(rep, self.header)
 
     def _write_header(self, buf):
         self.header += buf

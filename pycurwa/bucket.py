@@ -14,7 +14,6 @@ class Bucket(object):
             self._speed_rate = int(rate)
 
     def sleep_if_above_rate(self, received):
-        """ return time the process have to sleep, after consumed specified amount """
         #min. 10kb, may become unresponsive otherwise
         if self._speed_rate >= 10240:
             with self._lock:

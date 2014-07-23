@@ -9,7 +9,8 @@ from .chunks import Chunks
 from .chunks.download import ChunksDownload
 from .chunks.request import HTTPChunk, FirstChunk
 from .stats import DownloadStats
-from ..error import Abort, UnexpectedChunkContent, PyCurlError
+from ..error import Abort, UnexpectedChunkContent
+from ..curl.error import PyCurlError
 from ..util import fs_encode, save_join
 
 

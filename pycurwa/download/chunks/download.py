@@ -5,8 +5,8 @@ from procol.console import print_err
 
 from . import load_chunks, CreateChunksFile, OneChunk, ChunkFile
 from .request import HTTPChunk, FirstChunk
-from ...curl import CurlMulti, perform_multi
-from ...error import PyCurlError, BadHeader
+from ...curl import CurlMulti, perform_multi, PyCurlError
+from ...error import BadHeader
 
 
 class ChunksDownloading(object):

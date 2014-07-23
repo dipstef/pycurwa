@@ -2,6 +2,7 @@ from contextlib import closing
 import pycurl
 from unicoder import byte_string
 from httpy.client.requests import user_agent
+from .error import PyCurlError
 
 
 class ClosingCurl(closing):
@@ -9,6 +10,9 @@ class ClosingCurl(closing):
     def __init__(self, curl_class):
         self.curl = curl_class()
         super(ClosingCurl, self).__init__(self)
+
+    def __eq__(self, other):
+        return other == self.curl
 
     def __getattr__(self, item):
         return getattr(self.curl, item)

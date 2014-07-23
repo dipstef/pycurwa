@@ -104,3 +104,6 @@ class HttpChunks(object):
     def __init__(self, chunks_file):
         self._chunks = [FirstChunk(chunks_file[0], self)]
         self._chunks_file = chunks_file
+
+    def __iter__(self):
+        return iter(self._chunks)
