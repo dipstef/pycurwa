@@ -21,12 +21,12 @@ class DownloadStats(object):
             self._update_progress(now)
 
     def _update_progress(self, now):
-        diff = [c.arrived - self._last_arrived_size(i) for i, c in enumerate(self.chunks)]
+        diff = [c.received - self._last_arrived_size(i) for i, c in enumerate(self.chunks)]
 
         self._last_speeds[1] = self._last_speeds[0]
         self._last_speeds[0] = self._speeds
         self._speeds = [float(a) / (now - self._last_check) for a in diff]
-        self._last_arrived = [c.arrived for c in self.chunks]
+        self._last_arrived = [c.received for c in self.chunks]
 
         self._last_check = now
 
@@ -42,14 +42,14 @@ class DownloadStats(object):
         return (sum(self._speeds) + sum(last)) / (1 + len(last))
 
     @property
-    def arrived(self):
-        return sum([c.arrived for c in self.chunks])
+    def received(self):
+        return sum([c.received for c in self.chunks])
 
     @property
     def percent(self):
         if not self.size:
             return 0
-        return (self.arrived * 100) / self.size
+        return (self.received * 100) / self.size
 
     def is_completed(self):
-        return self.arrived == self.size
+        return self.received == self.size

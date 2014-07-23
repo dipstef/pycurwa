@@ -11,7 +11,6 @@ from ...util import fs_encode
 
 class Chunks(object):
     def __init__(self, file_path, chunks):
-        #add url
         self.file_path = to_unicode(file_path)
         self._chunks = chunks
 

@@ -10,11 +10,9 @@ from ..util import fs_encode
 
 class HttpDownloadRequest(HTTPRequestBase):
 
-    def __init__(self, url, file_path, cookies, log, bucket=None, resume=False, get=None, post=None, referrer=None):
+    def __init__(self, url, file_path, cookies, bucket=None, resume=False, get=None, post=None, referrer=None):
         super(HttpDownloadRequest, self).__init__(cookies)
         self.url = url
-
-        self.arrived = 0
 
         self._header_parsed = None
 
@@ -27,7 +25,6 @@ class HttpDownloadRequest(HTTPRequestBase):
         self._last_size = 0
         self._resume = resume
 
-        self.log = log
         self._bucket = bucket
 
         self.file_path = fs_encode(file_path)
@@ -41,14 +38,15 @@ class HttpDownloadRequest(HTTPRequestBase):
         if self._resume:
             self._fp = open(file_path, 'ab')
 
-            self.arrived = self._fp.tell() or os.stat(self.file_path).st_size
+            self.received = self._fp.tell() or os.stat(self.file_path).st_size
 
             self._handle_resume()
         else:
+            self.received = 0
             self._handle_not_resumed()
 
     def _handle_resume(self):
-        set_resume(self.curl, self.arrived)
+        set_resume(self.curl, self.received)
 
     def _handle_not_resumed(self):
         self._fp = open(self.file_path, 'wb')
@@ -58,7 +56,7 @@ class HttpDownloadRequest(HTTPRequestBase):
 
         size = len(buf)
 
-        self.arrived += size
+        self.received += size
 
         self._fp.write(buf)
 

@@ -13,7 +13,7 @@ import pycurl
 from error import Abort, BadHeader, bad_headers
 from options import Options
 from .curl import post_request, curl_request, set_low_speed_timeout, set_auth, get_cookies, set_cookies, clear_cookies, \
-    set_url, set_referrer, get_status_code, set_network_options, PyCurl, unset_post, unset_cookie_files, \
+    set_url, set_referrer, get_status_code, set_network_options, Curl, unset_post, unset_cookie_files, \
     set_body_header_fun, set_headers, get_effective_url
 
 
@@ -32,7 +32,7 @@ def _set_options(curl, options):
 
 class HTTPRequestBase(object):
     def __init__(self, cookies=None, options=None):
-        self.curl = PyCurl()
+        self.curl = Curl()
 
         self.cookies = cookies
 

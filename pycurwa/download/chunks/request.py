@@ -6,13 +6,14 @@ from ...error import BadHeader, RangeNotSatisfiable
 
 class HttpDownloadRange(HttpDownloadRequest):
 
-    def __init__(self, url, file_path, cookies, log, bytes_range, bucket=None, resume=False):
+    def __init__(self, url, file_path, cookies, bytes_range, bucket=None, resume=False):
         self._range = bytes_range
-        super(HttpDownloadRange, self).__init__(url, file_path, cookies, log, bucket, resume)
+        super(HttpDownloadRange, self).__init__(url, file_path, cookies, bucket, resume)
 
     def _handle_resume(self):
         if not self._is_range_completed():
-            self._set_bytes_range(self.arrived)
+            super(HttpDownloadRange, self)._handle_resume()
+            self._set_bytes_range(self.received)
 
     def _handle_not_resumed(self):
         super(HttpDownloadRange, self)._handle_not_resumed()
@@ -22,7 +23,7 @@ class HttpDownloadRange(HttpDownloadRequest):
         if not self._is_closed_range():
             bytes_range = '%i-' % (arrived + self._range.start)
         else:
-            bytes_range = '%i-%i' % (self.downloaded, self._range.end + 1)
+            bytes_range = '%i-%i' % (self.range_downloaded, self._range.end + 1)
 
         set_range(self.curl, bytes_range)
         return bytes_range
@@ -38,7 +39,7 @@ class HttpDownloadRange(HttpDownloadRequest):
             super(HttpDownloadRange, self)._parse_header(buf)
 
     def _is_range_completed(self):
-        return self._is_closed_range() and self.arrived > self._range.size
+        return self._is_closed_range() and self.received > self._range.size
 
     def stop(self):
         self._range = Range(0, 0)
@@ -47,8 +48,8 @@ class HttpDownloadRange(HttpDownloadRequest):
         return bool(self._range.end)
 
     @property
-    def downloaded(self):
-        return self._range.start + self.arrived
+    def range_downloaded(self):
+        return self._range.start + self.received
 
     def verify_header(self):
         try:
@@ -64,15 +65,16 @@ class HTTPChunk(HttpDownloadRange):
     def __init__(self, chunk, download):
         self.id = chunk.id
 
-        super(HTTPChunk, self).__init__(download.url, chunk.path, download.cookies, download.log, chunk.range,
-                                        download.bucket, chunk.resume)
+        super(HTTPChunk, self).__init__(download.url, chunk.path, download.cookies, chunk.range, download.bucket,
+                                        chunk.resume)
         self._download = download
         self._chunk = chunk
 
     def __str__(self):
         if self._is_closed_range():
-            return '<HTTPChunk id=%d, size=%d, arrived=%d>' % (self.id, self._range.size, self.arrived)
-        return '<HTTPChunk id=%d, arrived=%d>' % (self.id, self.arrived)
+            return '<HTTPChunk id=%d, size=%d, arrived=%d>' % (self.id, self._range.size, self.received)
+        else:
+            return '<HTTPChunk id=%d, arrived=%d>' % (self.id, self.received)
 
 
 class FirstChunk(HTTPChunk):
@@ -95,3 +97,10 @@ class FirstChunk(HTTPChunk):
     def _set_header(self, header):
         self._download.disposition_name = header.file_name
         self._download.size = header.size
+
+
+class HttpChunks(object):
+
+    def __init__(self, chunks_file):
+        self._chunks = [FirstChunk(chunks_file[0], self)]
+        self._chunks_file = chunks_file

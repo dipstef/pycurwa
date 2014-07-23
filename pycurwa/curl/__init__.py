@@ -2,25 +2,37 @@ from contextlib import closing
 import pycurl
 from unicoder import byte_string
 from httpy.client.requests import user_agent
-from ..util import url_encode
-
-PyCurl = pycurl.Curl
 
 
 class ClosingCurl(closing):
 
     def __init__(self, curl_class):
-        self._curl = curl_class()
-        super(ClosingCurl, self).__init__(self._curl)
+        self.curl = curl_class()
+        super(ClosingCurl, self).__init__(self)
 
     def __getattr__(self, item):
-        return getattr(self._curl, item)
+        return getattr(self.curl, item)
 
 
-class PyCurlMulti(ClosingCurl):
+class CurlMulti(ClosingCurl):
 
     def __init__(self):
-        super(PyCurlMulti, self).__init__(pycurl.CurlMulti)
+        super(CurlMulti, self).__init__(pycurl.CurlMulti)
+
+    def add_handle(self, curl):
+        if isinstance(curl, Curl):
+            curl = curl.curl
+        self.curl.add_handle(curl)
+
+    def remove_handle(self, curl):
+        if isinstance(curl, Curl):
+            curl = curl.curl
+        self.curl.remove_handle(curl)
+
+
+class Curl(ClosingCurl):
+    def __init__(self):
+        super(Curl, self).__init__(pycurl.Curl)
 
 
 _default_headers = ["Accept: */*",
@@ -70,6 +82,7 @@ def post_request(curl, post, multi_part=False):
         if type(post) == unicode:
             post = str(post)  # unicode not allowed
         elif not type(post) == str:
+            from ..util import url_encode
             post = url_encode(post)
 
         curl.setopt(pycurl.POSTFIELDS, post)

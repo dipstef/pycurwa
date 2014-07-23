@@ -1,20 +1,19 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from os import remove
 from os.path import dirname
 from shutil import move
-from logging import getLogger
+
+from procol.console import print_err
 
 from .chunks import Chunks
-from pycurwa.download.chunks.download import ChunksDownload, _check_chunks_done
-from pycurwa.download.chunks.request import HTTPChunk, FirstChunk
+from .chunks.download import ChunksDownload
+from .chunks.request import HTTPChunk, FirstChunk
 from .stats import DownloadStats
 from ..error import Abort, UnexpectedChunkContent, PyCurlError
 from ..util import fs_encode, save_join
 
 
 class HTTPDownload(object):
-    '''loads a url http + ftp'''
 
     def __init__(self, url, filename, get=None, post=None, referrer=None, cj=None, bucket=None,
                  options=None, progress_notify=None, use_disposition=False):
@@ -33,22 +32,19 @@ class HTTPDownload(object):
         self.abort = False
         self.disposition_name = None
 
-        self.log = getLogger('log')
-
         self.size = 0
 
-    def download(self, chunks=1, resume=False):
-        chunks = max(1, chunks)
+    def download(self, chunks_number=1, resume=False):
+        chunks_number = max(1, chunks_number)
 
         try:
-            statistics = self._download(chunks, resume)
+            statistics = self._download(chunks_number, resume)
         except PyCurlError, e:
             #code 33 - no resume
             code = e.args[0]
             if code == 33:
-                # try again without resume
-                self.log.debug('Errno 33 -> Restart without resume')
-                statistics = self._download(chunks, False)
+                print_err('Errno 33 -> Restart without resume')
+                statistics = self._download(chunks_number, resume=False)
             else:
                 raise
 
@@ -66,7 +62,7 @@ class HTTPDownload(object):
                 if self.abort:
                     raise Abort()
 
-            if not statistics.is_completed():
+            if not download.is_completed():
                 raise Exception('Not Completed')
 
             statistics.file_path = self._save_chunks(download, self.file_path)

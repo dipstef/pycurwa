@@ -5,14 +5,14 @@ from procol.console import print_err
 
 from . import load_chunks, CreateChunksFile, OneChunk, ChunkFile
 from .request import HTTPChunk, FirstChunk
-from ...curl import PyCurlMulti, perform_multi
+from ...curl import CurlMulti, perform_multi
 from ...error import PyCurlError, BadHeader
 
 
 class ChunksDownloading(object):
 
     def __init__(self, file_path, chunks):
-        self.curl = PyCurlMulti()
+        self.curl = CurlMulti()
         self.file_path = file_path
         self.chunks_file = chunks
 
@@ -46,6 +46,14 @@ class ChunksDownloading(object):
         finally:
             chunk.close()
 
+    def _remove_chunk(self, chunk):
+        self._close_chunk(chunk)
+        os.remove(chunk.file_path)
+
+    def is_completed(self):
+        chunks_received = sum([c.received for c in self.chunks])
+        return self.chunks_file.size == chunks_received
+
 
 class DownloadChunks(ChunksDownloading):
 
@@ -57,7 +65,6 @@ class DownloadChunks(ChunksDownloading):
         self._chunks_number = chunks.count
 
         self.last_check = None
-        self.log = download.log
         self._add_chunks()
 
     def checked_less_than(self, now, seconds=0.5):
@@ -91,10 +98,6 @@ class DownloadChunks(ChunksDownloading):
     def initial(self):
         return self.chunks[0]
 
-    def _remove_chunk(self, chunk):
-        self._close_chunk(chunk)
-        os.remove(chunk.file_path)
-
     def chunk_for_handle(self, handle):
         for chunk in self.chunks:
             if chunk.curl == handle:
@@ -123,7 +126,7 @@ def _resolve_size(file_path, download):
     chunk = ChunkFile(1, 1, '%s.chunk%s' % (file_path, 0), (0, 1024))
     initial = FirstChunk(chunk, download)
 
-    with PyCurlMulti() as curl:
+    with CurlMulti() as curl:
         curl.add_handle(initial.curl)
 
         while not download.size:
@@ -171,8 +174,8 @@ def _check_chunks_done(download):
                 if len(download.chunks) > 1:
                     # 416 Range not satisfiable check
                     print_err(('Download chunks failed, fallback to single connection | %s' % (str(ex))))
-                    time.sleep(10)
                     download.revert_to_one_connection()
+                    time.sleep(2)
                 else:
                     raise ex
 
