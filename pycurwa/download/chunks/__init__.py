@@ -56,6 +56,9 @@ class Chunks(object):
     def get_chunk_range(self, index):
         return self.get_chunk(index).range
 
+    def __len__(self):
+        return len(self._chunks)
+
     def __iter__(self):
         return iter(self._chunks)
 
@@ -180,3 +183,8 @@ class OneChunk(CreateChunksFile):
 
 def load_chunks(url, file_path, resume=False):
     return ExistingDownloadChunks(url, file_path, resume=resume)
+
+
+class ChunksDict(OrderedDict):
+    def __init__(self, chunks=()):
+        super(ChunksDict, self).__init__(((chunk.id, chunk) for chunk in chunks))

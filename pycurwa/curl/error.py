@@ -1,13 +1,66 @@
-#error 28 Timeout
-#7 No Route To Host
 import pycurl
+from httpy import HttpRequest
+from httpy.connection.error import ConnectionRefused, UnresolvableHost, SocketError
 
-from httpy.error import HttpServerSocketError
+from httpy.error import HttpServerSocketError, HttpError, HttpOperationTimeout
 
 
-PyCurlError = pycurl.error
+class PyCurlError(pycurl.error):
+
+    def __init__(self, errno, message, *args, **kwargs):
+        super(PyCurlError, self).__init__(errno, message, *args, **kwargs)
+        self.errno = self.args[0]
+        self.message = message
 
 
-class CurlHttpServerError(HttpServerSocketError, PyCurlError):
-    def __init__(self, request, error, *args, **kwargs):
-        super(CurlHttpServerError, self).__init__(request, error, *args, **kwargs)
+class CurlHttpError(HttpError, pycurl.error):
+    def __init__(self, request, curl_error):
+        super(CurlHttpError, self).__init__(request, curl_error)
+        self.curl_errno = curl_error.errno
+        self.curl_message = curl_error.message
+
+
+class CurlHttpServerSocketError(HttpServerSocketError, CurlHttpError):
+    def __init__(self, request, error, curl_errno, curl_message):
+        super(CurlHttpServerSocketError, self).__init__(request, error, curl_errno, curl_message)
+        self.curl_errno = curl_errno
+        self.curl_message = curl_message
+
+_by_errno = {
+    pycurl.E_COULDNT_CONNECT: ConnectionRefused,
+    pycurl.E_COULDNT_RESOLVE_HOST: UnresolvableHost,
+    pycurl.E_OPERATION_TIMEDOUT: HttpOperationTimeout
+}
+
+
+class CurlWriteError(PyCurlError):
+
+    def __init__(self, message, *args, **kwargs):
+        super(CurlWriteError, self).__init__(pycurl.E_WRITE_ERROR, message, *args, **kwargs)
+
+
+_curl_errors = {
+    pycurl.E_WRITE_ERROR: CurlWriteError
+}
+
+
+def _curl_error(errno, message):
+    error_class = _curl_errors.get(errno)
+    if error_class:
+        return error_class(message)
+    return PyCurlError(errno, message)
+
+
+class CurlError(CurlHttpError):
+
+    def __new__(cls, errno, message):
+        request = HttpRequest('GET', '')
+        error_mapping = _by_errno.get(errno)
+        if error_mapping:
+            error = error_mapping(request, message) if issubclass(error_mapping, HttpError) else error_mapping(message)
+            if isinstance(errno, SocketError):
+                return CurlHttpServerSocketError(request, error, errno, message)
+        else:
+            error = _curl_error(errno, message)
+
+        return CurlHttpError(request, error)

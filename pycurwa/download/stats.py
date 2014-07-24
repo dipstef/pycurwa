@@ -8,26 +8,30 @@ class Tuple(tuple):
         return super(Tuple, cls).__new__(cls, seq)
 
     def __add__(self, other):
-        return self._zip_op(operator.add, other)
+        return self._zip_op(operator.add, other, default=0)
 
     def __sub__(self, other):
-        return self._zip_op(operator.sub, other)
+        return self._zip_op(operator.sub, other, default=0)
 
     def __mul__(self, other):
-        return self._zip_tuple_or_number(operator.mul, other)
+        return self._zip_tuple_or_number(operator.mul, other, default=1)
 
     def __div__(self, other):
-        return self._zip_tuple_or_number(operator.div, other)
+        return self._zip_tuple_or_number(operator.div, other, default=1)
 
-    def _zip_tuple_or_number(self, op, other):
+    def _zip_tuple_or_number(self, op, other, default=1):
         if isinstance(other, numbers.Number):
             other = (other, ) * len(self)
-        return self._zip_op(op, other)
+        return self._zip_op(op, other, default=default)
 
-    def _zip_op(self, op, other):
-        assert len(other) == len(self)
-
-        return self.__class__(op(*zip_tuple) for zip_tuple in zip(self, other))
+    def _zip_op(self, op, other, default=0):
+        length_diff = len(self) - len(other)
+        current = self
+        if length_diff > 0:
+            other = tuple(other) + (default, ) * length_diff
+        elif length_diff < 0:
+            current = tuple(self) + (default, ) * -length_diff
+        return self.__class__(op(*zip_tuple) for zip_tuple in zip(current, other))
 
     def sum(self):
         return sum(self)
@@ -35,39 +39,38 @@ class Tuple(tuple):
 
 class DownloadStats(object):
 
-    def __init__(self, file_path, size, chunks, progress_notify=None):
+    def __init__(self, file_path, size, progress_notify=None):
         self.file_path = file_path
         self.size = size
-        self.chunks = chunks
         self._last_check = 0
-
+        self.received = 0
         #needed for speed calculation
-        zeros = (0, ) * len(chunks)
-        self._received_last = Tuple(zeros)
-        self._speeds = Tuple(zeros)
-        self._last_speeds = [Tuple(zeros), Tuple(zeros)]
+
+        self._received_last = Tuple()
+        self._speeds = Tuple()
+        self._last_speeds = [Tuple(), Tuple()]
 
         self._progress_notify = progress_notify
 
-    def _refresh_speed(self, now, seconds=1):
-        return self._last_check + seconds < now
+    def _refresh_speed(self, status_check, seconds=1):
+        return self._last_check + seconds < status_check
 
-    def update_progress(self, now, refresh_rate=1):
-        if self._refresh_speed(now, seconds=refresh_rate):
-            self._update_progress(now)
+    def update_progress(self, status, refresh_rate=1):
+        if self._refresh_speed(status.check, seconds=refresh_rate):
+            self._update_progress(status)
 
-    def _update_progress(self, now):
-        received_now = Tuple(chunk.received for chunk in self.chunks)
+    def _update_progress(self, status):
+        received_now = Tuple(status.chunks_received)
         received_diff = received_now - self._received_last
 
         self._last_speeds[1] = self._last_speeds[0]
         self._last_speeds[0] = self._speeds
 
-        self._speeds = received_diff/float(now - self._last_check)
+        self._speeds = received_diff/float(status.check - self._last_check)
 
         self._received_last = received_now
 
-        self._last_check = now
+        self._last_check = status.check
 
         if self._progress_notify:
             self._progress_notify(self.percent)
@@ -76,10 +79,6 @@ class DownloadStats(object):
     def speed(self):
         last = [sum(x) for x in self._last_speeds if x]
         return (self._speeds.sum() + sum(last)) / (1 + len(last))
-
-    @property
-    def received(self):
-        return sum([chunk.received for chunk in self.chunks])
 
     @property
     def percent(self):

@@ -27,18 +27,20 @@ class HttpDownloadRequest(HTTPRequestBase):
 
         self._bucket = bucket
 
-        self.file_path = fs_encode(file_path)
+        self.path = fs_encode(file_path)
 
         self._set_request_context(url, get, post, referrer, cookies)
 
-        set_body_header_fun(self.curl, body=self._write_body, header=self._write_header)
+        self._header_parse = True
+
+        set_body_header_fun(self.curl, body=self._write_body, header=self._header_parse and self._write_header)
 
         # request all bytes, since some servers in russia seems to have a defect arithmetic unit
 
         if self._resume:
             self._fp = open(file_path, 'ab')
 
-            self.received = self._fp.tell() or os.stat(self.file_path).st_size
+            self.received = self._fp.tell() or os.stat(self.path).st_size
 
             self._handle_resume()
         else:
@@ -49,7 +51,7 @@ class HttpDownloadRequest(HTTPRequestBase):
         set_resume(self.curl, self.received)
 
     def _handle_not_resumed(self):
-        self._fp = open(self.file_path, 'wb')
+        self._fp = open(self.path, 'wb')
 
     def _write_body(self, buf):
         buf = self._check_bom(buf)

@@ -7,7 +7,7 @@ from procol.console import print_err
 
 from .chunks import Chunks
 from .chunks.download import ChunksDownload
-from .chunks.request import HTTPChunk, FirstChunk
+from .chunks.request import HttpChunk, FirstChunk
 from .stats import DownloadStats
 from ..error import Abort, UnexpectedChunkContent
 from ..curl.error import PyCurlError
@@ -55,10 +55,10 @@ class HTTPDownload(object):
         download = ChunksDownload(self.file_path, self, chunks_number, resume)
 
         try:
-            statistics = DownloadStats(self.file_path, self.size, download.chunks)
+            statistics = DownloadStats(self.file_path, self.size)
 
-            for time_checked in download.download_checks():
-                statistics.update_progress(time_checked, refresh_rate=1)
+            for status in download.download_checks():
+                statistics.update_progress(status, refresh_rate=1)
 
                 if self.abort:
                     raise Abort()
