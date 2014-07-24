@@ -1,4 +1,5 @@
 import os
+from time import time
 
 from procol.console import print_err
 
@@ -146,14 +147,9 @@ class HttpChunks(object):
         os.remove(chunk.path)
 
     def _update_status(self):
-        status = self._status.update_chunks_status(*self.curl.info_read())
-
-        _print_failed(status)
-
-        while self._status.updated_less_than(seconds=0.5) and not status.handles_remaining:
-            _print_failed(status)
-            status = self._status.update_chunks_status(*self.curl.info_read())
-
+        status = self._status.check_finished(self.curl, seconds=0.5)
+        for chunk, error in status.failed.values():
+            print_err('Chunk %d failed: %s' % (chunk.id + 1, str(error)))
         return status
 
     def __len__(self):
@@ -164,8 +160,3 @@ class HttpChunks(object):
 
     def __iter__(self):
         return iter(self._chunks.values())
-
-
-def _print_failed(status):
-    for chunk, error in status.failed.values():
-        print_err('Chunk %d failed: %s' % (chunk.id + 1, str(error)))

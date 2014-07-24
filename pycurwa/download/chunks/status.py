@@ -1,5 +1,6 @@
 from collections import namedtuple
 from time import time
+
 from pycurwa.curl.error import CurlWriteError, CurlError
 from pycurwa.download.chunks import ChunksDict
 from pycurwa.error import BadHeader
@@ -14,7 +15,7 @@ class FailedChunk(namedtuple('FailedChunk', ('chunk', 'error'))):
 
 class HttpChunksStatus(object):
 
-    def __init__(self, chunks, ok_chunks, failed_chunks, handles_remaining):
+    def __init__(self, chunks, check, ok_chunks, failed_chunks, handles_remaining):
         ok, failed = ChunksDict(ok_chunks), ChunksDict(failed_chunks)
 
         for chunk in ok_chunks:
@@ -38,7 +39,7 @@ class HttpChunksStatus(object):
         self.ok = ok
         self.failed = failed
         self.handles_remaining = handles_remaining
-        self.check = time()
+        self.check = check
 
     @property
     def last_error(self):
@@ -52,18 +53,38 @@ class HttpChunksStatus(object):
 class ChunksDownloadStatus(object):
 
     def __init__(self, chunks):
-        self._last_status = None
+        self._last_finish = None
         self._current_status = None
 
         self.ok = ChunksDict()
         self.failed = ChunksDict()
         self._chunks = chunks
 
-    def update_chunks_status(self, handles_remaining, ok, failed):
+    def check_finished(self, curl, seconds=0.5):
+        now = time()
+
+        if now - self._last_finish_check >= seconds:
+            status = self._chunks_finish_status(now, *curl.info_read())
+            while status.handles_remaining:
+                status = self._chunks_finish_status(now, *curl.info_read())
+            self._last_finish = status
+
+            return status
+
+        return HttpChunksStatus(self._chunks, now, self._chunks.values(), [], [])
+
+    @property
+    def _last_finish_check(self):
+        return self._last_finish.check if self._last_finish else 0
+
+    def _current_check_after_last(self, current_check, seconds=0.5):
+        return self._last_finish or current_check - self._last_finish.check >= seconds
+
+    def _chunks_finish_status(self, current_check, handles_remaining, ok, failed):
         ok = [self._get_chunk(curl) for curl in ok]
         failed = [FailedChunk(self._get_chunk(curl), CurlError(errno, msg)) for curl, errno, msg in failed]
 
-        status = HttpChunksStatus(self._chunks, ok, failed, handles_remaining)
+        status = HttpChunksStatus(self._chunks, current_check, ok, failed, handles_remaining)
         self._update_chunks_status(status)
 
         return status
@@ -80,7 +101,7 @@ class ChunksDownloadStatus(object):
         self.ok.update(status.ok)
         self.failed.update(status.failed)
 
-        self._last_status = self._current_status
+        self._last_finish = self._current_status
         self._current_status = status
 
     def _get_chunk(self, handle):
@@ -100,6 +121,3 @@ class ChunksDownloadStatus(object):
 
     def is_done(self):
         return len(self.ok) >= len(self._chunks)
-
-    def updated_less_than(self, seconds=0.5):
-        return not self._last_status or self._last_status.check + seconds < self._current_status.check

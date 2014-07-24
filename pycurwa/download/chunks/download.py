@@ -47,9 +47,6 @@ class DownloadChunks(HttpChunks):
         self.curl.add_handle(chunk.curl)
 
 
-
-
-
 class ChunksDownload(DownloadChunks):
 
     def __new__(cls, file_path, download, chunks_number, resume):

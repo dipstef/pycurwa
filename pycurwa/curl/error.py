@@ -1,6 +1,6 @@
 import pycurl
 from httpy import HttpRequest
-from httpy.connection.error import ConnectionRefused, UnresolvableHost, SocketError
+from httpy.connection.error import ConnectionRefused, UnresolvableHost, SocketError, ConnectionTimeout
 
 from httpy.error import HttpServerSocketError, HttpError, HttpOperationTimeout
 
@@ -29,7 +29,7 @@ class CurlHttpServerSocketError(HttpServerSocketError, CurlHttpError):
 _by_errno = {
     pycurl.E_COULDNT_CONNECT: ConnectionRefused,
     pycurl.E_COULDNT_RESOLVE_HOST: UnresolvableHost,
-    pycurl.E_OPERATION_TIMEDOUT: HttpOperationTimeout
+    pycurl.E_OPERATION_TIMEDOUT: ConnectionTimeout
 }
 
 
