@@ -2,7 +2,7 @@ import os
 import re
 import time
 
-from ..curl import set_resume, set_body_header_fun
+from ..curl import set_resume, set_body_header_fun, get_speed_download
 
 from ..request import HTTPRequestBase
 from ..util import fs_encode
@@ -34,8 +34,6 @@ class HttpDownloadRequest(HTTPRequestBase):
         self._header_parse = True
 
         set_body_header_fun(self.curl, body=self._write_body, header=self._header_parse and self._write_header)
-
-        # request all bytes, since some servers in russia seems to have a defect arithmetic unit
 
         if self._resume:
             self._fp = open(file_path, 'ab')
@@ -95,7 +93,6 @@ class HttpDownloadRequest(HTTPRequestBase):
 
     def _parse_header(self, buf):
         # @TODO forward headers?, this is possibly un-needed, when we just parse valid 200 headers
-
         if self.header.endswith('\r\n\r\n'):
             self._header_parsed = self._parse_http_header()
         #ftp file size parsing
@@ -121,11 +118,12 @@ class HttpDownloadRequest(HTTPRequestBase):
 
         return header
 
+    def get_speed(self):
+        return get_speed_download(self.curl)
+
     def flush_file(self):
         self._fp.flush()
-        #make sure everything was written to disk
         os.fsync(self._fp.fileno())
-        #needs to be closed, or merging chunks will fail
         self._fp.close()
 
     def close(self):

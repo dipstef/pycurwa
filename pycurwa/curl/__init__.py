@@ -35,6 +35,7 @@ class CurlMulti(ClosingCurl):
 
 
 class Curl(ClosingCurl):
+
     def __init__(self):
         super(Curl, self).__init__(pycurl.Curl)
 
@@ -196,3 +197,7 @@ def get_cookies(curl):
 
 def get_status_code(curl):
     return int(curl.getinfo(pycurl.RESPONSE_CODE))
+
+
+def get_speed_download(curl):
+    return curl.getinfo(pycurl.SPEED_DOWNLOAD)

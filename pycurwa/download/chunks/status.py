@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 from time import time
 
 from pycurwa.curl.error import CurlWriteError, CurlError
@@ -23,7 +23,7 @@ class HttpChunksStatus(object):
                 chunk.verify_header()
             except BadHeader, e:
                 del ok[chunk.id]
-                failed[chunk.id] = (chunk, e)
+                failed[chunk.id] = FailedChunk(chunk, e)
 
         for chunk, error in failed_chunks:
             if isinstance(error, CurlWriteError):
@@ -43,11 +43,15 @@ class HttpChunksStatus(object):
 
     @property
     def last_error(self):
-        return self.failed.values()[-1].error
+        return self.failed.values()[-1].error if self.failed else None
 
     @property
     def chunks_received(self):
-        return [chunk.received for chunk in self._chunks.values()]
+        return OrderedDict((chunk_id, chunk.received) for chunk_id, chunk in self._chunks.iteritems())
+
+    @property
+    def chunks_speed(self):
+        return OrderedDict((chunk_id, chunk.get_speed()) for chunk_id, chunk in self._chunks.iteritems())
 
 
 class ChunksDownloadStatus(object):
@@ -63,15 +67,16 @@ class ChunksDownloadStatus(object):
     def check_finished(self, curl, seconds=0.5):
         now = time()
 
-        if now - self._last_finish_check >= seconds:
+        if now - self._last_finish_check < seconds:
+            return HttpChunksStatus(self._chunks, now, self._chunks.values(), [], [])
+
+        status = self._chunks_finish_status(now, *curl.info_read())
+        while status.handles_remaining:
             status = self._chunks_finish_status(now, *curl.info_read())
-            while status.handles_remaining:
-                status = self._chunks_finish_status(now, *curl.info_read())
-            self._last_finish = status
+        self._last_finish = status
 
-            return status
+        return status
 
-        return HttpChunksStatus(self._chunks, now, self._chunks.values(), [], [])
 
     @property
     def _last_finish_check(self):
@@ -110,14 +115,9 @@ class ChunksDownloadStatus(object):
                 return chunk
         raise Exception('Handle not Found', handle)
 
+    def is_done(self):
+        return len(self.ok) >= len(self._chunks)
 
     @property
     def received(self):
-        return sum(chunk.received for chunk in self._chunks.values())
-
-    @property
-    def chunks_received(self):
-        return [chunk.received for chunk in self._chunks.values()]
-
-    def is_done(self):
-        return len(self.ok) >= len(self._chunks)
+        return sum((chunk.received for chunk in self._chunks.values()))

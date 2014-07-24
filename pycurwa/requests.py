@@ -5,7 +5,7 @@ from threading import Lock
 from urlo import get_domain
 
 from pycurwa.bucket import Bucket
-from pycurwa.request import CookieJar
+from pycurwa.cookies import CookieJar
 
 
 class RequestFactory(object):

@@ -5,6 +5,7 @@ from procol.console import print_err
 
 from . import ChunksDict
 from .chunk import Range
+from pycurwa.download.chunks.stats import DownloadStats
 from .status import ChunksDownloadStatus
 from ...curl import set_range, CurlMulti, PyCurlError
 from ..request import HttpDownloadRequest
@@ -117,11 +118,12 @@ class HttpChunks(object):
             self.curl.add_handle(http_chunk.curl)
 
         self.url = chunks.url
-        self.path = chunks.path
+        self.path = chunks.file_path
         self.size = chunks.size
         self._status = ChunksDownloadStatus(self._chunks)
         self._cookies = cookies
         self._bucket = bucket
+        self.stats = DownloadStats(self.path, self.size)
 
     def close(self):
         for chunk in self:
@@ -148,8 +150,12 @@ class HttpChunks(object):
 
     def _update_status(self):
         status = self._status.check_finished(self.curl, seconds=0.5)
+
         for chunk, error in status.failed.values():
             print_err('Chunk %d failed: %s' % (chunk.id + 1, str(error)))
+
+        self.stats.update_progress(status)
+
         return status
 
     def __len__(self):

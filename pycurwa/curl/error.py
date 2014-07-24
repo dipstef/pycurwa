@@ -1,28 +1,28 @@
 import pycurl
+
 from httpy import HttpRequest
 from httpy.connection.error import ConnectionRefused, UnresolvableHost, SocketError, ConnectionTimeout
-
-from httpy.error import HttpServerSocketError, HttpError, HttpOperationTimeout
+from httpy.error import HttpServerSocketError, HttpError, HttpServerError
 
 
 class PyCurlError(pycurl.error):
 
     def __init__(self, errno, message, *args, **kwargs):
         super(PyCurlError, self).__init__(errno, message, *args, **kwargs)
-        self.errno = self.args[0]
-        self.message = message
+        self.curl_errno = self.args[0]
+        self.curl_message = message
 
 
-class CurlHttpError(HttpError, pycurl.error):
+class CurlHttpError(HttpError, PyCurlError):
     def __init__(self, request, curl_error):
         super(CurlHttpError, self).__init__(request, curl_error)
-        self.curl_errno = curl_error.errno
-        self.curl_message = curl_error.message
+        self.curl_errno = curl_error.curl_errno
+        self.curl_message = curl_error.curl_message
 
 
-class CurlHttpServerSocketError(HttpServerSocketError, CurlHttpError):
+class CurlHttpServerSocketError(HttpServerSocketError, PyCurlError):
     def __init__(self, request, error, curl_errno, curl_message):
-        super(CurlHttpServerSocketError, self).__init__(request, error, curl_errno, curl_message)
+        super(CurlHttpServerSocketError, self).__init__(request, error)
         self.curl_errno = curl_errno
         self.curl_message = curl_message
 
@@ -56,9 +56,10 @@ class CurlError(CurlHttpError):
     def __new__(cls, errno, message):
         request = HttpRequest('GET', '')
         error_mapping = _by_errno.get(errno)
+
         if error_mapping:
             error = error_mapping(request, message) if issubclass(error_mapping, HttpError) else error_mapping(message)
-            if isinstance(errno, SocketError):
+            if isinstance(error, SocketError):
                 return CurlHttpServerSocketError(request, error, errno, message)
         else:
             error = _curl_error(errno, message)
