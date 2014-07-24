@@ -3,16 +3,31 @@ import time
 from procol.console import print_err
 
 from . import load_chunks, CreateChunksFile, OneChunk, ChunkFile
+from pycurwa.error import Abort
 from .request import FirstChunk, HttpChunks, HttpChunk
-from ...curl import CurlMulti, perform_multi
+from ...curl import perform_multi
 
 
 class DownloadChunks(HttpChunks):
 
     def __init__(self, chunks, cookies=None, bucket=None):
         super(DownloadChunks, self).__init__(chunks, cookies, bucket)
+        self._abort = False
 
-    def download_checks(self):
+    def perform(self):
+        try:
+            for _ in self._download_checks():
+                if self._abort:
+                    raise Abort()
+
+            return self.stats
+        except BaseException, e:
+            self.close()
+            if not self.is_completed() and not self.chunks_file.resume:
+                self.chunks_file.remove()
+                raise e
+
+    def _download_checks(self):
         while not self._status.is_done():
             perform_multi(self.curl)
 
@@ -65,14 +80,8 @@ def _resolve_size(file_path, download):
 
     initial = FirstChunk(download.url, chunk, download.cookies, download.bucket)
 
-    with CurlMulti() as curl:
-        curl.add_handle(initial.curl)
-
-        while not initial.size:
-            curl.perform()
-            curl.select(1)
-
-        curl.remove_handle(initial.curl)
+    try:
+        initial.head()
+        return initial.size
+    finally:
         initial.close()
-
-    return initial.size

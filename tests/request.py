@@ -1,10 +1,10 @@
-from pycurwa.request import HTTPRequest
+from pycurwa.request import CurlRequests
 
 
 def main():
     url = 'http://www.google.com'
 
-    c = HTTPRequest()
+    c = CurlRequests()
     print c.load(url)
 
 

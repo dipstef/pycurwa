@@ -4,7 +4,6 @@ from pycurwa.download import HTTPDownload
 
 def main():
     import os
-    # url = "http://speedtest.netcologne.de/test_100mb.bin"
     url = "http://download.thinkbroadband.com/10MB.zip"
     file_name = os.path.basename(url)
 

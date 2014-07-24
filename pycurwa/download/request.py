@@ -1,154 +1,91 @@
 import os
-import re
 import time
 
-from ..curl import set_resume, set_body_header_fun, get_speed_download
+from httpy import HttpHeaders, HttpRequest
+from httpy.http.headers.content import disposition_file_name, content_length
 
-from ..request import HTTPRequestBase
+from ..curl import set_resume, get_speed_download
+from ..request import CurlRequest
 from ..util import fs_encode
 
 
-class HttpDownloadRequest(HTTPRequestBase):
+class HttpDownloadRequest(CurlRequest):
 
-    def __init__(self, url, file_path, cookies, bucket=None, resume=False, get=None, post=None, referrer=None):
-        super(HttpDownloadRequest, self).__init__(cookies)
-        self.url = url
-
-        self._header_parsed = None
-
-        self._fp = None
-
-        # check and remove byte order mark
-        self._bom_checked = False
-
+    def __init__(self, url, file_path, cookies, bucket=None, resume=False):
         self._sleep = 0.000
         self._last_size = 0
         self._resume = resume
 
-        self._bucket = bucket
-
         self.path = fs_encode(file_path)
 
-        self._set_request_context(url, get, post, referrer, cookies)
+        self._fp = open(file_path, 'ab' if resume else 'wb')
 
-        self._header_parse = True
+        super(HttpDownloadRequest, self).__init__(HttpRequest('GET', url), self._fp.write, cookies, bucket)
 
-        set_body_header_fun(self.curl, body=self._write_body, header=self._header_parse and self._write_header)
-
-        if self._resume:
-            self._fp = open(file_path, 'ab')
-
-            self.received = self._fp.tell() or os.stat(self.path).st_size
-
+        if resume:
             self._handle_resume()
+            self.received = self._fp.tell() or os.stat(self.path).st_size
         else:
-            self.received = 0
             self._handle_not_resumed()
 
     def _handle_resume(self):
         set_resume(self.curl, self.received)
 
     def _handle_not_resumed(self):
-        self._fp = open(self.path, 'wb')
+        pass
 
     def _write_body(self, buf):
-        buf = self._check_bom(buf)
-
-        size = len(buf)
-
-        self.received += size
-
-        self._fp.write(buf)
-
-        if self._bucket:
-            self._bucket.sleep_if_above_rate(received=size)
-        else:
-            self._update_sleep(size)
-
-            self._last_size = size
+        super(HttpDownloadRequest, self)._write_body(buf)
+        if not self._bucket:
+            self._update_sleep(len(buf))
 
             time.sleep(self._sleep)
-
-    def _check_bom(self, buf):
-        # ignore BOM, it confuses unrar
-        if not self._bom_checked:
-            if [ord(b) for b in buf[:3]] == [239, 187, 191]:
-                buf = buf[3:]
-            self._bom_checked = True
-        return buf
 
     def _update_sleep(self, size):
         # Avoid small buffers, increasing sleep time slowly if buffer size gets smaller
         # otherwise reduce sleep time by percentage (values are based on tests)
         # So in general cpu time is saved without reducing bandwidth too much
+        self._last_size = size
         if size < self._last_size:
             self._sleep += 0.002
         else:
             self._sleep *= 0.7
 
-    def _write_header(self, buf):
-        self.header += buf
-
-        self._parse_header(buf)
-
     def _parse_header(self, buf):
-        # @TODO forward headers?, this is possibly un-needed, when we just parse valid 200 headers
-        if self.header.endswith('\r\n\r\n'):
-            self._header_parsed = self._parse_http_header()
-        #ftp file size parsing
-        elif buf.startswith('150') and 'data connection' in buf:
-            self._header_parsed = self._parse_ftp_header(buf)
-
-    def _parse_http_header(self):
-        header = DownloadHeader()
-
-        header_string = self.decode_response(self.header).splitlines()
-        header.parse(header_string, resume=self._resume)
-
-        return header
-
-    def _parse_ftp_header(self, buf):
-        header = DownloadHeader()
-
-        size = re.search(r'(\d+) bytes', buf)
-
-        if size:
-            header.size = int(size.group(1))
-            header.chunk_support = True
-
-        return header
+        super(HttpDownloadRequest, self)._parse_header(buf)
+        self.headers = DownloadHeaders(self.headers)
 
     def get_speed(self):
         return get_speed_download(self.curl)
 
-    def flush_file(self):
+    def close(self):
+        self._flush()
+        self.curl.close()
+
+    def _flush(self):
         self._fp.flush()
         os.fsync(self._fp.fileno())
         self._fp.close()
 
-    def close(self):
-        self._fp.close()
-        self.curl.close()
+    @property
+    def disposition_name(self):
+        return self.headers.file_name
+
+    @property
+    def size(self):
+        return self.headers.size
 
 
-class DownloadHeader(object):
+class DownloadHeaders(HttpHeaders):
 
-    def __init__(self, file_name=None, size=0, chunks_allowed=False):
-        self.file_name = file_name
-        self.size = size
-        self.chunk_support = chunks_allowed
+    @property
+    def chunk_support(self):
+        return 'bytes' == self.get('accept-ranges', '')
 
-    def parse(self, header_string, resume=False):
-        for line in header_string:
-            line = line.strip().lower()
-            if line.startswith('accept-ranges') and 'bytes' in line:
-                self.chunk_support = True
+    @property
+    def file_name(self):
+        return disposition_file_name(self)
 
-            if line.startswith('content-disposition') and 'filename=' in line:
-                name = line.partition('filename=')[2]
-                name = name.replace(''', '').replace(''', '').replace(';', '').strip()
-
-                self.file_name = name
-
-            if not resume and line.startswith('content-length'):
-                self.size = int(line.split(':')[1])
+    @property
+    def size(self):
+        return content_length(self)

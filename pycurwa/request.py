@@ -1,18 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from logging import getLogger
-from cStringIO import StringIO
-from urllib import urlencode
 import pycurl
 
-from unicoder import byte_string
-from urlo import params_url
+from httpy.http.headers import headers_raw_to_dict
 
-from error import Abort, BadHeader, bad_headers
-from options import Options
-from .curl import post_request, curl_request, set_low_speed_timeout, set_auth, get_cookies, set_cookies, clear_cookies, \
-    set_url, set_referrer, get_status_code, set_network_options, Curl, unset_post, unset_cookie_files, \
-    set_body_header_fun, set_headers, get_effective_url
+from error import BadHeader, bad_headers
+from .curl import Curl, BytesIO, curl_request, set_low_speed_timeout, set_auth, get_cookies, set_cookies,\
+    clear_cookies, get_status_code, set_network_options, set_headers, get_effective_url, set_body_fun, set_header_fun, \
+    unset_cookie_files, set_request_context
 from .response import decode_response
 
 
@@ -29,24 +24,34 @@ def _set_options(curl, options):
         set_low_speed_timeout(curl, timeout)
 
 
-class HTTPRequestBase(object):
-    def __init__(self, cookies=None, options=None):
+class CurlRequestBase(object):
+    def __init__(self, writer, cookies=None, bucket=None):
         self.curl = Curl()
 
+        self.headers = {}
         self.cookies = cookies
 
-        self.header = ''
+        self._bucket = bucket
+        self._header_str = ''
 
-        self._init_handle()
-        if options:
-            _set_options(self.curl, Options(options))
-
-    def _init_handle(self):
         curl_request(self.curl)
 
-    def _add_curl_cookies(self, curl):
+        self._header_parse = True
+
+        if self._header_parse:
+            set_header_fun(self.curl, self._write_header)
+        set_body_fun(self.curl, self._write_body)
+
+        if cookies:
+            unset_cookie_files(self.curl)
+            self._set_curl_cookies(self.curl)
+
+        self.received = 0
+        self._response_writer = writer
+
+    def _add_curl_cookies(self):
         if self.cookies:
-            self.cookies.add_cookies(get_cookies(curl))
+            self.cookies.add_cookies(get_cookies(self.curl))
 
     def _set_curl_cookies(self, curl):
         if self.cookies:
@@ -56,30 +61,40 @@ class HTTPRequestBase(object):
     def clear_cookies(self):
         clear_cookies(self.curl)
 
-    def _set_request_context(self, url, params, post_data, referrer, cookies, multi_part=False):
-        url = byte_string(url)
-        url = params_url(url, urlencode(params)) if params else url
-
-        set_url(self.curl, url)
-
-        if post_data:
-            post_request(self.curl, post_data, multi_part)
-        else:
-            unset_post(self.curl)
-
-        if referrer:
-            set_referrer(self.curl, str(referrer))
-
-        if cookies:
-            unset_cookie_files(self.curl)
-            self._set_curl_cookies(self.curl)
-
-    def decode_response(self, rep):
-        ''' decode with correct encoding, relies on header '''
-        return decode_response(rep, self.header)
-
     def _write_header(self, buf):
-        self.header += buf
+        self._header_str += buf
+
+        self._parse_header(buf)
+
+    def _parse_header(self, buf):
+        if self._header_str.endswith('\r\n\r\n'):
+            self.headers = self._parse_http_header()
+
+    def _parse_http_header(self):
+        return headers_raw_to_dict(self._header_str)
+
+    def _write_body(self, buf):
+        size = len(buf)
+
+        self.received += size
+
+        self._response_writer(buf)
+
+        if self._bucket:
+            self._bucket.sleep_if_above_rate(received=size)
+
+    def head(self, follow_redirect=True):
+        if not follow_redirect:
+            self.curl.setopt(pycurl.FOLLOWLOCATION, 0)
+
+        self.curl.setopt(pycurl.NOBODY, 1)
+        self.curl.perform()
+
+        if not follow_redirect:
+            self.curl.setopt(pycurl.FOLLOWLOCATION, 1)
+
+        self.curl.setopt(pycurl.NOBODY, 0)
+        return self.headers
 
     def verify_header(self):
         code = get_status_code(self.curl)
@@ -90,89 +105,48 @@ class HTTPRequestBase(object):
         return code
 
 
-class HTTPRequest(HTTPRequestBase):
-    def __init__(self, cookies=None, options=None):
-        super(HTTPRequest, self).__init__(cookies, options)
+class CurlRequest(CurlRequestBase):
+    def __init__(self, request, writer, cookies=None, bucket=None):
+        super(CurlRequest, self).__init__(writer, cookies, bucket)
+        self.request = request
+        self.url = request.url
+        set_request_context(self.curl, self.url)
 
-        self.abort = False
-        self.code = 0  # last http code
-        self.headers = []  # temporary request header
 
-        self.lastURL = None
-        self.response_url = None
+class CurlRequests(CurlRequestBase):
+    def __init__(self, cookies=None):
+        self._rep = BytesIO()
+        super(CurlRequests, self).__init__(self._rep.write, cookies)
 
-        set_body_header_fun(self.curl, body=self._write_body, header=self._write_header)
-        self._rep = StringIO()
+    def load(self, url, get=None, post=None, referrer=True, cookies=True, multi_part=False, decode=False):
+        set_request_context(self.curl, url, get, post, referrer, multi_part)
 
-        self.log = getLogger('log')
-
-    def _head_request(self, curl):
-        curl.setopt(pycurl.FOLLOWLOCATION, 0)
-        curl.setopt(pycurl.NOBODY, 1)
-        curl.perform()
-
-        rep = self.header
-
-        curl.setopt(pycurl.FOLLOWLOCATION, 1)
-        curl.setopt(pycurl.NOBODY, 0)
-
-        return rep
-
-    def load(self, url, get={}, post={}, referer=True, cookies=True, just_header=False, multipart=False, decode=False):
-        self._set_request_context(url, get, post, referer, cookies, multipart)
-
-        self.header = ''
-
-        curl = self.curl
         set_headers(self.curl, self.headers)
 
-        if just_header:
-            rep = self._head_request(curl)
-        else:
-            curl.perform()
-            rep = self.get_response()
+        self.curl.perform()
+        rep = self._get_response()
 
-        curl.setopt(pycurl.POSTFIELDS, '')
+        self.curl.setopt(pycurl.POSTFIELDS, '')
 
-        self.response_url = get_effective_url(self.curl)
+        response_url = get_effective_url(self.curl)
 
-        self.code = self.verify_header()
+        code = self.verify_header()
 
-        self._add_curl_cookies(curl)
+        self._add_curl_cookies()
 
         if decode:
-            rep = self.decode_response(rep)
+            rep = decode_response(rep, self._header_str)
 
         return rep
 
-    def _write_body(self, buf):
-        if self.abort:
-            raise Abort()
-
-        if self._rep.tell() > 1000000:
-            rep = self.get_response()
-
-            with open('response.dump', 'wb') as f:
-                f.write(rep)
-                raise Exception('Loaded Url exceeded limit')
-
-        self._rep.write(buf)
-
-    def get_response(self):
-        ''' retrieve response from string io'''
+    def _get_response(self):
         if self._rep is None:
             return ''
-        value = self._rep.getvalue()
 
+        value = self._rep.getvalue()
         self._rep.close()
 
         return value
-
-    def put_header(self, name, value):
-        self.headers.append('%s: %s' % (name, value))
-
-    def clear_headers(self):
-        self.headers = []
 
     def close(self):
         self._rep.close()

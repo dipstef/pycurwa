@@ -1,5 +1,4 @@
 import os
-from time import time
 
 from procol.console import print_err
 
@@ -19,8 +18,8 @@ class HttpDownloadRange(HttpDownloadRequest):
         super(HttpDownloadRange, self).__init__(url, file_path, cookies, bucket, resume)
 
     def _handle_resume(self):
+        super(HttpDownloadRange, self)._handle_resume()
         if not self._is_range_completed():
-            super(HttpDownloadRange, self)._handle_resume()
             self._set_bytes_range(self.received)
 
     def _handle_not_resumed(self):
@@ -37,9 +36,8 @@ class HttpDownloadRange(HttpDownloadRequest):
         return bytes_range
 
     def _write_body(self, buf):
-        if self._is_range_completed():
-            return 0
-        super(HttpDownloadRange, self)._write_body(buf)
+        if not self._is_range_completed():
+            super(HttpDownloadRange, self)._write_body(buf)
 
     def _parse_header(self, buf):
         if self._header_parse:
@@ -86,25 +84,9 @@ class FirstChunk(HttpChunk):
     def __init__(self, url, chunk, cookies=None, bucket=None):
         super(FirstChunk, self).__init__(url, chunk, cookies, bucket)
         self._header_parse = True
-        self.disposition_name = None
-        self.size = 0
 
     def _set_bytes_range(self, arrived=0):
         pass
-
-    def _parse_http_header(self):
-        header = super(FirstChunk, self)._parse_http_header()
-        self._set_header(header)
-        return header
-
-    def _parse_ftp_header(self, buf):
-        header = super(FirstChunk, self)._parse_ftp_header(buf)
-        self._set_header(header)
-        return header
-
-    def _set_header(self, header):
-        self.disposition_name = header.file_name
-        self.size = header.size
 
 
 class HttpChunks(object):
@@ -130,7 +112,8 @@ class HttpChunks(object):
             self._close_chunk(chunk)
 
     def is_completed(self):
-        return self._status.received == self.chunks_file.size
+        #return self._status.received == self.chunks_file.size
+        return os.path.getsize(self.chunks[0].path) == self.chunks_file.size
 
     @property
     def chunks(self):

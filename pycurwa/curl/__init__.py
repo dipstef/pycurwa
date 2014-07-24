@@ -1,8 +1,22 @@
 from contextlib import closing
 import pycurl
+import sys
+from urllib import urlencode
 from unicoder import byte_string
 from httpy.client.requests import user_agent
+from urlo import params_url
 from .error import PyCurlError
+
+
+py3 = sys.version_info[0] == 3
+
+if py3:
+    from io import BytesIO
+else:
+    try:
+        from cStringIO import StringIO as BytesIO
+    except ImportError:
+        from StringIO import StringIO as BytesIO
 
 
 class ClosingCurl(closing):
@@ -173,11 +187,34 @@ def set_resume(curl, resume):
     curl.setopt(pycurl.RESUME_FROM, resume)
 
 
+def set_body_fun(curl, body):
+    curl.setopt(pycurl.WRITEFUNCTION, body)
+
+
+def set_header_fun(curl, header):
+    curl.setopt(pycurl.HEADERFUNCTION, header)
+
+
 def set_body_header_fun(curl, body=None, header=None):
     if body:
-        curl.setopt(pycurl.WRITEFUNCTION, body)
+        set_body_fun(curl, body)
     if header:
-        curl.setopt(pycurl.HEADERFUNCTION, header)
+        set_header_fun(curl, header)
+
+
+def set_request_context(curl, url, params=None, post_data=None, referrer=None, multi_part=False):
+    url = byte_string(url)
+    url = params_url(url, urlencode(params)) if params else url
+
+    set_url(curl, url)
+
+    if post_data:
+        post_request(curl, post_data, multi_part)
+    else:
+        unset_post(curl)
+
+    if referrer:
+        set_referrer(curl, str(referrer))
 
 
 def perform_multi(curl):

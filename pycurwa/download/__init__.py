@@ -8,7 +8,7 @@ from procol.console import print_err
 from .chunks import Chunks
 from .chunks.download import ChunksDownload
 from .chunks.request import HttpChunk, FirstChunk
-from ..error import Abort, UnexpectedChunkContent
+from ..error import UnexpectedChunkContent
 from ..curl.error import PyCurlError
 from ..util import fs_encode, save_join
 
@@ -53,25 +53,16 @@ class HTTPDownload(object):
     def _download(self, chunks_number, resume):
         download = ChunksDownload(self.file_path, self, chunks_number, resume)
 
-        try:
-            for _ in download.download_checks():
-                if self.abort:
-                    raise Abort()
+        statistics = download.perform()
 
-            if not download.is_completed():
-                raise Exception('Not Completed')
+        if not download.is_completed():
+            raise Exception('Not Completed')
 
-            download.stats.file_path = self._save_chunks(download, self.file_path)
+        statistics.file_path = self._save_chunks(download, self.file_path)
 
-            return download.status
-        finally:
-            download.close()
+        return statistics
 
     def _save_chunks(self, download, file_name):
-        # make sure downloads are written to disk
-        for chunk in download.chunks:
-            chunk.flush_file()
-
         first_chunk = _copy_chunks(download.chunks_file)
         if self.disposition_name and self._use_disposition:
             file_name = save_join(dirname(file_name), self.disposition_name)

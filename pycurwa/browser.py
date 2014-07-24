@@ -1,5 +1,5 @@
 from download import HTTPDownload
-from request import HTTPRequest
+from request import CurlRequests
 
 
 class Browser(object):
@@ -28,8 +28,8 @@ class Browser(object):
 
     def load(self, url, *args, **kwargs):
         """ retrieves page """
-        http = HTTPRequest(self._cookie_jar)
-        result =  http.load(url, *args, **kwargs)
+        http = CurlRequests(self._cookie_jar)
+        result = http.load(url, *args, **kwargs)
 
         self._last_url = url
         return result
