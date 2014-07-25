@@ -55,6 +55,7 @@ class Curl:
         # Use password identification from .netrc automatically
         self.set_option(pycurl.NETRC, 1)
         self.set_option(pycurl.WRITEFUNCTION, self.payload_io.write)
+
         def header_callback(x):
             self.hdr += x.decode('ascii')
         self.set_option(pycurl.HEADERFUNCTION, header_callback)

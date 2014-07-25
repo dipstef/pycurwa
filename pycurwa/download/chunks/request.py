@@ -112,8 +112,8 @@ class HttpChunks(object):
             self._close_chunk(chunk)
 
     def is_completed(self):
-        #return self._status.received == self.chunks_file.size
-        return os.path.getsize(self.chunks[0].path) == self.chunks_file.size
+        #assert self._status.received == self.chunks_file.size
+        return os.path.getsize(self.path) == self.chunks_file.size
 
     @property
     def chunks(self):

@@ -55,10 +55,9 @@ class HTTPDownload(object):
 
         statistics = download.perform()
 
-        if not download.is_completed():
-            raise Exception('Not Completed')
-
         statistics.file_path = self._save_chunks(download, self.file_path)
+        if not statistics.is_completed():
+            raise Exception('Not Completed')
 
         return statistics
 

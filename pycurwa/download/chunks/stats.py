@@ -1,6 +1,7 @@
 from collections import OrderedDict
 import numbers
 import operator
+import os
 
 
 class ChunkStatus(OrderedDict):
@@ -86,4 +87,5 @@ class DownloadStats(object):
         return (self.received * 100) / self.size
 
     def is_completed(self):
-        return self.received == self.size
+        file_size = os.path.getsize(self.file_path)
+        return file_size == self.size

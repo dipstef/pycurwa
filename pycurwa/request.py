@@ -5,8 +5,8 @@ import pycurl
 from httpy.http.headers import headers_raw_to_dict
 
 from error import BadHeader, bad_headers
-from .curl import Curl, BytesIO, curl_request, set_low_speed_timeout, set_auth, get_cookies, set_cookies,\
-    clear_cookies, get_status_code, set_network_options, set_headers, get_effective_url, set_body_fun, set_header_fun, \
+from .curl import Curl, BytesIO, curl_request, set_low_speed_timeout, set_auth, get_cookies, set_cookies, \
+    get_status_code, set_network_options, set_headers, get_effective_url, set_body_fun, set_header_fun, \
     unset_cookie_files, set_request_context
 from .response import decode_response
 
@@ -57,9 +57,6 @@ class CurlRequestBase(object):
         if self.cookies:
             for cookie in self.cookies.get_cookies():
                 set_cookies(curl, cookie)
-
-    def clear_cookies(self):
-        clear_cookies(self.curl)
 
     def _write_header(self, buf):
         self._header_str += buf
