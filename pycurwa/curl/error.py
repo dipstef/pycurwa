@@ -51,7 +51,7 @@ def _curl_error(errno, message):
     return PyCurlError(errno, message)
 
 
-class CurlError(CurlHttpError):
+class CurlError(PyCurlError):
 
     def __new__(cls, errno, message):
         request = HttpRequest('GET', '')

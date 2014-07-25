@@ -5,7 +5,7 @@ from urllib import urlencode
 from unicoder import byte_string
 from httpy.client.requests import user_agent
 from urlo import params_url
-from .error import PyCurlError
+from .error import PyCurlError, CurlError
 
 
 py3 = sys.version_info[0] == 3
@@ -60,6 +60,12 @@ class Curl(ClosingCurl):
         super(Curl, self).__init__(pycurl.Curl)
 
         self.set_network_options(proxy, interface, use_ipv6)
+
+    def perform(self):
+        try:
+            self.curl.perform()
+        except PyCurlError, e:
+            raise CurlError(*e.args)
 
     def set_network_options(self, interface=None, proxy=None, use_ipv6=False):
         if interface:

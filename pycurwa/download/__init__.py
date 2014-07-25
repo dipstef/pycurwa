@@ -55,20 +55,22 @@ class HTTPDownload(object):
 
         statistics = download.perform()
 
-        file_path = self._save_chunks(download, self.file_path)
-
-        if not os.path.getsize(file_path) == download.size:
+        first_chunk = _copy_chunks(download.chunks_file)
+        if not os.path.getsize(first_chunk) == download.size:
             raise Exception('Not Completed')
+
+        statistics.file_path = self._move_to_download_file(first_chunk, download.path)
+        download.chunks_file.remove()
 
         return statistics
 
-    def _save_chunks(self, download, file_name):
-        first_chunk = _copy_chunks(download.chunks_file)
+    def _move_to_download_file(self, first_chunk, file_name):
+
         if self.disposition_name and self._use_disposition:
             file_name = save_join(dirname(file_name), self.disposition_name)
 
         move(first_chunk, fs_encode(file_name))
-        download.chunks_file.remove()
+
         return file_name
 
 

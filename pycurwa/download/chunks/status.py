@@ -40,7 +40,7 @@ class ChunksUnchanged(object):
         self.chunks = chunks
         self.check = check
         self.failed = {}
-        self.chunks_received = {}
+        self.chunks_received = OrderedDict(((chunk_id, chunk.received) for chunk_id, chunk in chunks.iteritems()))
 
 
 class ChunksDownloadStatus(object):

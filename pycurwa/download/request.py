@@ -27,8 +27,6 @@ class HttpDownloadRequest(CurlRequest):
     __headers_class__ = HttpDownloadHeaders
 
     def __init__(self, url, file_path, cookies, bucket=None, resume=False):
-        self._sleep = 0.000
-        self._last_size = 0
         self._resume = resume
 
         self.path = fs_encode(file_path)
@@ -48,27 +46,6 @@ class HttpDownloadRequest(CurlRequest):
 
     def _handle_not_resumed(self):
         pass
-
-    def _write_body(self, buf):
-        super(HttpDownloadRequest, self)._write_body(buf)
-        if not self._bucket:
-            self._update_sleep(len(buf))
-
-            time.sleep(self._sleep)
-
-    def _update_sleep(self, size):
-        # Avoid small buffers, increasing sleep time slowly if buffer size gets smaller
-        # otherwise reduce sleep time by percentage (values are based on tests)
-        # So in general cpu time is saved without reducing bandwidth too much
-        self._last_size = size
-        if size < self._last_size:
-            self._sleep += 0.002
-        else:
-            self._sleep *= 0.7
-
-    def _parse_header(self, buf):
-        super(HttpDownloadRequest, self)._parse_header(buf)
-        self.headers = HttpDownloadHeaders(self.headers)
 
     def get_speed(self):
         return self._curl.get_speed_download()
@@ -100,3 +77,29 @@ class DownloadHeadersRequest(CurlHeadersRequest):
 
     def __init__(self, request, cookies=None, bucket=None):
         super(DownloadHeadersRequest, self).__init__(request, cookies, bucket)
+
+
+#check if is needed
+class DownloadRequestControl(HttpDownloadRequest):
+
+    def __init__(self, url, file_path, cookies, bucket=None, resume=False):
+        super(DownloadRequestControl, self).__init__(url, file_path, cookies, bucket, resume)
+        self._sleep = 0.000
+        self._last_size = 0
+
+    def _write_body(self, buf):
+        super(HttpDownloadRequest, self)._write_body(buf)
+        if not self._bucket:
+            self._update_sleep(len(buf))
+
+            time.sleep(self._sleep)
+
+    def _update_sleep(self, size):
+        # Avoid small buffers, increasing sleep time slowly if buffer size gets smaller
+        # otherwise reduce sleep time by percentage (values are based on tests)
+        # So in general cpu time is saved without reducing bandwidth too much
+        self._last_size = size
+        if size < self._last_size:
+            self._sleep += 0.002
+        else:
+            self._sleep *= 0.7
