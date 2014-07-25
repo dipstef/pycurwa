@@ -6,7 +6,7 @@ from . import ChunksDict
 from .chunk import Range
 from pycurwa.download.chunks.stats import DownloadStats
 from .status import ChunksDownloadStatus
-from ...curl import set_range, CurlMulti, PyCurlError
+from ...curl import CurlMulti, PyCurlError
 from ..request import HttpDownloadRequest
 from ...error import BadHeader, RangeNotSatisfiable
 
@@ -32,7 +32,7 @@ class HttpDownloadRange(HttpDownloadRequest):
         else:
             bytes_range = '%i-%i' % (self.range_downloaded, self._range.end + 1)
 
-        set_range(self.curl, bytes_range)
+        self.curl.set_range(bytes_range)
         return bytes_range
 
     def _write_body(self, buf):

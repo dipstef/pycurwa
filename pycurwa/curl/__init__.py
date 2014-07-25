@@ -47,11 +47,111 @@ class CurlMulti(ClosingCurl):
             curl = curl.curl
         self.curl.remove_handle(curl)
 
+    def execute(self):
+        while True:
+            ret, num_handles = self.curl.perform()
+            if ret != pycurl.E_CALL_MULTI_PERFORM:
+                break
+
 
 class Curl(ClosingCurl):
 
     def __init__(self):
         super(Curl, self).__init__(pycurl.Curl)
+
+    def set_proxy(self, proxy):
+        if proxy.type == "socks4":
+            self.setopt(pycurl.PROXYTYPE, pycurl.PROXYTYPE_SOCKS4)
+        elif proxy.type == "socks5":
+            self.setopt(pycurl.PROXYTYPE, pycurl.PROXYTYPE_SOCKS5)
+        else:
+            self.setopt(pycurl.PROXYTYPE, pycurl.PROXYTYPE_HTTP)
+        self.setopt(pycurl.PROXY, proxy.address)
+        self.setopt(pycurl.PROXYPORT, proxy.port)
+        if proxy.auth:
+            self.setopt(pycurl.PROXYUSERPWD, str("%s:%s" % (proxy.user, proxy.password)))
+
+    def set_interface(self, interface):
+        self.setopt(pycurl.INTERFACE, interface)
+
+    def set_ipv6_resolve(self):
+        self.setopt(pycurl.IPRESOLVE, pycurl.IPRESOLVE_WHATEVER)
+
+    def set_ipv4_resolve(self):
+        self.setopt(pycurl.IPRESOLVE, pycurl.IPRESOLVE_V4)
+
+    def set_auth(self, auth):
+        self.setopt(pycurl.USERPWD, auth)
+
+    def set_low_speed_timeout(self, timeout):
+        self.setopt(pycurl.LOW_SPEED_TIME, timeout)
+
+    def set_cookies(self, cookie):
+        self.setopt(pycurl.COOKIELIST, cookie)
+
+    def clear_cookies(self):
+        self.unsetopt(self, pycurl.COOKIELIST)
+
+    def unset_cookie_files(self):
+        self.unsetopt(pycurl.COOKIEFILE)
+        self.unsetopt(pycurl.COOKIEJAR)
+
+    def set_url(self, url):
+        self.setopt(pycurl.URL, url)
+
+    def set_referrer(self, referrer):
+        self.setopt(pycurl.REFERER, referrer)
+
+    def set_headers(self, headers):
+        self.setopt(pycurl.HTTPHEADER, headers)
+
+    def set_network_options(self, interface=None, proxy=None, use_ipv6=False):
+        if interface:
+            self.set_interface(interface)
+        if proxy:
+            self.set_proxy(proxy)
+        if use_ipv6:
+            self.set_ipv6_resolve()
+        else:
+            self.set_ipv4_resolve()
+
+    def set_range(self, bytes_range):
+        self.setopt(pycurl.RANGE, bytes_range)
+
+    def set_resume(self, resume):
+        self.setopt(pycurl.RESUME_FROM, resume)
+
+    def set_body_fun(self, body):
+        self.setopt(pycurl.WRITEFUNCTION, body)
+
+    def set_header_fun(self, header):
+        self.setopt(pycurl.HEADERFUNCTION, header)
+
+    def set_request_context(self, url, params=None, post_data=None, referrer=None, multi_part=False):
+        url = byte_string(url)
+        url = params_url(url, urlencode(params)) if params else url
+
+        self.set_url(url)
+
+        if post_data:
+            post_request(self, post_data, multi_part)
+        else:
+            unset_post(self)
+
+        if referrer:
+            self.set_referrer(referrer)
+
+    def get_effective_url(self):
+        return self.getinfo(pycurl.EFFECTIVE_URL)
+
+    def get_cookies(self):
+        return self.getinfo(pycurl.INFO_COOKIELIST)
+
+    def get_status_code(self):
+        return int(self.getinfo(pycurl.RESPONSE_CODE))
+
+    def get_speed_download(self):
+        return self.getinfo(pycurl.SPEED_DOWNLOAD)
 
 
 _default_headers = ["Accept: */*",
@@ -108,133 +208,3 @@ def post_request(curl, post, multi_part=False):
     else:
         post = [(x, byte_string(y)) for x, y in post.iteritems()]
         curl.setopt(pycurl.HTTPPOST, post)
-
-
-def set_proxy(curl, proxy):
-    if proxy.type == "socks4":
-        curl.setopt(pycurl.PROXYTYPE, pycurl.PROXYTYPE_SOCKS4)
-    elif proxy.type == "socks5":
-        curl.setopt(pycurl.PROXYTYPE, pycurl.PROXYTYPE_SOCKS5)
-    else:
-        curl.setopt(pycurl.PROXYTYPE, pycurl.PROXYTYPE_HTTP)
-    curl.setopt(pycurl.PROXY, proxy.address)
-    curl.setopt(pycurl.PROXYPORT, proxy.port)
-    if proxy.auth:
-        curl.setopt(pycurl.PROXYUSERPWD, str("%s:%s" % (proxy.user, proxy.password)))
-
-
-def set_interface(curl, interface):
-    curl.setopt(pycurl.INTERFACE, interface)
-
-
-def set_ipv6_resolve(curl):
-    curl.setopt(pycurl.IPRESOLVE, pycurl.IPRESOLVE_WHATEVER)
-
-
-def set_ipv4_resolve(curl):
-    curl.setopt(pycurl.IPRESOLVE, pycurl.IPRESOLVE_V4)
-
-
-def set_auth(curl, auth):
-    curl.setopt(pycurl.USERPWD, auth)
-
-
-def set_low_speed_timeout(curl, timeout):
-    curl.setopt(pycurl.LOW_SPEED_TIME, timeout)
-
-
-def set_cookies(curl, cookie):
-    curl.setopt(pycurl.COOKIELIST, cookie)
-
-
-def clear_cookies(curl):
-    set_cookies(curl, '')
-
-
-def unset_cookie_files(curl):
-    curl.setopt(pycurl.COOKIEFILE, '')
-    curl.setopt(pycurl.COOKIEJAR, '')
-
-
-def set_url(curl, url):
-    curl.setopt(pycurl.URL, url)
-
-
-def set_referrer(curl, referrer):
-    curl.setopt(pycurl.REFERER, referrer)
-
-
-def set_headers(curl, headers):
-    curl.setopt(pycurl.HTTPHEADER, headers)
-
-
-def set_network_options(curl, interface=None, proxy=None, use_ipv6=False):
-    if interface:
-        set_interface(curl, str(interface))
-    if proxy:
-        set_proxy(curl, proxy)
-    if use_ipv6:
-        set_ipv6_resolve(curl)
-    else:
-        set_ipv4_resolve(curl)
-
-
-def set_range(curl, bytes_range):
-    curl.setopt(pycurl.RANGE, bytes_range)
-
-
-def set_resume(curl, resume):
-    curl.setopt(pycurl.RESUME_FROM, resume)
-
-
-def set_body_fun(curl, body):
-    curl.setopt(pycurl.WRITEFUNCTION, body)
-
-
-def set_header_fun(curl, header):
-    curl.setopt(pycurl.HEADERFUNCTION, header)
-
-
-def set_body_header_fun(curl, body=None, header=None):
-    if body:
-        set_body_fun(curl, body)
-    if header:
-        set_header_fun(curl, header)
-
-
-def set_request_context(curl, url, params=None, post_data=None, referrer=None, multi_part=False):
-    url = byte_string(url)
-    url = params_url(url, urlencode(params)) if params else url
-
-    set_url(curl, url)
-
-    if post_data:
-        post_request(curl, post_data, multi_part)
-    else:
-        unset_post(curl)
-
-    if referrer:
-        set_referrer(curl, str(referrer))
-
-
-def perform_multi(curl):
-    while True:
-        ret, num_handles = curl.perform()
-        if ret != pycurl.E_CALL_MULTI_PERFORM:
-            break
-
-
-def get_effective_url(curl):
-    return curl.getinfo(pycurl.EFFECTIVE_URL)
-
-
-def get_cookies(curl):
-    return curl.getinfo(pycurl.INFO_COOKIELIST)
-
-
-def get_status_code(curl):
-    return int(curl.getinfo(pycurl.RESPONSE_CODE))
-
-
-def get_speed_download(curl):
-    return curl.getinfo(pycurl.SPEED_DOWNLOAD)

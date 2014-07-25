@@ -4,7 +4,6 @@ import time
 from httpy import HttpHeaders, HttpRequest
 from httpy.http.headers.content import disposition_file_name, content_length
 
-from ..curl import set_resume, get_speed_download
 from ..request import CurlRequest
 from ..util import fs_encode
 
@@ -29,7 +28,7 @@ class HttpDownloadRequest(CurlRequest):
             self._handle_not_resumed()
 
     def _handle_resume(self):
-        set_resume(self.curl, self.received)
+        self.curl.set_resume(self.received)
 
     def _handle_not_resumed(self):
         pass
@@ -56,7 +55,7 @@ class HttpDownloadRequest(CurlRequest):
         self.headers = DownloadHeaders(self.headers)
 
     def get_speed(self):
-        return get_speed_download(self.curl)
+        return self.curl.get_speed_download()
 
     def close(self):
         self._flush()

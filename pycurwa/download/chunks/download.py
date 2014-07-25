@@ -5,7 +5,6 @@ from procol.console import print_err
 from . import load_chunks, CreateChunksFile, OneChunk, ChunkFile
 from pycurwa.error import Abort
 from .request import FirstChunk, HttpChunks, HttpChunk
-from ...curl import perform_multi
 
 
 class DownloadChunks(HttpChunks):
@@ -29,7 +28,7 @@ class DownloadChunks(HttpChunks):
 
     def _download_checks(self):
         while not self._status.is_done():
-            perform_multi(self.curl)
+            self.curl.execute()
 
             status = self._update_status()
 
