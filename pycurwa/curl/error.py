@@ -2,7 +2,7 @@ import pycurl
 
 from httpy import HttpRequest
 from httpy.connection.error import ConnectionRefused, UnresolvableHost, SocketError, ConnectionTimeout
-from httpy.error import HttpServerSocketError, HttpError, HttpServerError
+from httpy.error import HttpServerSocketError, HttpError
 
 
 class PyCurlError(pycurl.error):
@@ -65,3 +65,8 @@ class CurlError(CurlHttpError):
             error = _curl_error(errno, message)
 
         return CurlHttpError(request, error)
+
+
+class MissingHandle(Exception):
+    def __init__(self, handle):
+        super(MissingHandle, self).__init__('Handle not Found', handle)

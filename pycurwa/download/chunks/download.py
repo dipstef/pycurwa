@@ -9,13 +9,17 @@ from .request import FirstChunk, HttpChunks, HttpChunk
 
 class DownloadChunks(HttpChunks):
 
-    def __init__(self, chunks, cookies=None, bucket=None):
-        super(DownloadChunks, self).__init__(chunks, cookies, bucket)
+    def __init__(self, chunks_file, cookies=None, bucket=None):
+        super(DownloadChunks, self).__init__(chunks_file, cookies, bucket)
         self._abort = False
 
     def perform(self):
         try:
-            for _ in self._download_checks():
+            for status in self._download_checks():
+
+                for chunk, error in status.failed.values():
+                    print_err('Chunk %d failed: %s' % (chunk.id + 1, str(error)))
+
                 if self._abort:
                     raise Abort()
 
@@ -28,9 +32,9 @@ class DownloadChunks(HttpChunks):
 
     def _download_checks(self):
         while not self._status.is_done():
-            self.curl.execute()
+            self.execute()
 
-            status = self._update_status()
+            status = self._get_status()
 
             if status.failed:
                 self._check_chunks(status)
@@ -38,7 +42,7 @@ class DownloadChunks(HttpChunks):
             if not self._status.is_done():
                 yield status
 
-                self.curl.select(1)
+                self.select(timeout=1)
 
     def _check_chunks(self, status):
         if len(self._chunks) > 1:
@@ -58,7 +62,7 @@ class DownloadChunks(HttpChunks):
         self.chunks_file = OneChunk(self.url, self.path, self.size, resume=True)
         chunk = HttpChunk(self.url, self.chunks_file[0], self._cookies, self._bucket)
         self._chunks[0] = chunk
-        self.curl.add_handle(chunk.curl)
+        self.add(chunk.curl)
 
 
 class ChunksDownload(DownloadChunks):

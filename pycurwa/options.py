@@ -36,3 +36,9 @@ class Proxy(namedtuple('Proxy', ['type', 'address', 'port', 'auth'])):
 
     def __new__(cls, proxy_type, address, port, auth=None):
         return super(Proxy, cls).__new__(cls, proxy_type, address, port, auth)
+
+    def is_socks4(self):
+        return self.type == 'socks4'
+
+    def is_socks5(self):
+        return self.type == 'socks5'

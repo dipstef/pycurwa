@@ -1,12 +1,10 @@
 import os
 
-from procol.console import print_err
-
 from . import ChunksDict
 from .chunk import Range
 from pycurwa.download.chunks.stats import DownloadStats
+from pycurwa.request import MultiRequestsBase
 from .status import ChunksDownloadStatus
-from ...curl import CurlMulti, PyCurlError
 from ..request import HttpDownloadRequest
 from ...error import BadHeader, RangeNotSatisfiable
 
@@ -72,6 +70,7 @@ class HttpChunk(HttpDownloadRange):
         self._header_parse = False
         self.id = chunk.id
         self._chunk = chunk
+        self.curl.chunk_id = chunk.id
 
     def __str__(self):
         if self._is_closed_range():
@@ -89,57 +88,33 @@ class FirstChunk(HttpChunk):
         pass
 
 
-class HttpChunks(object):
+class ChunkRequests(MultiRequestsBase):
 
-    def __init__(self, chunks, cookies=None, bucket=None):
-        self._chunks = ChunksDict((HttpChunk(chunks.url, chunk, cookies, bucket) for chunk in chunks))
-        self.chunks_file = chunks
-        self.curl = CurlMulti()
+    def __init__(self, chunks=()):
+        super(ChunkRequests, self).__init__()
+        self._chunks = ChunksDict()
+        for chunk in chunks:
+            self.add(chunk)
 
-        for http_chunk in self._chunks.values():
-            self.curl.add_handle(http_chunk.curl)
+    def _add_request(self, chunk):
+        self._chunks[chunk.id] = chunk
 
-        self.url = chunks.url
-        self.path = chunks.file_path
-        self.size = chunks.size
-        self._status = ChunksDownloadStatus(self._chunks)
-        self._cookies = cookies
-        self._bucket = bucket
-        self.stats = DownloadStats(self.path, self.size)
+    def _find_request(self, handle):
+        return self._chunks.get(handle.chunk_id)
 
-    def close(self):
-        for chunk in self:
-            self._close_chunk(chunk)
-
-    def is_completed(self):
-        #assert self._status.received == self.chunks_file.size
-        return os.path.getsize(self.path) == self.chunks_file.size
+    def _remove_request(self, chunk):
+        del self._chunks[chunk.id]
 
     @property
     def chunks(self):
         return list(self._chunks.values())
 
-    def _close_chunk(self, chunk):
-        try:
-            self.curl.remove_handle(chunk.curl)
-        except PyCurlError, e:
-            print_err('Error removing chunk: %s' % str(e))
-        finally:
-            chunk.close()
-
-    def _remove_chunk(self, chunk):
-        self._close_chunk(chunk)
-        os.remove(chunk.path)
-
-    def _update_status(self):
-        status = self._status.check_finished(self.curl, seconds=0.5)
-
-        for chunk, error in status.failed.values():
-            print_err('Chunk %d failed: %s' % (chunk.id + 1, str(error)))
-
-        self.stats.update_progress(status)
-
-        return status
+    def close(self, chunk=None):
+        if not chunk:
+            for chunk in self:
+                self.close(chunk)
+        else:
+            super(ChunkRequests, self).close(chunk)
 
     def __len__(self):
         return len(self._chunks)
@@ -149,3 +124,37 @@ class HttpChunks(object):
 
     def __iter__(self):
         return iter(self._chunks.values())
+
+
+class HttpChunks(ChunkRequests):
+
+    __slots__ = ('perform', )
+
+    def __init__(self, chunks_file, cookies=None, bucket=None):
+        chunks = (HttpChunk(chunks_file.url, chunk, cookies, bucket) for chunk in chunks_file)
+        super(HttpChunks, self).__init__(chunks)
+
+        self.chunks_file = chunks_file
+
+        self.url = chunks_file.url
+        self.path = chunks_file.file_path
+        self.size = chunks_file.size
+        self._status = ChunksDownloadStatus(self._chunks)
+        self._cookies = cookies
+        self._bucket = bucket
+        self.stats = DownloadStats(self.path, self.size)
+
+    def is_completed(self):
+        #assert self._status.received == self.chunks_file.size
+        return os.path.getsize(self.path) == self.chunks_file.size
+
+    def _remove_chunk(self, chunk):
+        self.close(chunk)
+        os.remove(chunk.path)
+
+    def _get_status(self):
+        status = self._status.check_finished(self, seconds=0.5)
+
+        self.stats.update_progress(status)
+
+        return status

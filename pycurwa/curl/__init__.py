@@ -56,16 +56,29 @@ class CurlMulti(ClosingCurl):
 
 class Curl(ClosingCurl):
 
-    def __init__(self):
+    def __init__(self, proxy=None, interface=None, use_ipv6=False):
         super(Curl, self).__init__(pycurl.Curl)
 
+        self.set_network_options(proxy, interface, use_ipv6)
+
+    def set_network_options(self, interface=None, proxy=None, use_ipv6=False):
+        if interface:
+            self.set_interface(interface)
+        if proxy:
+            self.set_proxy(proxy)
+        if use_ipv6:
+            self.set_ipv6_resolve()
+        else:
+            self.set_ipv4_resolve()
+
     def set_proxy(self, proxy):
-        if proxy.type == "socks4":
+        if proxy.is_socks4():
             self.setopt(pycurl.PROXYTYPE, pycurl.PROXYTYPE_SOCKS4)
-        elif proxy.type == "socks5":
+        elif proxy.is_socks5():
             self.setopt(pycurl.PROXYTYPE, pycurl.PROXYTYPE_SOCKS5)
         else:
             self.setopt(pycurl.PROXYTYPE, pycurl.PROXYTYPE_HTTP)
+
         self.setopt(pycurl.PROXY, proxy.address)
         self.setopt(pycurl.PROXYPORT, proxy.port)
         if proxy.auth:
@@ -104,16 +117,6 @@ class Curl(ClosingCurl):
 
     def set_headers(self, headers):
         self.setopt(pycurl.HTTPHEADER, headers)
-
-    def set_network_options(self, interface=None, proxy=None, use_ipv6=False):
-        if interface:
-            self.set_interface(interface)
-        if proxy:
-            self.set_proxy(proxy)
-        if use_ipv6:
-            self.set_ipv6_resolve()
-        else:
-            self.set_ipv4_resolve()
 
     def set_range(self, bytes_range):
         self.setopt(pycurl.RANGE, bytes_range)
