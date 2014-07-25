@@ -55,7 +55,7 @@ class HttpChunks(ChunkRequests):
         self.url = chunks_file.url
         self.path = chunks_file.file_path
         self.size = chunks_file.size
-        self._status = ChunksDownloadStatus(self._chunks)
+        self._status = ChunksDownloadStatus(self.size, self._chunks)
         self._cookies = cookies
         self._bucket = bucket
 
@@ -69,7 +69,7 @@ class HttpChunks(ChunkRequests):
                 raise Exception('Content size mismatch: received: %d, expected: %d' % (self._status.received, self.size))
 
             return stats
-        except BaseException:
+        except BaseException, e:
             raise
         finally:
             self.close()

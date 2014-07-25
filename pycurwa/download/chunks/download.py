@@ -22,8 +22,9 @@ class DownloadChunks(HttpChunks):
         try:
             return super(DownloadChunks, self).perform()
         except PyCurlError, e:
-            if not self._is_completed() and not self.chunks_file.resume:
-                self.chunks_file.remove()
+            if not self._is_completed():
+                if not self.chunks_file.resume:
+                    self.chunks_file.remove()
                 raise e
 
     def _is_completed(self):

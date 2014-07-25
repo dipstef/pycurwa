@@ -45,10 +45,11 @@ class ChunksUnchanged(object):
 
 class ChunksDownloadStatus(object):
 
-    def __init__(self, chunks):
+    def __init__(self, size, chunks):
         self._last_finish = None
         self._current_status = None
 
+        self.size = size
         self.ok = ChunksDict()
         self.failed = ChunksDict()
         self._chunks = chunks
@@ -95,7 +96,10 @@ class ChunksDownloadStatus(object):
         self._current_status = status
 
     def is_done(self):
-        return len(self.ok) >= len(self._chunks)
+        return len(self.ok) >= len(self._chunks) or self.is_completed()
+
+    def is_completed(self):
+        return self.received >= self.size
 
     @property
     def received(self):

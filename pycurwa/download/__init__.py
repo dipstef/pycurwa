@@ -56,6 +56,7 @@ class HTTPDownload(object):
         statistics = download.perform()
 
         first_chunk = _copy_chunks(download.chunks_file)
+
         if not os.path.getsize(first_chunk) == download.size:
             raise Exception('Not Completed')
 
