@@ -48,19 +48,9 @@ class DownloadStats(object):
         #needed for speed calculation
         self.chunks_received = ChunkStatus()
 
-        self.chunk_speeds = ChunkStatus()
         self.last_speeds = ChunkStatus()
 
         self._last_speeds = ({}, {})
-        self.lasts_speeds = []
-        self.speeds = []
-        self.updates = 0
-
-        self.lastsReceived = []
-        self.lastArrived = []
-        self.lastSpeeds = ((), ())
-        #self._last_speeds = (self.chunks_speeds, ChunkStatus())
-        self.Speeds = []
 
     def _refresh_speed(self, status_check, seconds=1):
         return self._last_check + seconds < status_check
@@ -70,87 +60,29 @@ class DownloadStats(object):
             self._update_progress(status)
 
     def _update_progress(self, status):
-        self.updates += 1
-
         received_now = ChunkStatus(status.chunks_received)
         received_diff = received_now - self.chunks_received
 
         last_speeds = received_diff/float(status.check - self._last_check)
 
-        self._update_speed_old(status.check, status.chunks_received)
-        self._update_speed(last_speeds)
-
-        self.chunks_received = received_now
-
-        self._last_check = status.check
-
-        self.lasts_speeds.append(self.last_speeds)
-
-    def _update_speed(self, last_speeds):
-        self.speeds.append(last_speeds)
-
-        if self.chunk_speeds:
-            self.chunk_speeds = (last_speeds + self.chunk_speeds) / float(2)
-        else:
-            self.chunk_speeds = last_speeds
-
         self._last_speeds = (self.last_speeds, self._last_speeds[0])
 
-        last = [sum(x.values()) for x in self._last_speeds if x]
-
-        last_active = [x for x in self._last_speeds if x]
-        current_speeds = last_speeds
-        for last_active_speed in last_active:
-            current_speeds += last_active_speed
-        current_speeds /= 1 + len(last)
-
-        speed_old2 = current_speeds.sum()
-
-        speed_old = (last_speeds.sum() + sum(last)) / (1 + len(last))
-
-        speed = sum([sum(speed.values()) for speed in self.speeds])/len(self.speeds)
-
-        print
-        print 'Speed:', speed
-        print 'Self speed: ', self.speed
-        print 'Speed Old:', speed_old
-        print 'Speed Ald:', speed_old2
-        print 'Speed Uld:', self.speed_old
-
+        self.chunks_received = received_now
         self.last_speeds = last_speeds
 
-    def _update_speed_old(self, now, received):
-        last_received = OrderedDict()
-
-        last_received_len = len(self.lastsReceived)
-
-        for chunk_id, arrived in enumerate(received.values()):
-            if last_received_len > chunk_id:
-                last_received[chunk_id] = self.lastsReceived[chunk_id]
-            else:
-                last_received[chunk_id] = 0
-
-        last_received = last_received.values()
-
-        diff = [arrived - last_received[chunk_id] for chunk_id, arrived in enumerate(received.values())]
-
-        self.lastSpeeds = (self.Speeds, self.lastSpeeds[0])
-
-        self.Speeds = [float(a) / (now - self._last_check) for a in diff]
-
-        self.lastsReceived = received.values()
+        self._last_check = status.check
 
 
     #current speed
     @property
     def speed(self):
-        return self.chunk_speeds.sum()
+        return sum(self.chunks_speeds.values())
 
     @property
-    def speed_old(self):
-        last = [sum(x) for x in self.lastSpeeds if x]
-
-        return (sum(self.Speeds) + sum(last)) / (1 + len(last))
+    def chunks_speeds(self):
+        last = [x for x in self._last_speeds if x]
+        current_speeds = reduce(operator.add, last, self.last_speeds) / (1 + len(last))
+        return current_speeds
 
 
     @property

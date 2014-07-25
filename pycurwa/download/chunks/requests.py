@@ -65,7 +65,7 @@ class HttpChunks(ChunkRequests):
         try:
             stats = self._perform()
 
-            if not self._status.received == self.size:
+            if self._status.received < self.size:
                 raise Exception('Content size mismatch: received: %d, expected: %d' % (self._status.received, self.size))
 
             return stats

@@ -1,15 +1,14 @@
 import os
 import time
+
 from httpy import HttpRequest
 
 from procol.console import print_err
 
 from . import load_chunks, CreateChunksFile, OneChunk
 from pycurwa.download.request import DownloadHeadersRequest
-from pycurwa.request import CurlHeadersRequest
 from .request import HttpChunk
 from .requests import HttpChunks
-from ..request import CurlRequest
 from ...curl import PyCurlError
 
 

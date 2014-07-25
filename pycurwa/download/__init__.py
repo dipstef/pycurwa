@@ -57,8 +57,9 @@ class HTTPDownload(object):
 
         first_chunk = _copy_chunks(download.chunks_file)
 
-        if not os.path.getsize(first_chunk) == download.size:
-            raise Exception('Not Completed')
+        path_size = os.path.getsize(first_chunk)
+        if not path_size == download.size:
+            raise Exception('Not Completed: %d expected %d' % (path_size, download.size) )
 
         statistics.file_path = self._move_to_download_file(first_chunk, download.path)
         download.chunks_file.remove()
