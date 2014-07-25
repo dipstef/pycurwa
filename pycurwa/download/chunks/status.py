@@ -14,17 +14,15 @@ class FailedChunk(namedtuple('FailedChunk', ('chunk', 'error'))):
 class HttpChunksStatus(object):
 
     def __init__(self, chunks, check, status):
-        ok, failed = ChunksDict(status.completed), ChunksDict(status.failed)
-
         self._chunks = chunks
-        self.ok = ok
-        self.failed = failed
+        self.ok = ChunksDict(status.completed)
+        self.failed = OrderedDict(((chunk.id, (chunk, error)) for chunk, error in status.failed))
         self.handles_remaining = status.handles_remaining
         self.check = check
 
     @property
     def last_error(self):
-        return self.failed.values()[-1].error if self.failed else None
+        return self.failed.values()[-1][1] if self.failed else None
 
     @property
     def chunks_received(self):
@@ -41,7 +39,8 @@ class ChunksUnchanged(object):
         super(ChunksUnchanged, self).__init__()
         self.chunks = chunks
         self.check = check
-        self.failed = []
+        self.failed = {}
+        self.chunks_received = {}
 
 
 class ChunksDownloadStatus(object):
@@ -66,7 +65,6 @@ class ChunksDownloadStatus(object):
         self._last_finish = status
 
         return status
-
 
     @property
     def _last_finish_check(self):

@@ -4,11 +4,27 @@ import time
 from httpy import HttpHeaders, HttpRequest
 from httpy.http.headers.content import disposition_file_name, content_length
 
-from ..request import CurlRequest
+from ..request import CurlRequest, CurlHeadersRequest
 from ..util import fs_encode
 
 
+class HttpDownloadHeaders(HttpHeaders):
+
+    @property
+    def chunk_support(self):
+        return 'bytes' == self.get('accept-ranges', '')
+
+    @property
+    def file_name(self):
+        return disposition_file_name(self)
+
+    @property
+    def size(self):
+        return content_length(self)
+
+
 class HttpDownloadRequest(CurlRequest):
+    __headers_class__ = HttpDownloadHeaders
 
     def __init__(self, url, file_path, cookies, bucket=None, resume=False):
         self._sleep = 0.000
@@ -28,7 +44,7 @@ class HttpDownloadRequest(CurlRequest):
             self._handle_not_resumed()
 
     def _handle_resume(self):
-        self.curl.set_resume(self.received)
+        self._curl.set_resume(self.received)
 
     def _handle_not_resumed(self):
         pass
@@ -52,19 +68,23 @@ class HttpDownloadRequest(CurlRequest):
 
     def _parse_header(self, buf):
         super(HttpDownloadRequest, self)._parse_header(buf)
-        self.headers = DownloadHeaders(self.headers)
+        self.headers = HttpDownloadHeaders(self.headers)
 
     def get_speed(self):
-        return self.curl.get_speed_download()
+        return self._curl.get_speed_download()
 
     def close(self):
         self._flush()
-        self.curl.close()
+        super(HttpDownloadRequest, self).close()
 
     def _flush(self):
         self._fp.flush()
         os.fsync(self._fp.fileno())
         self._fp.close()
+
+    @property
+    def chunk_support(self):
+        return self.headers.chunk_support
 
     @property
     def disposition_name(self):
@@ -75,16 +95,8 @@ class HttpDownloadRequest(CurlRequest):
         return self.headers.size
 
 
-class DownloadHeaders(HttpHeaders):
+class DownloadHeadersRequest(CurlHeadersRequest):
+    __headers_class__ = HttpDownloadHeaders
 
-    @property
-    def chunk_support(self):
-        return 'bytes' == self.get('accept-ranges', '')
-
-    @property
-    def file_name(self):
-        return disposition_file_name(self)
-
-    @property
-    def size(self):
-        return content_length(self)
+    def __init__(self, request, cookies=None, bucket=None):
+        super(DownloadHeadersRequest, self).__init__(request, cookies, bucket)

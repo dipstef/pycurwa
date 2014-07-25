@@ -1,50 +1,41 @@
+import os
 import time
+from httpy import HttpRequest
 
 from procol.console import print_err
 
-from . import load_chunks, CreateChunksFile, OneChunk, ChunkFile
-from pycurwa.error import Abort
-from .request import FirstChunk, HttpChunks, HttpChunk
+from . import load_chunks, CreateChunksFile, OneChunk
+from pycurwa.download.request import DownloadHeadersRequest
+from pycurwa.request import CurlHeadersRequest
+from .request import HttpChunk
+from .requests import HttpChunks
+from ..request import CurlRequest
+from ...curl import PyCurlError
 
 
 class DownloadChunks(HttpChunks):
 
     def __init__(self, chunks_file, cookies=None, bucket=None):
         super(DownloadChunks, self).__init__(chunks_file, cookies, bucket)
-        self._abort = False
 
     def perform(self):
         try:
-            for status in self._download_checks():
-
-                for chunk, error in status.failed.values():
-                    print_err('Chunk %d failed: %s' % (chunk.id + 1, str(error)))
-
-                if self._abort:
-                    raise Abort()
-
-            return self.stats
-        except BaseException, e:
-            self.close()
-            if not self.is_completed() and not self.chunks_file.resume:
+            return super(DownloadChunks, self).perform()
+        except PyCurlError, e:
+            if not self._is_completed() and not self.chunks_file.resume:
                 self.chunks_file.remove()
                 raise e
 
-    def _download_checks(self):
-        while not self._status.is_done():
-            self.execute()
+    def _is_completed(self):
+        try:
+            return os.path.getsize(self.path) == self.size
+        except OSError:
+            return False
 
-            status = self._get_status()
+    def _handle_failed(self, status):
+        for chunk, error in status.failed.values():
+            print_err('Chunk %d failed: %s' % (chunk.id + 1, str(error)))
 
-            if status.failed:
-                self._check_chunks(status)
-
-            if not self._status.is_done():
-                yield status
-
-                self.select(timeout=1)
-
-    def _check_chunks(self, status):
         if len(self._chunks) > 1:
             # 416 Range not satisfiable check
             print_err(('Download chunks failed, fallback to single connection | %s' % (str(status.last_error))))
@@ -57,12 +48,16 @@ class DownloadChunks(HttpChunks):
         #it returns only even element when the list is not copied, odd
         for chunk in list(self._chunks.values()):
             self._remove_chunk(chunk)
-            del self._chunks[chunk.id]
 
         self.chunks_file = OneChunk(self.url, self.path, self.size, resume=True)
         chunk = HttpChunk(self.url, self.chunks_file[0], self._cookies, self._bucket)
+
         self._chunks[0] = chunk
-        self.add(chunk.curl)
+        self.add(chunk)
+
+    def _remove_chunk(self, chunk):
+        self.close(chunk)
+        os.remove(chunk.path)
 
 
 class ChunksDownload(DownloadChunks):
@@ -71,20 +66,18 @@ class ChunksDownload(DownloadChunks):
         try:
             chunks = load_chunks(download.url, file_path, resume)
         except IOError, e:
-            download_size = _resolve_size(file_path, download)
+            download_size = _resolve_size(download.url, download.cookies)
 
             chunks = CreateChunksFile(download.url, file_path, download_size, chunks_number)
 
         return DownloadChunks(chunks, download.cookies, download.bucket)
 
 
-def _resolve_size(file_path, download):
-    chunk = ChunkFile(1, 1, '%s.chunk%s' % (file_path, 0), (0, 1024))
-
-    initial = FirstChunk(download.url, chunk, download.cookies, download.bucket)
+def _resolve_size(url, cookies=None, bucket=None):
+    initial = DownloadHeadersRequest(HttpRequest('GET', url), cookies, bucket)
 
     try:
-        initial.head()
-        return initial.size
+        headers = initial.head()
+        return headers.size
     finally:
         initial.close()

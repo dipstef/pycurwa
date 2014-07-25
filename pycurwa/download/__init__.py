@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from os import remove
+import os
 from os.path import dirname
 from shutil import move
 
@@ -7,7 +8,6 @@ from procol.console import print_err
 
 from .chunks import Chunks
 from .chunks.download import ChunksDownload
-from .chunks.request import HttpChunk, FirstChunk
 from ..error import UnexpectedChunkContent
 from ..curl.error import PyCurlError
 from ..util import fs_encode, save_join
@@ -55,8 +55,9 @@ class HTTPDownload(object):
 
         statistics = download.perform()
 
-        statistics.file_path = self._save_chunks(download, self.file_path)
-        if not statistics.is_completed():
+        file_path = self._save_chunks(download, self.file_path)
+
+        if not os.path.getsize(file_path) == download.size:
             raise Exception('Not Completed')
 
         return statistics
