@@ -20,7 +20,7 @@ class Chunk(namedtuple('Chunk', ['number', 'chunks', 'path', 'range'])):
 
     @property
     def size(self):
-        return self.range.size
+        return self.range.size + 1 if not self.is_last else self.range.size
 
     @property
     def start(self):

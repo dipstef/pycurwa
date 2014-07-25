@@ -22,7 +22,8 @@ class HttpDownloadRange(HttpDownloadRequest):
         if not self._is_closed_range():
             bytes_range = '%i-' % (arrived + self._range.start)
         else:
-            bytes_range = '%i-%i' % (self.range_downloaded, self._range.end + 1)
+            range_end = min(self._range.end + 1, self.headers.size - 1)
+            bytes_range = '%i-%i' % (arrived + self._range.start, range_end)
 
         self._curl.set_range(bytes_range)
         return bytes_range
@@ -43,10 +44,6 @@ class HttpDownloadRange(HttpDownloadRequest):
 
     def _is_closed_range(self):
         return bool(self._range.end)
-
-    @property
-    def range_downloaded(self):
-        return self._range.start + self.received
 
     def verify_header(self):
         try:

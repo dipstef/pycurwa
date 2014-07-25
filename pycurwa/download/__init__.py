@@ -8,7 +8,7 @@ from procol.console import print_err
 
 from .chunks import Chunks
 from .chunks.download import ChunksDownload
-from ..error import UnexpectedChunkContent
+from ..error import UnexpectedContent
 from ..curl.error import PyCurlError
 from ..util import fs_encode, save_join
 
@@ -83,29 +83,33 @@ def _copy_chunks(info):
         with open(first_chunk_path, 'rb+') as fo:
             try:
                 for i in range(1, info.count):
+                    # input file
+                    # seek to beginning of chunk, to get rid of overlapping chunks
                     fo.seek(info[i - 1].range.end + 1)
 
                     _copy_chunk(info[i], fo)
-            except UnexpectedChunkContent:
+            except UnexpectedContent:
                 remove(first_chunk_path)
                 # there are probably invalid chunks
                 info.remove()
+                raise
 
     return first_chunk_path
 
 
 # copy in chunks, consumes less memory
-def _copy_chunk(chunk, fo, buf_size=32 * 1024):
-    # input file
-    # seek to beginning of chunk, to get rid of overlapping chunks
+def _copy_chunk(chunk, first_chunk, buf_size=32 * 1024):
+    chunk_size = os.path.getsize(chunk.path)
+
+    if chunk_size != chunk.size:
+    #    raise UnexpectedChunkContent(chunk.path, chunk_size, chunk.size)
+        print_err(UnexpectedContent(chunk.path, chunk_size, chunk.size))
+
     with open(chunk.path, 'rb') as fi:
         while True:
             data = fi.read(buf_size)
             if not data:
                 break
-            fo.write(data)
-
-    if fo.tell() < chunk.range.end:
-        raise UnexpectedChunkContent()
+            first_chunk.write(data)
 
     remove(chunk.path)

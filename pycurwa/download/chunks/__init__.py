@@ -84,12 +84,11 @@ class ChunksFile(Chunks):
         with codecs.open(self.path_encoded, 'w', 'utf-8') as chunks_file:
             return json.dump(self._json_dict(), chunks_file, indent=4, encoding='utf-8')
 
-    def remove(self):
-        try:
-            os.remove(self.path_encoded)
-        except OSError:
-            #Already removed
-            pass
+    def remove(self, all=True):
+        _remove(self.path_encoded)
+        if all:
+            for chunk in self.chunks:
+                _remove(chunk.path)
 
     def __str__(self):
         ret = 'File: %s, %d chunks: \n' % (encoded(self.file_path), self.size)
@@ -97,6 +96,14 @@ class ChunksFile(Chunks):
             ret += '%s# %s\n' % (i, chunk)
 
         return ret
+
+
+def _remove(path):
+        try:
+            os.remove(path)
+        except OSError:
+            # Already removed
+            pass
 
 
 class DownloadChunksFile(ChunksFile):

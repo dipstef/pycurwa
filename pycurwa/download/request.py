@@ -36,8 +36,8 @@ class HttpDownloadRequest(CurlRequest):
         super(HttpDownloadRequest, self).__init__(HttpRequest('GET', url), self._fp.write, cookies, bucket)
 
         if resume:
-            self._handle_resume()
             self.received = self._fp.tell() or os.stat(self.path).st_size
+            self._handle_resume()
         else:
             self._handle_not_resumed()
 

@@ -9,10 +9,11 @@ def main():
 
     bucket = Bucket()
     bucket.set_max_speed(200 * 1024)
-    #bucket = None
+
+    bucket = None
     print "starting"
     d = HTTPDownload(url, file_name, bucket=bucket)
-    stats = d.download(chunks_number=20, resume=True)
+    stats = d.download(chunks_number=8, resume=True)
     print stats.speed
 
 
