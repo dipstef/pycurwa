@@ -107,9 +107,8 @@ def _check_status_codes(status):
             # double check header
             try:
                 request.verify_header()
-                completed.append(request)
+                #completed.append(request)
             except BadHeader:
-                pass
-        failed.append((request, error))
+                failed.append((request, error))
 
     return MultiRequestsStatus(completed, failed, status.handles_remaining)

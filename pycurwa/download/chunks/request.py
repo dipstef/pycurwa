@@ -10,20 +10,16 @@ class HttpDownloadRange(HttpDownloadRequest):
         super(HttpDownloadRange, self).__init__(url, file_path, cookies, bucket, resume)
 
     def _handle_resume(self):
-        super(HttpDownloadRange, self)._handle_resume()
-        if not self._is_range_completed():
-            self._set_bytes_range(self.received)
+        self._set_bytes_range(self.received)
 
     def _handle_not_resumed(self):
-        super(HttpDownloadRange, self)._handle_not_resumed()
         self._set_bytes_range()
 
     def _set_bytes_range(self, arrived=0):
         if not self._is_closed_range():
             bytes_range = '%i-' % (arrived + self._range.start)
         else:
-            range_end = min(self._range.end + 1, self.headers.size - 1)
-            bytes_range = '%i-%i' % (arrived + self._range.start, range_end)
+            bytes_range = '%i-%i' % (arrived + self._range.start, self._range.end)
 
         self._curl.set_range(bytes_range)
         return bytes_range
@@ -31,6 +27,8 @@ class HttpDownloadRange(HttpDownloadRequest):
     def _write_body(self, buf):
         if not self._is_range_completed():
             super(HttpDownloadRange, self)._write_body(buf)
+        else:
+            raise Exception('Above Range: ', self.path, self._range, self.received + len(buf))
 
     def _parse_header(self, buf):
         if self._header_parse:

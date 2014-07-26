@@ -46,15 +46,16 @@ class ChunkRequests(MultiRequestsBase):
 
 class HttpChunks(ChunkRequests):
 
-    def __init__(self, chunks_file, cookies=None, bucket=None):
-        chunks = (HttpChunk(chunks_file.url, chunk, cookies, bucket) for chunk in chunks_file)
-        super(HttpChunks, self).__init__(chunks)
+    def __init__(self, chunks, cookies=None, bucket=None):
+        downloads = (HttpChunk(chunks.url, chunk, cookies, bucket) for chunk in chunks if not chunk.is_completed())
+        super(HttpChunks, self).__init__(downloads)
 
-        self.chunks_file = chunks_file
+        self.chunks_file = chunks
 
-        self.url = chunks_file.url
-        self.path = chunks_file.file_path
-        self.size = chunks_file.size
+        self.url = chunks.url
+        self.path = chunks.file_path
+        self.size = chunks.size
+
         self._status = ChunksDownloadStatus(self.size, self._chunks)
         self._cookies = cookies
         self._bucket = bucket

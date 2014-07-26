@@ -14,8 +14,8 @@ from ...curl import PyCurlError
 
 class DownloadChunks(HttpChunks):
 
-    def __init__(self, chunks_file, cookies=None, bucket=None):
-        super(DownloadChunks, self).__init__(chunks_file, cookies, bucket)
+    def __init__(self, chunks, cookies=None, bucket=None):
+        super(DownloadChunks, self).__init__(chunks, cookies, bucket)
 
     def perform(self):
         try:
@@ -33,10 +33,13 @@ class DownloadChunks(HttpChunks):
             return False
 
     def _handle_failed(self, status):
+        curl_errors = []
         for chunk, error in status.failed.values():
             print_err('Chunk %d failed: %s' % (chunk.id + 1, str(error)))
+            if isinstance(error, PyCurlError):
+                curl_errors.append(error)
 
-        if len(self._chunks) > 1:
+        if curl_errors and len(self._chunks) > 1:
             # 416 Range not satisfiable check
             print_err(('Download chunks failed, fallback to single connection | %s' % (str(status.last_error))))
             self._revert_to_one_connection()

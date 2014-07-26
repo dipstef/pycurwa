@@ -58,13 +58,14 @@ class HTTPDownload(object):
         first_chunk = _copy_chunks(download.chunks_file)
 
         path_size = os.path.getsize(first_chunk)
-        if not path_size == download.size:
-            raise Exception('Not Completed: %d expected %d' % (path_size, download.size) )
+        try:
+            if not path_size == download.size:
+                raise Exception('Not Completed: %d expected %d' % (path_size, download.size))
 
-        statistics.file_path = self._move_to_download_file(first_chunk, download.path)
-        download.chunks_file.remove()
-
-        return statistics
+            statistics.file_path = self._move_to_download_file(first_chunk, download.path)
+            return statistics
+        finally:
+            download.chunks_file.remove()
 
     def _move_to_download_file(self, first_chunk, file_name):
 
@@ -78,6 +79,13 @@ class HTTPDownload(object):
 
 def _copy_chunks(info):
     first_chunk_path = info[0].path
+
+    for chunk in info.chunks:
+        chunk_size = os.path.getsize(chunk.path)
+
+        if chunk_size != chunk.size:
+        #    raise UnexpectedChunkContent(chunk.path, chunk_size, chunk.size)
+            print_err(UnexpectedContent(chunk.path, chunk_size, chunk.size))
 
     if info.count > 1:
         with open(first_chunk_path, 'rb+') as fo:
@@ -99,12 +107,6 @@ def _copy_chunks(info):
 
 # copy in chunks, consumes less memory
 def _copy_chunk(chunk, first_chunk, buf_size=32 * 1024):
-    chunk_size = os.path.getsize(chunk.path)
-
-    if chunk_size != chunk.size:
-    #    raise UnexpectedChunkContent(chunk.path, chunk_size, chunk.size)
-        print_err(UnexpectedContent(chunk.path, chunk_size, chunk.size))
-
     with open(chunk.path, 'rb') as fi:
         while True:
             data = fi.read(buf_size)

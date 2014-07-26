@@ -79,7 +79,7 @@ class DownloadHeadersRequest(CurlHeadersRequest):
         super(DownloadHeadersRequest, self).__init__(request, cookies, bucket)
 
 
-#check if is needed
+#is it needed
 class DownloadRequestControl(HttpDownloadRequest):
 
     def __init__(self, url, file_path, cookies, bucket=None, resume=False):

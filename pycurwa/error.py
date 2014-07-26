@@ -21,8 +21,8 @@ class WrongFormat(Exception):
 
 class UnexpectedContent(Exception):
     def __init__(self, path, actual, expected):
-        message = 'Downloaded content %d different than expected %d on chunk %s. Try to reduce download connections.'
-        message = message % (actual, expected, path)
+        message = '%s content %d different than expected %d. Try to reduce download connections.'
+        message = message % (path, actual, expected)
         super(UnexpectedContent, self).__init__(message)
 
 

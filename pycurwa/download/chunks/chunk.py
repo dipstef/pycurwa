@@ -20,7 +20,7 @@ class Chunk(namedtuple('Chunk', ['number', 'chunks', 'path', 'range'])):
 
     @property
     def size(self):
-        return self.range.size + 1 if not self.is_last else self.range.size
+        return self.range.size
 
     @property
     def start(self):
@@ -34,12 +34,11 @@ class Chunk(namedtuple('Chunk', ['number', 'chunks', 'path', 'range'])):
 class ChunkFileSave(Chunk):
     resume = False
 
-    @property
-    def current_size(self):
-        return os.path.getsize(self.path)
-
     def is_completed(self):
-        return self.current_size == self.size
+        try:
+            return os.path.getsize(self.path) >= self.size
+        except OSError:
+            return False
 
 
 class ChunkFileResume(ChunkFileSave):
