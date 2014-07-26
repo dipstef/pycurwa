@@ -63,7 +63,7 @@ class Curl(ClosingCurl):
 
     def perform(self):
         try:
-            self.curl.perform()
+            self.curl.perform() 
         except PyCurlError, e:
             raise CurlError(*e.args)
 
@@ -88,7 +88,7 @@ class Curl(ClosingCurl):
         self.setopt(pycurl.PROXY, proxy.address)
         self.setopt(pycurl.PROXYPORT, proxy.port)
         if proxy.auth:
-            self.setopt(pycurl.PROXYUSERPWD, str("%s:%s" % (proxy.user, proxy.password)))
+            self.setopt(pycurl.PROXYUSERPWD, str('%s:%s' % (proxy.user, proxy.password)))
 
     def set_interface(self, interface):
         self.setopt(pycurl.INTERFACE, interface)
@@ -163,11 +163,11 @@ class Curl(ClosingCurl):
         return self.getinfo(pycurl.SPEED_DOWNLOAD)
 
 
-_default_headers = ["Accept: */*",
-                    "Accept-Language: en-US,en",
-                    "Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7",
-                    "Connection: keep-alive",
-                    "Keep-Alive: 300", "Expect:"]
+_default_headers = ['Accept: */*',
+                    'Accept-Language: en-US,en',
+                    'Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+                    'Connection: keep-alive',
+                    'Keep-Alive: 300', 'Expect:']
 
 
 def curl_request(curl, verbose=False):
@@ -177,7 +177,7 @@ def curl_request(curl, verbose=False):
     curl.setopt(pycurl.NOSIGNAL, 1)
     curl.setopt(pycurl.NOPROGRESS, 1)
 
-    if hasattr(pycurl, "AUTOREFERER"):
+    if hasattr(pycurl, 'AUTOREFERER'):
         curl.setopt(pycurl.AUTOREFERER, 1)
 
     curl.setopt(pycurl.SSL_VERIFYPEER, 0)
@@ -190,7 +190,7 @@ def curl_request(curl, verbose=False):
     curl.setopt(pycurl.USERAGENT, user_agent)
 
     if pycurl.version_info()[7]:
-        curl.setopt(pycurl.ENCODING, "gzip, deflate")
+        curl.setopt(pycurl.ENCODING, 'gzip, deflate')
 
     curl.setopt(pycurl.HTTPHEADER, _default_headers)
 
