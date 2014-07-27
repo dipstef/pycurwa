@@ -8,25 +8,27 @@ from .request import CurlBodyRequest
 
 class MultiRequestsBase(object):
 
-    def __init__(self):
+    def __init__(self, requests=()):
         self._curl = CurlMulti()
+        for request in requests:
+            self.add(request)
 
     def add(self, request):
         assert isinstance(request, CurlBodyRequest)
         self._curl.add_handle(request.handle)
-        self._add_request(request)
+        self._add(request)
 
     @abstractmethod
-    def _add_request(self, request):
+    def _add(self, request):
         pass
 
     def remove(self, request):
         assert isinstance(request, CurlBodyRequest)
         self._curl.remove_handle(request.handle)
-        self._remove_request(request)
+        self._remove(request)
 
     @abstractmethod
-    def _remove_request(self, request):
+    def _remove(self, request):
         pass
 
     def close(self, request):
@@ -72,10 +74,10 @@ class MultiRequests(MultiRequestsBase):
         super(MultiRequests, self).__init__()
         self._requests = []
 
-    def _add_request(self, request):
+    def _add(self, request):
         self._requests.append(request)
 
-    def _remove_request(self, request):
+    def _remove(self, request):
         self._requests.remove(request)
 
     def _find_request(self, handle):

@@ -6,11 +6,55 @@ from httpy import HttpRequest
 from procol.console import print_err
 
 from . import load_chunks, CreateChunksFile, OneChunk
-from pycurwa.download.request import DownloadHeadersRequest
+from .stats import DownloadStats
 from .request import HttpChunk
-from .requests import HttpChunks
+from .requests import ChunksDownloadsStatus
+from ..request import DownloadHeadersRequest
+from ...error import DownloadedContentMismatch, Abort
 from ...curl import PyCurlError
 from ...util import save_join
+
+
+class HttpChunks(object):
+
+    def __init__(self, chunks, cookies=None, bucket=None):
+        self._status = ChunksDownloadsStatus(chunks, cookies, bucket, refresh=0.5)
+
+        self._chunks_file = chunks
+
+        self.url = chunks.url
+        self.path = chunks.file_path
+        self.size = chunks.size
+
+        self._cookies = cookies
+        self._bucket = bucket
+
+        self._abort = False
+
+    def perform(self):
+        stats = self._perform()
+
+        if self._status.received < self.size:
+            raise DownloadedContentMismatch(self.path, self._status.received, self.size)
+
+        return stats
+
+    def _perform(self):
+        stats = DownloadStats(self._status)
+
+        for status in self._status.iterate_statuses():
+            if self._abort:
+                raise Abort()
+
+            if status.failed:
+                self._handle_failed(status)
+
+            stats.update_progress()
+
+        return stats
+
+    def _handle_failed(self, status):
+        raise status.last_error
 
 
 class DownloadChunks(HttpChunks):
@@ -23,8 +67,8 @@ class DownloadChunks(HttpChunks):
             return super(DownloadChunks, self).perform()
         except PyCurlError, e:
             if not self._is_completed():
-                if not self.chunks_file.resume:
-                    self.chunks_file.remove()
+                if not self._chunks_file.resume:
+                    self._chunks_file.remove()
                 raise e
 
     def _is_completed(self):
@@ -40,8 +84,7 @@ class DownloadChunks(HttpChunks):
             if isinstance(error, PyCurlError):
                 curl_errors.append(error)
 
-        if curl_errors and len(self._chunks) > 1:
-            # 416 Range not satisfiable check
+        if curl_errors and len(self._chunks_file) > 1:
             print_err(('Download chunks failed, fallback to single connection | %s' % (str(status.last_error))))
             self._revert_to_one_connection()
             time.sleep(2)
@@ -49,18 +92,14 @@ class DownloadChunks(HttpChunks):
             raise status.last_error
 
     def _revert_to_one_connection(self):
-        #it returns only even element when the list is not copied, odd
-        for chunk in list(self._chunks.values()):
-            self._remove_chunk(chunk)
+        self._status.close()
+        self._chunks_file.remove(all=True)
 
-        self.chunks_file = OneChunk(self.url, self.path, self.size, resume=True)
-        chunk = HttpChunk(self.url, self.chunks_file[0], self._cookies, self._bucket)
-
-        self._chunks[0] = chunk
-        self.add(chunk)
+        self._chunks_file = OneChunk(self.url, self.path, self.size, resume=True)
+        self._status.add(HttpChunk(self.url, self._chunks_file[0], self._cookies, self._bucket))
 
     def _remove_chunk(self, chunk):
-        self.close(chunk)
+        self._status.close(chunk)
         os.remove(chunk.path)
 
 
