@@ -63,17 +63,12 @@ class HttpChunks(ChunkRequests):
         self._abort = False
 
     def perform(self):
-        try:
-            stats = self._perform()
+        stats = self._perform()
 
-            if self._status.received < self.size:
-                raise Exception('Content size mismatch: received: %d, expected: %d' % (self._status.received, self.size))
+        if self._status.received < self.size:
+            raise Exception('Content size mismatch: received: %d, expected: %d' % (self._status.received, self.size))
 
-            return stats
-        except BaseException, e:
-            raise
-        finally:
-            self.close()
+        return stats
 
     def _perform(self):
         stats = DownloadStats(self.path, self.size)
@@ -87,18 +82,21 @@ class HttpChunks(ChunkRequests):
         return stats
 
     def _download_checks(self):
-        while not self._status.is_done():
-            self.execute()
+        try:
+            while not self._status.is_done():
+                self.execute()
 
-            status = self._get_status()
+                status = self._get_status()
 
-            if status.failed:
-                self._handle_failed(status)
+                if status.failed:
+                    self._handle_failed(status)
 
-            if not self._status.is_done():
-                yield status
+                if not self._status.is_done():
+                    yield status
 
-                self.select(timeout=1)
+                    self.select(timeout=1)
+        finally:
+            self.close()
 
     def _get_status(self):
         status = self._status.check_finished(self, seconds=0.5)
