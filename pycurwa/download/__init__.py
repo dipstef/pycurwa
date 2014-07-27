@@ -17,7 +17,7 @@ class HttpDownload(object):
         try:
             statistics = self._download(url, file_path, chunks_number, resume)
         except InvalidRangeRequest:
-            print_err('Errno 33 -> Restart without resume')
+            print_err('Restart without resume')
             statistics = self._download(chunks_number, resume=False)
 
         return statistics
@@ -25,7 +25,7 @@ class HttpDownload(object):
     def _download(self, url, file_path, chunks_number, resume):
         chunks_file = get_chunks_file(url, file_path, chunks_number, resume=resume)
 
-        download = DownloadChunks(chunks_file, self._bucket)
+        download = DownloadChunks(chunks_file, bucket=self._bucket)
 
         statistics = download.perform()
 

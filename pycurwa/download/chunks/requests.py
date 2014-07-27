@@ -1,54 +1,12 @@
-from . import ChunksDict
-from pycurwa.requests import MultiRequestsBase
-from .request import HttpChunk
-from .stats import DownloadStats
-from .status import ChunksDownloadStatus
+from pycurwa.download.chunks.stats import DownloadStats
 from ...error import Abort, DownloadedContentMismatch
+from pycurwa.download.chunks.status import ChunksDownloadsStatus
 
 
-class ChunkRequests(MultiRequestsBase):
-
-    def __init__(self, chunks=()):
-        super(ChunkRequests, self).__init__()
-        self._chunks = ChunksDict()
-        for chunk in chunks:
-            self.add(chunk)
-
-    def _add_request(self, chunk):
-        self._chunks[chunk.id] = chunk
-
-    def _find_request(self, handle):
-        return self._chunks.get(handle.chunk_id)
-
-    def _remove_request(self, chunk):
-        del self._chunks[chunk.id]
-
-    @property
-    def chunks(self):
-        return list(self._chunks.values())
-
-    def close(self, chunk=None):
-        if not chunk:
-            for chunk in self:
-                self.close(chunk)
-        else:
-            super(ChunkRequests, self).close(chunk)
-
-    def __len__(self):
-        return len(self._chunks)
-
-    def __getitem__(self, item):
-        return self._chunks[item]
-
-    def __iter__(self):
-        return iter(self._chunks.values())
-
-
-class HttpChunks(ChunkRequests):
+class HttpChunks(object):
 
     def __init__(self, chunks, cookies=None, bucket=None):
-        downloads = [HttpChunk(chunks.url, chunk, cookies, bucket) for chunk in chunks if not chunk.is_completed()]
-        super(HttpChunks, self).__init__(downloads)
+        self._status = ChunksDownloadsStatus(chunks, cookies, bucket, refresh=0.5)
 
         self.chunks_file = chunks
 
@@ -56,10 +14,6 @@ class HttpChunks(ChunkRequests):
         self.path = chunks.file_path
         self.size = chunks.size
 
-        completed = [HttpChunk(chunks.url, chunk, cookies, bucket) for chunk in chunks if chunk.is_completed()]
-        chunks = ChunksDict(sorted(downloads + completed, key=lambda c: c.id))
-
-        self._status = ChunksDownloadStatus(self.size, chunks)
         self._cookies = cookies
         self._bucket = bucket
 
@@ -74,37 +28,18 @@ class HttpChunks(ChunkRequests):
         return stats
 
     def _perform(self):
-        stats = DownloadStats(self.path, self.size)
+        stats = DownloadStats(self._status)
 
-        for status in self._download_checks():
-            stats.update_progress(status)
+        for status in self._status.iterate_statuses():
+            if status.failed:
+                self._handle_failed(status)
+
+            stats.update_progress()
 
             if self._abort:
                 raise Abort()
 
         return stats
-
-    def _download_checks(self):
-        try:
-            while not self._status.is_done():
-                self.execute()
-
-                status = self._get_status()
-
-                if status.failed:
-                    self._handle_failed(status)
-
-                if not self._status.is_done():
-                    yield status
-
-                    self.select(timeout=1)
-        finally:
-            self.close()
-
-    def _get_status(self):
-        status = self._status.check_finished(self, seconds=0.5)
-
-        return status
 
     def _handle_failed(self, status):
         raise status.last_error

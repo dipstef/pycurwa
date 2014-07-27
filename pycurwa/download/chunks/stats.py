@@ -40,37 +40,37 @@ class ChunkStatus(OrderedDict):
 
 class DownloadStats(object):
 
-    def __init__(self, file_path, size):
-        self.file_path = file_path
-        self.size = size
+    def __init__(self, download):
+        self._download = download
+        self.file_path = download.path
+        self.size = download.size
         self._last_check = 0
 
         #needed for speed calculation
-        self.chunks_received = ChunkStatus()
+        self._last_received = ChunkStatus()
 
-        self.last_speeds = ChunkStatus()
+        self._last_speeds = ChunkStatus()
 
-        self._last_speeds = ({}, {})
+        self._last_two_speeds = ({}, {})
+        self._speed_refresh_time = 1
 
-    def _refresh_speed(self, status_check, seconds=1):
-        return self._last_check + seconds < status_check
+    def update_progress(self):
+        if self._is_speed_refresh_time():
+            self._update_progress()
 
-    def update_progress(self, status, refresh_rate=1):
-        if self._refresh_speed(status.check, seconds=refresh_rate):
-            self._update_progress(status)
+    def _is_speed_refresh_time(self):
+        return self._last_check + self._speed_refresh_time < self._download.check
 
-    def _update_progress(self, status):
-        received_now = ChunkStatus(status.chunks_received)
-        received_diff = received_now - self.chunks_received
+    def _update_progress(self):
+        received_now = ChunkStatus(self._download.chunks_received)
+        received_diff = received_now - self._last_received
 
-        last_speeds = received_diff/float(status.check - self._last_check)
+        last_speeds = received_diff/float(self._download.check - self._last_check)
 
-        self._last_speeds = (self.last_speeds, self._last_speeds[0])
-
-        self.chunks_received = received_now
-        self.last_speeds = last_speeds
-
-        self._last_check = status.check
+        self._last_two_speeds = (self._last_speeds, self._last_two_speeds[0])
+        self._last_received = received_now
+        self._last_speeds = last_speeds
+        self._last_check = self._download.check
 
     #current speed
     @property
@@ -79,14 +79,14 @@ class DownloadStats(object):
 
     @property
     def chunks_speeds(self):
-        last = [x for x in self._last_speeds if x]
-        current_speeds = reduce(operator.add, last, self.last_speeds) / (1 + len(last))
+        last = [x for x in self._last_two_speeds if x]
+        current_speeds = reduce(operator.add, last, self._last_speeds) / (1 + len(last))
         return current_speeds
 
 
     @property
     def received(self):
-        return sum(self.chunks_received.values())
+        return sum((chunk.size for chunk in self._download))
 
     @property
     def percent(self):
@@ -97,4 +97,5 @@ class DownloadStats(object):
 
     def is_completed(self):
         file_size = os.path.getsize(self.file_path)
+
         return file_size == self.size

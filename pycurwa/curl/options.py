@@ -52,8 +52,8 @@ class SetOptions(object):
         self.unsetopt(self, pycurl.COOKIELIST)
 
     def unset_cookie_files(self):
-        self.unsetopt(pycurl.COOKIEFILE, '')
-        self.unsetopt(pycurl.COOKIEJAR, '')
+        self.setopt(pycurl.COOKIEFILE, '')
+        self.setopt(pycurl.COOKIEJAR, '')
 
     def set_url(self, url):
         self.setopt(pycurl.URL, url)
