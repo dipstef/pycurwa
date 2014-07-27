@@ -1,6 +1,6 @@
 from threading import Lock
 from urlo import get_domain
-from download import HTTPDownload
+from download import HttpDownload
 from pycurwa.bucket import Bucket
 from pycurwa.cookies import CookieJar
 from request import CurlRequests
@@ -25,7 +25,7 @@ class Browser(object):
         referrer = self._last_url if ref else None
         cookies = self._cookie_jar if cookies else None
 
-        dl = HTTPDownload(url, filename, get, post, referrer, cookies, self.bucket, progressNotify, disposition)
+        dl = HttpDownload(url, filename, get, post, referrer, cookies, self.bucket, progressNotify, disposition)
         name = dl.download(chunks, resume)
 
         return name

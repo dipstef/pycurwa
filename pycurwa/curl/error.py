@@ -2,7 +2,7 @@ import pycurl
 
 from httpy import HttpRequest
 from httpy.connection.error import ConnectionRefused, UnresolvableHost, SocketError, ConnectionTimeout
-from httpy.error import HttpServerSocketError, HttpError
+from httpy.error import HttpServerSocketError, HttpError, InvalidRangeRequest
 
 
 class PyCurlError(pycurl.error):
@@ -29,7 +29,8 @@ class CurlHttpServerSocketError(HttpServerSocketError, PyCurlError):
 _by_errno = {
     pycurl.E_COULDNT_CONNECT: ConnectionRefused,
     pycurl.E_COULDNT_RESOLVE_HOST: UnresolvableHost,
-    pycurl.E_OPERATION_TIMEDOUT: ConnectionTimeout
+    pycurl.E_OPERATION_TIMEDOUT: ConnectionTimeout,
+    pycurl.E_HTTP_RANGE_ERROR: InvalidRangeRequest
 }
 
 

@@ -10,6 +10,7 @@ from pycurwa.download.request import DownloadHeadersRequest
 from .request import HttpChunk
 from .requests import HttpChunks
 from ...curl import PyCurlError
+from ...util import save_join
 
 
 class DownloadChunks(HttpChunks):
@@ -63,24 +64,33 @@ class DownloadChunks(HttpChunks):
         os.remove(chunk.path)
 
 
-class ChunksDownload(DownloadChunks):
+def get_chunks_file(url, file_path, chunks_number=1, resume=True, cookies=None, use_disposition=False):
+    headers = None
+    if use_disposition:
+        headers = _resolve_headers(url, cookies)
+        if headers.disposition_name:
+            directory_path = os.path.dirname(file_path) if os.path.isdir(file_path) else file_path
+            file_path = save_join(directory_path, headers.disposition_name)
 
-    def __new__(cls, file_path, download, chunks_number, resume):
-        try:
-            chunks = load_chunks(download.url, file_path, resume)
-        except IOError, e:
-            download_size = _resolve_size(download.url, download.cookies)
+    try:
+        chunks = load_chunks(url, file_path, resume=resume)
+    except IOError:
+        if headers is None:
+            headers = _resolve_headers(url, cookies)
+        chunks = CreateChunksFile(url, file_path, headers.size, chunks_number)
 
-            chunks = CreateChunksFile(download.url, file_path, download_size, chunks_number)
-
-        return DownloadChunks(chunks, download.cookies, download.bucket)
+    return chunks
 
 
 def _resolve_size(url, cookies=None, bucket=None):
-    initial = DownloadHeadersRequest(HttpRequest('GET', url), cookies, bucket)
+    headers = _resolve_headers(url, cookies, bucket)
 
+    return headers.size
+
+
+def _resolve_headers(url, cookies=None, bucket=None):
+    initial = DownloadHeadersRequest(HttpRequest('HEAD', url), cookies, bucket)
     try:
-        headers = initial.head()
-        return headers.size
+        return initial.head()
     finally:
         initial.close()

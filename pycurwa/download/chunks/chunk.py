@@ -36,9 +36,12 @@ class ChunkFileSave(Chunk):
 
     def is_completed(self):
         try:
-            return os.path.getsize(self.path) >= self.size
+            return self.get_size() >= self.size
         except OSError:
             return False
+
+    def get_size(self):
+        return os.path.getsize(self.path)
 
 
 class ChunkFileResume(ChunkFileSave):

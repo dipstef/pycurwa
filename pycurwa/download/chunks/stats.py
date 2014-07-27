@@ -72,7 +72,6 @@ class DownloadStats(object):
 
         self._last_check = status.check
 
-
     #current speed
     @property
     def speed(self):

@@ -2,10 +2,12 @@ import codecs
 from collections import OrderedDict
 import json
 import os
+import shutil
 
 from unicoder import to_unicode, encoded
 
-from pycurwa.download.chunks.chunk import Chunk, ChunkFile
+from .chunk import Chunk, ChunkFile
+from ...error import UnexpectedContent, UnexpectedCopyChunk
 from ...util import fs_encode
 
 
@@ -106,13 +108,13 @@ def _remove(path):
             pass
 
 
-class DownloadChunksFile(ChunksFile):
+class DownloadChunks(ChunksFile):
 
     def __init__(self, url, file_path, expected_size, chunks, resume=False):
         self.url = url
         assert expected_size
         self._expected_size = expected_size
-        super(DownloadChunksFile, self).__init__(file_path, chunks)
+        super(DownloadChunks, self).__init__(file_path, chunks)
         self.resume = resume
 
     @property
@@ -121,7 +123,7 @@ class DownloadChunksFile(ChunksFile):
 
     @property
     def chunks_size(self):
-        return super(DownloadChunksFile, self).size
+        return super(DownloadChunks, self).size
 
     def is_completed(self):
         return self._expected_size == self.chunks_size
@@ -137,11 +139,58 @@ class DownloadChunksFile(ChunksFile):
     def _json_dict(self):
         json_dict = OrderedDict()
         json_dict['url'] = self.url
-        json_dict.update(super(DownloadChunksFile, self)._json_dict())
+        json_dict.update(super(DownloadChunks, self)._json_dict())
         return json_dict
 
+    def copy_chunks(self):
+        first_chunk = self[0]
 
-class ExistingDownloadChunks(DownloadChunksFile):
+        self._copy_to_first_chunk(first_chunk)
+
+        shutil.move(first_chunk.path, fs_encode(self.file_path))
+
+    def _copy_to_first_chunk(self, first_chunk):
+        try:
+            self._ensure_chunk_sizes()
+
+            if self.count > 1:
+                with open(first_chunk.path, 'rb+') as fo:
+                    for i in range(1, self.count):
+                        # input file
+                        # seek to beginning of chunk, to get rid of overlapping chunks
+                        fo.seek(self[i - 1].range.end + 1)
+
+                        _copy_chunk(self[i], fo)
+
+                path_size = first_chunk.get_size()
+                if not path_size == self.size:
+                    raise UnexpectedCopyChunk(first_chunk.path, path_size, self.size)
+
+        except UnexpectedContent:
+            self.remove()
+            raise
+
+    def _ensure_chunk_sizes(self):
+        for chunk in self.chunks:
+            chunk_size = chunk.get_size()
+
+            if chunk_size != chunk.size:
+                raise UnexpectedContent(chunk.path, chunk_size, chunk.size)
+
+
+# copy in chunks, consumes less memory
+def _copy_chunk(chunk, first_chunk, buf_size=32 * 1024):
+    with open(chunk.path, 'rb') as fi:
+        while True:
+            data = fi.read(buf_size)
+            if not data:
+                break
+            first_chunk.write(data)
+
+    _remove(chunk.path)
+
+
+class ExistingDownloadChunks(DownloadChunks):
 
     def __init__(self, url, file_path, resume=False):
         chunks_file = fs_encode(_chunks_file(file_path))
@@ -162,7 +211,7 @@ class ExistingDownloadChunks(DownloadChunksFile):
         super(ExistingDownloadChunks, self).__init__(url, file_path, expected_size, chunks, resume)
 
 
-class CreateChunksFile(DownloadChunksFile):
+class CreateChunksFile(DownloadChunks):
 
     def __init__(self, url, file_path, expected_size, chunks_number, resume=False):
         super(CreateChunksFile, self).__init__(url, file_path, expected_size, chunks=[], resume=resume)

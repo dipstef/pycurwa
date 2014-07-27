@@ -2,6 +2,7 @@ import pycurl
 from urllib import urlencode
 from unicoder import byte_string
 from urlo import params_url
+from ..util import url_encode
 
 
 class SetOptions(object):
@@ -97,9 +98,8 @@ class SetOptions(object):
 
         if not multi_part:
             if type(post) == unicode:
-                post = str(post)  # unicode not allowed
+                post = byte_string(post)
             elif not type(post) == str:
-                from ..util import url_encode
                 post = url_encode(post)
 
             self.setopt(pycurl.POSTFIELDS, post)
@@ -112,12 +112,6 @@ class SetOptions(object):
 
     def unset_post(self):
         self.setopt(pycurl.POST, 0)
-
-    def setopt(self, option, value):
-        pass
-
-    def unsetopt(self, option, value):
-        pass
 
 
 class GetOptions(object):
@@ -133,6 +127,3 @@ class GetOptions(object):
 
     def get_speed_download(self):
         return self.getinfo(pycurl.SPEED_DOWNLOAD)
-
-    def getinfo(self, option):
-        pass

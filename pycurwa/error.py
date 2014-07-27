@@ -26,6 +26,12 @@ class UnexpectedContent(Exception):
         super(UnexpectedContent, self).__init__(message)
 
 
+class UnexpectedCopyChunk(UnexpectedContent):
+    def __init__(self, path, actual, expected):
+        super(UnexpectedCopyChunk, self).__init__(path, actual, expected)
+        self.message = 'Not Completed %s: %d expected %d' % (path, actual, expected)
+
+
 class FallbackToSingleConnection(Exception):
     def __init__(self, error):
         message = 'Download chunks failed, fallback to single connection | %s' % (str(error))
