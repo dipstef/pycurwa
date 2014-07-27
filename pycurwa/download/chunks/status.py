@@ -50,6 +50,7 @@ class ChunksDownloadStatus(object):
         self._current_status = None
 
         self.size = size
+
         self.ok = ChunksDict()
         self.failed = ChunksDict()
         self._chunks = chunks

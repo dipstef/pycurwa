@@ -148,6 +148,7 @@ class DownloadChunks(ChunksFile):
         self._copy_to_first_chunk(first_chunk)
 
         shutil.move(first_chunk.path, fs_encode(self.file_path))
+        _remove(self.path_encoded)
 
     def _copy_to_first_chunk(self, first_chunk):
         try:

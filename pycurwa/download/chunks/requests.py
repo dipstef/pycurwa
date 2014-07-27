@@ -3,7 +3,7 @@ from pycurwa.requests import MultiRequestsBase
 from .request import HttpChunk
 from .stats import DownloadStats
 from .status import ChunksDownloadStatus
-from ...error import Abort
+from ...error import Abort, DownloadedContentMismatch
 
 
 class ChunkRequests(MultiRequestsBase):
@@ -47,7 +47,7 @@ class ChunkRequests(MultiRequestsBase):
 class HttpChunks(ChunkRequests):
 
     def __init__(self, chunks, cookies=None, bucket=None):
-        downloads = (HttpChunk(chunks.url, chunk, cookies, bucket) for chunk in chunks if not chunk.is_completed())
+        downloads = [HttpChunk(chunks.url, chunk, cookies, bucket) for chunk in chunks if not chunk.is_completed()]
         super(HttpChunks, self).__init__(downloads)
 
         self.chunks_file = chunks
@@ -56,7 +56,10 @@ class HttpChunks(ChunkRequests):
         self.path = chunks.file_path
         self.size = chunks.size
 
-        self._status = ChunksDownloadStatus(self.size, self._chunks)
+        completed = [HttpChunk(chunks.url, chunk, cookies, bucket) for chunk in chunks if chunk.is_completed()]
+        chunks = ChunksDict(sorted(downloads + completed, key=lambda c: c.id))
+
+        self._status = ChunksDownloadStatus(self.size, chunks)
         self._cookies = cookies
         self._bucket = bucket
 
@@ -66,7 +69,7 @@ class HttpChunks(ChunkRequests):
         stats = self._perform()
 
         if self._status.received < self.size:
-            raise Exception('Content size mismatch: received: %d, expected: %d' % (self._status.received, self.size))
+            raise DownloadedContentMismatch(self.path, self._status.received, self.size)
 
         return stats
 
