@@ -23,7 +23,7 @@ class HttpDownloadHeaders(HttpHeaders):
         return content_length(self)
 
 
-class HttpDownloadRequest(CurlRequest):
+class HttpDownloadBase(CurlRequest):
     __headers_class__ = HttpDownloadHeaders
 
     def __init__(self, url, file_path, cookies, bucket=None, resume=False):
@@ -33,26 +33,17 @@ class HttpDownloadRequest(CurlRequest):
 
         self._fp = open(file_path, 'ab' if resume else 'wb')
 
-        super(HttpDownloadRequest, self).__init__(HttpRequest('GET', url), self._fp.write, cookies, bucket)
+        super(HttpDownloadBase, self).__init__(HttpRequest('GET', url), self._fp.write, cookies, bucket)
 
         if resume:
             self.received = self._fp.tell() or os.stat(self.path).st_size
-            self._handle_resume()
-        else:
-            self._handle_not_resumed()
-
-    def _handle_resume(self):
-        self._curl.set_resume(self.received)
-
-    def _handle_not_resumed(self):
-        pass
 
     def get_speed(self):
         return self._curl.get_speed_download()
 
     def close(self):
         self._flush()
-        super(HttpDownloadRequest, self).close()
+        super(HttpDownloadBase, self).close()
 
     def _flush(self):
         self._fp.flush()
@@ -70,6 +61,15 @@ class HttpDownloadRequest(CurlRequest):
     @property
     def size(self):
         return self.headers.size
+
+
+class HttpDownloadRequest(HttpDownloadBase):
+    __headers_class__ = HttpDownloadHeaders
+
+    def __init__(self, url, file_path, cookies, bucket=None, resume=False):
+        super(HttpDownloadRequest, self).__init__(url, file_path, cookies, bucket, resume)
+        if resume:
+            self._curl.set_resume(self.received)
 
 
 class DownloadHeadersRequest(CurlHeadersRequest):

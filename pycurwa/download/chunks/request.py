@@ -1,28 +1,17 @@
-from .chunk import Range
-from ..request import HttpDownloadRequest
+from ..request import HttpDownloadBase
 from ...error import BadHeader, RangeNotSatisfiable
 
 
-class HttpDownloadRange(HttpDownloadRequest):
+class HttpDownloadRange(HttpDownloadBase):
 
     def __init__(self, url, file_path, cookies, bytes_range, bucket=None, resume=False):
         self._range = bytes_range
         super(HttpDownloadRange, self).__init__(url, file_path, cookies, bucket, resume)
 
-    def _handle_resume(self):
-        self._set_bytes_range(self.received)
-
-    def _handle_not_resumed(self):
-        self._set_bytes_range()
-
-    def _set_bytes_range(self, arrived=0):
-        if not self._is_closed_range():
-            bytes_range = '%i-' % (arrived + self._range.start)
-        else:
-            bytes_range = '%i-%i' % (arrived + self._range.start, self._range.end)
+        start = self.received + self._range.start
+        bytes_range = '%i-%i' % (start, self._range.end) if self._is_closed_range() else '%i-' % start
 
         self._curl.set_range(bytes_range)
-        return bytes_range
 
     def _write_body(self, buf):
         if not self._is_range_completed():
@@ -36,9 +25,6 @@ class HttpDownloadRange(HttpDownloadRequest):
 
     def _is_range_completed(self):
         return self._is_closed_range() and self.received > self._range.size
-
-    def stop(self):
-        self._range = Range(0, 0)
 
     def _is_closed_range(self):
         return bool(self._range.end)
