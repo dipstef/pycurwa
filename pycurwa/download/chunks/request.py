@@ -45,7 +45,11 @@ class HttpChunk(HttpDownloadRange):
         self._header_parse = False
         self.id = chunk.id
         self._chunk = chunk
-        self.handle.chunk_id = chunk.id
+
+
+    @property
+    def size(self):
+        return self._chunk.size
 
     def __str__(self):
         if self._is_closed_range():

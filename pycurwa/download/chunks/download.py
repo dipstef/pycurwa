@@ -40,7 +40,7 @@ class HttpChunks(object):
         return stats
 
     def _perform(self):
-        stats = DownloadStats(self._status)
+        stats = DownloadStats(self._status.chunks)
 
         for status in self._status.iterate_statuses():
             if self._abort:
@@ -49,7 +49,10 @@ class HttpChunks(object):
             if status.failed:
                 self._handle_failed(status)
 
-            stats.update_progress()
+            for chunk in status.completed.values():
+                print 'Completed: ', chunk, chunk.get_speed()
+
+            stats.update_progress(status)
 
         return stats
 

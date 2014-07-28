@@ -18,7 +18,7 @@ class HttpDownload(object):
             statistics = self._download(url, file_path, chunks_number, resume)
         except InvalidRangeRequest:
             print_err('Restart without resume')
-            statistics = self._download(chunks_number, resume=False)
+            statistics = self._download(url, file_path, chunks_number, resume=False)
 
         return statistics
 
