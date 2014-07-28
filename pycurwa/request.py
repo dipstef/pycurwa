@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import pycurl
+from httpy.error import error_status, HttpStatusError
 
 from httpy.http.headers import headers_raw_to_dict, HttpHeaders
 
-from error import BadHeader, bad_headers
 from .curl import Curl, BytesIO, curl_request
 from .response import decode_response
 
@@ -46,6 +46,18 @@ class CurlRequestBase(object):
             self._curl.unset_cookie_files()
             self._set_curl_cookies()
 
+    def execute(self):
+        self._curl.perform()
+        error = self.get_status_error()
+        if error:
+            raise error
+
+    def get_status_error(self):
+        code = self.get_status_code()
+
+        if code != 404 and code in error_status:
+            return HttpStatusError(self, code)
+
     def _add_curl_cookies(self):
         if self.cookies:
             self.cookies.add_cookies(self._curl.get_cookies())
@@ -68,12 +80,8 @@ class CurlRequestBase(object):
     def _parse_http_header(self):
         return headers_raw_to_dict(self._header_str)
 
-    def verify_header(self):
+    def get_status_code(self):
         code = self._curl.get_status_code()
-
-        if code in bad_headers:
-            # 404 will NOT raise an exception
-            raise BadHeader(code)
         return code
 
     def close(self):
@@ -123,7 +131,7 @@ class CurlHeadersRequest(CurlRequestBase):
             self._curl.setopt(pycurl.FOLLOWLOCATION, 0)
 
         self._curl.setopt(pycurl.NOBODY, 1)
-        self._curl.perform()
+        self.execute()
 
         if not follow_redirect:
             self._curl.setopt(pycurl.FOLLOWLOCATION, 1)
@@ -147,8 +155,6 @@ class CurlRequests(CurlBodyRequest):
         self._curl.setopt(pycurl.POSTFIELDS, '')
 
         response_url = self._curl.get_effective_url()
-
-        code = self.verify_header()
 
         self._add_curl_cookies()
 

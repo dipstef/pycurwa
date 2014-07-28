@@ -1,5 +1,4 @@
 from ..request import HttpDownloadBase
-from ...error import BadHeader, RangeNotSatisfiable
 
 
 class HttpDownloadRange(HttpDownloadBase):
@@ -28,14 +27,6 @@ class HttpDownloadRange(HttpDownloadBase):
 
     def _is_closed_range(self):
         return bool(self._range.end)
-
-    def verify_header(self):
-        try:
-            return super(HttpDownloadRange, self).verify_header()
-        except BadHeader, e:
-            if e.code == 416:
-                raise RangeNotSatisfiable(self.url, self.path, self._range)
-            raise e
 
 
 class HttpChunk(HttpDownloadRange):

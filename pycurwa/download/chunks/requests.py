@@ -64,8 +64,8 @@ class ChunkRequestsStatus(ChunkRequests):
             if chunk.id in status.failed:
                 del self.completed[chunk.id]
 
-        for chunk, error in self.failed.values():
-            if chunk.id in status.ok:
+        for chunk in self.failed.values():
+            if chunk.id in status.completed:
                 del self.failed[chunk.id]
 
         self.completed.update(status.completed)
@@ -82,11 +82,11 @@ class ChunkRequestsStatus(ChunkRequests):
         return len(self.completed) >= len(self._chunks)
 
 
-class ChunksDownloadsStatus(ChunkRequestsStatus):
+class ChunksDownloads(ChunkRequestsStatus):
 
     def __init__(self, chunks, cookies=None, bucket=None,refresh=0.5):
         downloads = [HttpChunk(chunks.url, chunk, cookies, bucket) for chunk in chunks if not chunk.is_completed()]
-        super(ChunksDownloadsStatus, self).__init__(downloads)
+        super(ChunksDownloads, self).__init__(downloads)
         self.path = chunks.path
         self.size = chunks.size
 
@@ -97,7 +97,7 @@ class ChunksDownloadsStatus(ChunkRequestsStatus):
 
     def get_status(self):
         if self._is_chunk_finish_refresh_time():
-            return super(ChunksDownloadsStatus, self).get_status()
+            return super(ChunksDownloads, self).get_status()
         return self._last_status
 
     def _is_chunk_finish_refresh_time(self):
@@ -119,13 +119,13 @@ class HttpChunksStatus(MultiRequestsStatus):
         self._chunks = chunks
 
         completed = ChunksDict(status.completed)
-        failed = OrderedDict(((chunk.id, (chunk, error)) for chunk, error in status.failed))
+        failed = ChunksDict(status.failed)
 
         super(HttpChunksStatus, self).__init__(status.check, completed, failed, status.handles_remaining)
 
     @property
     def last_error(self):
-        return self.failed.values()[-1][1] if self.failed else None
+        return self.failed.values()[-1].error if self.failed else None
 
     @property
     def chunks_received(self):

@@ -61,7 +61,7 @@ class Curl(ClosingCurl):
 
     def perform(self):
         try:
-            self.curl.perform() 
+            self.curl.perform()
         except PyCurlError, e:
             raise CurlError(*e.args)
 

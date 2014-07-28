@@ -49,6 +49,7 @@ def _curl_error(errno, message):
     error_class = _curl_errors.get(errno)
     if error_class:
         return error_class(message)
+
     return PyCurlError(errno, message)
 
 

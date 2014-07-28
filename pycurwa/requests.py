@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
-from abc import abstractmethod
 from collections import OrderedDict
 from time import time
 from .curl import CurlMulti
 from .curl.error import CurlWriteError, CurlError, MissingHandle
-from .error import BadHeader
 from .request import CurlBodyRequest
 
 
@@ -53,9 +51,10 @@ class MultiRequests(object):
         handles_remaining, curl_completed, curl_failed = self._curl.info_read()
 
         request_completed = [self._get_request(handle) for handle in curl_completed]
-        request_failed = [(self._get_request(handle), CurlError(errno, msg)) for handle, errno, msg in curl_failed]
+        request_failed = [CurlFailed(self._get_request(handle), errno, msg) for handle, errno, msg in curl_failed]
 
         status = MultiRequestsStatus(status_time, request_completed, request_failed, handles_remaining)
+
         return _check_status_codes(status)
 
     def _get_request(self, handle):
@@ -123,28 +122,45 @@ class MultiRequestsStatus(object):
         self.handles_remaining = handles_remaining
 
 
+class FailedRequest(object):
+
+    def __init__(self, request, error):
+        self._request = request
+        self.error = error
+        self.handle = request.handle
+
+    def __getattr__(self, item):
+        return getattr(self._request, item)
+
+    def __repr__(self):
+        return '%s: %s' % (repr(self._request), repr(self.error))
+
+
+class CurlFailed(FailedRequest):
+    def __init__(self, request, errno, msg):
+        super(CurlFailed, self).__init__(request, CurlError(errno, msg))
+
+    def is_write_error(self):
+        return isinstance(self.error, CurlWriteError)
+
+    def failed(self):
+        return not self.is_write_error() or bool(self._request.get_status_error())
+
+
 class RequestsDict(OrderedDict):
+
     def __init__(self, requests=()):
         super(RequestsDict, self).__init__(((request.handle, request) for request in requests))
 
 
 def _check_status_codes(status):
-    completed, failed = [], []
+    completed, failed = [], [request for request in status.failed if request.failed()]
 
     for request in status.completed:
-        try:
-            request.verify_header()
+        status_error = request.get_status_error()
+        if not status_error:
             completed.append(request)
-        except BadHeader, e:
-            failed.append((request, e))
-
-    for request, error in status.failed:
-        if isinstance(error, CurlWriteError):
-            # double check header
-            try:
-                request.verify_header()
-                #completed.append(request)
-            except BadHeader:
-                failed.append((request, error))
+        else:
+            failed.append(FailedRequest(request, status_error))
 
     return MultiRequestsStatus(status.check, completed, failed, status.handles_remaining)
