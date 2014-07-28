@@ -191,7 +191,7 @@ def _copy_chunk(chunk, first_chunk, buf_size=32 * 1024):
     _remove(chunk.path)
 
 
-class ExistingDownloadChunks(DownloadChunks):
+class ExistingDownload(DownloadChunks):
 
     def __init__(self, url, file_path, resume=False):
         chunks_file = fs_encode(_chunks_file(file_path))
@@ -209,13 +209,13 @@ class ExistingDownloadChunks(DownloadChunks):
             chunk_file = ChunkFile(chunk_dict['number'], total, chunk_dict['path'], chunk_dict['range'], resume)
             chunks.append(chunk_file)
 
-        super(ExistingDownloadChunks, self).__init__(url, file_path, expected_size, chunks, resume)
+        super(ExistingDownload, self).__init__(url, file_path, expected_size, chunks, resume)
 
 
-class CreateChunksFile(DownloadChunks):
+class NewChunks(DownloadChunks):
 
     def __init__(self, url, file_path, expected_size, chunks_number, resume=False):
-        super(CreateChunksFile, self).__init__(url, file_path, expected_size, chunks=[], resume=resume)
+        super(NewChunks, self).__init__(url, file_path, expected_size, chunks=[], resume=resume)
         self._create_chunks(chunks_number)
         self.save()
 
@@ -233,13 +233,9 @@ class CreateChunksFile(DownloadChunks):
             current += chunk_size + 1
 
 
-class OneChunk(CreateChunksFile):
+class OneChunk(NewChunks):
     def __init__(self, url, file_path, expected_size, resume=False):
         super(OneChunk, self).__init__(url, file_path, expected_size, chunks_number=1, resume=resume)
-
-
-def load_chunks(url, file_path, resume=False):
-    return ExistingDownloadChunks(url, file_path, resume=resume)
 
 
 class ChunksDict(OrderedDict):
