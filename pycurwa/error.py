@@ -26,3 +26,18 @@ class FallbackToSingleConnection(Exception):
         message = 'Download chunks failed, fallback to single connection | %s' % (str(error))
         super(FallbackToSingleConnection, self).__init__(message)
         self.message = message
+
+
+class FailedStatus(Exception):
+    def __init__(self, status):
+        super(FailedStatus, self).__init__(status)
+        self.status = status
+        self.failed = status.failed
+
+
+class FailedChunks(FailedStatus):
+
+    def __init__(self, status):
+        super(FailedChunks, self).__init__(status)
+        self.status = status
+        self.message = '\n'.join('%s: %s' % (chunk_id, chunk.error) for chunk_id, chunk in status.failed.iteritems())

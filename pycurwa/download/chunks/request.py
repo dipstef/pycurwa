@@ -42,6 +42,9 @@ class HttpChunk(HttpDownloadRange):
     def size(self):
         return self._chunk.size
 
+    def is_completed(self):
+        return self.size == self.received
+
     def __str__(self):
         if self._is_closed_range():
             return '<HTTPChunk id=%d, size=%d, arrived=%d>' % (self.id, self._range.size, self.received)

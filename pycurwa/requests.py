@@ -31,6 +31,10 @@ class MultiRequests(object):
         self._curl.remove_handle(request.handle)
         del self._request_handles[request.handle]
 
+    def _remove_all(self):
+        for request in self._request_handles.values():
+            self._remove(request)
+
     def close(self, request):
         self.remove(request)
         request.close()

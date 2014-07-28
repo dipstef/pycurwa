@@ -22,8 +22,7 @@ class ChunkRequests(MultiRequestsStatuses):
 
     def remove(self, chunk=None):
         if not chunk:
-            for chunk in self._chunks.values():
-                super(ChunkRequests, self).remove(chunk)
+            self._remove_all()
         else:
             super(ChunkRequests, self).remove(chunk)
 
@@ -52,7 +51,6 @@ class ChunkRequestsStatus(ChunkRequests):
 
         self.completed = ChunksDict()
         self.failed = ChunksDict()
-        self._downloads = ChunksDict(chunks)
 
     def iterate_statuses(self):
         for status in super(ChunkRequests, self).iterate_statuses():
@@ -74,21 +72,19 @@ class ChunkRequestsStatus(ChunkRequests):
         self._last_status = self._current_status
         self._current_status = status
 
-    @property
-    def chunks_received(self):
-        return OrderedDict(((chunk_id, chunk.received) for chunk_id, chunk in self._downloads.iteritems()))
-
     def _done(self):
         return len(self.completed) >= len(self._chunks)
 
 
 class ChunksDownloads(ChunkRequestsStatus):
 
-    def __init__(self, chunks, cookies=None, bucket=None,refresh=0.5):
+    def __init__(self, chunks, cookies=None, bucket=None, refresh=0.5):
         downloads = [HttpChunk(chunks.url, chunk, cookies, bucket) for chunk in chunks if not chunk.is_completed()]
         super(ChunksDownloads, self).__init__(downloads)
         self.path = chunks.path
         self.size = chunks.size
+
+        self._downloads = ChunksDict(downloads)
 
         self._completed_size = sum((chunk.get_size() for chunk in chunks if chunk.is_completed()))
         self._current_status = None
@@ -104,6 +100,10 @@ class ChunksDownloads(ChunkRequestsStatus):
         last_check = self._last_status.check if self._last_status else 0
 
         return time() - last_check >= self._chunks_refresh_rate
+
+    @property
+    def chunks_received(self):
+        return OrderedDict(((chunk_id, chunk.received) for chunk_id, chunk in self._downloads.iteritems()))
 
     @property
     def received(self):
