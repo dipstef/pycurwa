@@ -38,6 +38,7 @@ class CurlMulti(ClosingCurl):
     def add_handle(self, curl):
         if isinstance(curl, Curl):
             curl = curl.curl
+
         self.curl.add_handle(curl)
 
     def remove_handle(self, curl):
@@ -53,6 +54,18 @@ class CurlMulti(ClosingCurl):
 
     def select(self, timeout=None):
         self.curl.select(timeout)
+
+    def get_status(self):
+        remaining, completed, failed = self.curl.info_read()
+        return CurlMultiStatus(completed, failed, remaining)
+
+
+class CurlMultiStatus(object):
+
+    def __init__(self, completed, failed, handles_remaining):
+        self.completed = completed
+        self.failed = failed
+        self.remaining = handles_remaining
 
 
 class Curl(ClosingCurl):

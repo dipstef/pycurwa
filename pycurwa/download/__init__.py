@@ -6,10 +6,10 @@ from .chunks import Chunks, OneChunk
 from .chunks.download import get_chunks_file, DownloadChunks
 
 
-class HttpDownload(object):
+class HttpDownloadBase(object):
 
-    def __init__(self, bucket=None):
-        self._chunks = DownloadChunks(bucket)
+    def __init__(self, chunks_download):
+        self._chunks = chunks_download
 
     def download(self, url, file_path, chunks_number=1, resume=False):
         chunks_number = max(1, chunks_number)
@@ -21,3 +21,8 @@ class HttpDownload(object):
             statistics = self._chunks.download(url, file_path, chunks_number, resume=False)
 
         return statistics
+
+
+class HttpDownload(HttpDownloadBase):
+    def __init__(self, bucket=None):
+        super(HttpDownload, self).__init__(DownloadChunks(bucket))

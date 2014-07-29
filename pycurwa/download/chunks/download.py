@@ -16,36 +16,41 @@ from ...util import save_join
 
 class HttpChunks(object):
 
-    def __init__(self, chunks, cookies=None, bucket=None):
-        self._download = ChunksDownloads(chunks, cookies, bucket)
-
-        self._chunks_file = chunks
+    def __init__(self, downloads):
+        self._downloads = downloads
 
         self._abort = False
 
     def perform(self):
         stats = self._perform()
 
-        if self._download.received < self._chunks_file.size:
-            raise ChunksDownloadMismatch(self._chunks_file, self._download.received)
+        if not self._downloads.is_completed():
+            raise ChunksDownloadMismatch(self._downloads)
 
         return stats
 
     def _perform(self):
-        stats = DownloadStats(self._download)
+        stats = DownloadStats(self._downloads)
 
-        self._execute(stats)
+        for _ in self._iterate_statuses(stats):
+            pass
 
         return stats
 
-    def _execute(self, stats):
-        statuses = ChunksRefresh(self._download, refresh=0.5, stats=stats)
-        for _ in statuses:
+    def _iterate_statuses(self, stats):
+        statuses = ChunksRefresh(self._downloads, refresh=0.5, stats=stats)
+        for status in statuses:
             if self._abort:
                 raise Abort()
+            yield status
 
     def __len__(self):
-        return len(self._download)
+        return len(self._downloads)
+
+
+class HttpChunksDownload(HttpChunks):
+    def __init__(self, chunks, cookies=None, bucket=None):
+        super(HttpChunksDownload, self).__init__(ChunksDownloads(chunks, cookies, bucket))
 
 
 class DownloadChunks(object):
@@ -78,7 +83,7 @@ class DownloadChunks(object):
             return self._download(_one_chunk_download(url, chunks_file))
 
     def _download(self, chunks_file):
-        download = HttpChunks(chunks_file, bucket=self._bucket)
+        download = HttpChunksDownload(chunks_file, bucket=self._bucket)
 
         statistics = download.perform()
 
