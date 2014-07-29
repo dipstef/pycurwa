@@ -3,27 +3,26 @@ from collections import OrderedDict
 from . import ChunksDict
 from pycurwa.error import FailedChunks, DownloadedContentMismatch
 from .request import HttpChunk
-from ...requests import MultiRequests, MultiRequestRefresh, MultiRequestsStatus
+from ...requests import MultiRequestRefresh, MultiRequestsStatus
 
 
 class ChunkRequests(object):
 
-    def __init__(self, chunks, curl=None):
-        self._requests = MultiRequests(chunks, curl)
-        self.curl = self._requests._curl
+    def __init__(self, chunks):
         self._chunks = ChunksDict(chunks)
 
-    def remove(self, chunk=None):
-        if not chunk:
-            self._requests.remove_all()
-        else:
-            self._requests.remove(chunk)
+        self._download_size = sum(chunk.size for chunk in chunks)
+        self._completed_size = sum((chunk.get_size() for chunk in chunks if chunk.is_completed()))
 
-    def close(self, chunk=None):
-        if not chunk:
-            self._requests.close_all()
-        else:
-            self._requests.close(chunk)
+    def update(self, status):
+        self._update(HttpChunksStatus(self._chunks, status))
+
+    def _update(self, status):
+        if status.failed:
+            raise FailedChunks(status)
+        for chunk in status.completed.values():
+            if not chunk.is_completed():
+                raise DownloadedContentMismatch(chunk.path, chunk.received, chunk.size)
 
     @property
     def chunks(self):
@@ -33,10 +32,22 @@ class ChunkRequests(object):
     def chunks_received(self):
         return OrderedDict(((chunk_id, chunk.received) for chunk_id, chunk in self._chunks.iteritems()))
 
-    def get_status(self):
-        status = self._requests.get_status()
-        if status:
-            return HttpChunksStatus(self._chunks, status)
+    @property
+    def received(self):
+        return sum(self.chunks_received.values()) + self._completed_size
+
+    @property
+    def size(self):
+        return self._download_size + self._completed_size
+
+    def is_completed(self):
+        return self.received >= self.size
+
+    def is_done(self):
+        return self.is_completed()
+
+    def __iter__(self):
+        return self._chunks.itervalues()
 
     def __getitem__(self, item):
         return self._chunks[item]
@@ -50,39 +61,20 @@ class HttpChunksStatus(MultiRequestsStatus):
         completed = ChunksDict(status.completed)
         failed = ChunksDict(status.failed)
 
-        super(HttpChunksStatus, self).__init__(completed, failed, status.remaining, status.check)
-
-    @property
-    def chunks_received(self):
-        return OrderedDict((chunk_id, chunk.received) for chunk_id, chunk in self._chunks.iteritems())
-
-    @property
-    def chunks_speed(self):
-        return OrderedDict((chunk_id, chunk.get_speed()) for chunk_id, chunk in self._chunks.iteritems())
+        super(HttpChunksStatus, self).__init__(completed, failed, status.check)
 
 
 class ChunksStatuses(ChunkRequests):
 
-    def __init__(self, chunks, curl=None):
-        super(ChunksStatuses, self).__init__(chunks, curl)
+    def __init__(self, chunks):
+        super(ChunksStatuses, self).__init__(chunks)
 
         self.completed = ChunksDict()
         self.failed = ChunksDict()
 
-    def get_status(self):
-        status = super(ChunksStatuses, self).get_status()
-        if status:
-            self._update_chunks(status)
-            return status
-
-    def _update_chunks(self, status):
+    def _update(self, status):
         self._update_chunks_status(status)
-
-        if status.failed:
-            raise FailedChunks(status)
-        for chunk in status.completed.values():
-            if not chunk.is_completed():
-                raise DownloadedContentMismatch(chunk.path, chunk.received, chunk.size)
+        super(ChunksStatuses, self)._update(status)
 
     def _update_chunks_status(self, status):
         for chunk in self.completed.values():
@@ -96,34 +88,8 @@ class ChunksStatuses(ChunkRequests):
         self.completed.update(status.completed)
         self.failed.update(status.failed)
 
-    def done(self):
-        return len(self.completed) >= len(self._requests)
-
-
-class ChunksRefresh(MultiRequestRefresh):
-
-    def __init__(self, requests, refresh=0.5, stats=None):
-        super(ChunksRefresh, self).__init__(requests.curl, refresh)
-        self._requests = requests
-
-        self._stats = stats
-
-    def _get_status_refresh(self, now):
-        status = super(ChunksRefresh, self)._get_status_refresh(now)
-
-        if self._stats:
-            self._stats.update_progress(now)
-
-        return status
-
-    def _status(self):
-        return self._requests.get_status()
-
-    def _done(self):
-        return self._requests.done()
-
-    def _close(self):
-        self._requests.close()
+    def is_done(self):
+        return len(self.completed) >= len(self._chunks)
 
 
 class ChunksDownloads(ChunksStatuses):
@@ -132,13 +98,33 @@ class ChunksDownloads(ChunksStatuses):
         downloads = [HttpChunk(chunks.url, chunk, cookies, bucket) for chunk in chunks if not chunk.is_completed()]
         super(ChunksDownloads, self).__init__(downloads)
         self.path = chunks.path
-        self.size = chunks.size
 
-        self._completed_size = sum((chunk.get_size() for chunk in chunks if chunk.is_completed()))
 
-    @property
-    def received(self):
-        return sum(self.chunks_received.values()) + self._completed_size
+class ChunksRefresh(MultiRequestRefresh):
 
-    def is_completed(self):
-        return self.received >= self.size
+    def __init__(self, downloads, curl=None, refresh=0.5, stats=None):
+        super(ChunksRefresh, self).__init__(curl, refresh)
+        self._downloads = downloads
+        self._register(downloads)
+        self._stats = stats
+
+    def __iter__(self):
+        try:
+            while not self._downloads.is_done():
+                status = self._update()
+                if status:
+                    yield status
+        finally:
+            for request in self._downloads:
+                self._requests.close(request)
+
+    def _update_status(self, now):
+        status = super(ChunksRefresh, self)._update_status(now)
+
+        if self._stats:
+            self._stats.update_progress(now)
+
+        return status
+
+    def _done(self):
+        return self._downloads.is_done()

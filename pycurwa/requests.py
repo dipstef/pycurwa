@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 from collections import OrderedDict
 from time import time
-from .curl import CurlMulti, CurlMultiStatus
+
+from .curl import CurlMulti, CurlHandlesStatus
 from .curl.error import CurlWriteError, CurlError, MissingHandle
 from .request import CurlRequestBase
 
@@ -31,31 +32,9 @@ class MultiRequestsBase(object):
         self._curl.remove_handle(request.handle)
         del self._request_handles[request.handle]
 
-    def remove_all(self):
-        for request in self._request_handles.values():
-            self._remove(request)
-
     def close(self, request):
         self.remove(request)
         request.close()
-
-    def close_all(self):
-        for request in self._request_handles.values():
-            self.close(request)
-
-    def execute(self):
-        return self._curl.execute()
-
-    def get_status(self):
-        return self._get_status(time())
-
-    def _get_status(self, status_time):
-        status = self._curl.get_status()
-
-        request_completed = [self._get_request(handle) for handle in status.completed]
-        request_failed = [CurlFailed(self._get_request(handle), errno, msg) for handle, errno, msg in status.failed]
-
-        return MultiRequestStatusCheck(request_completed, request_failed, status.remaining, status_time)
 
     def _get_request(self, handle):
         request = self._request_handles.get(handle)
@@ -65,8 +44,19 @@ class MultiRequestsBase(object):
 
         return request
 
-    def select(self, timeout=1):
-        self._curl.select(timeout)
+    def get_status(self):
+        return self._get_status(time())
+
+    def _get_status(self, status_time):
+        status = self._curl.get_status()
+
+        while status.remaining:
+            status = self._curl.get_status()
+
+        request_completed = [self._get_request(handle) for handle in status.completed]
+        request_failed = [CurlFailed(self._get_request(handle), errno, msg) for handle, errno, msg in status.failed]
+
+        return MultiRequestStatusCheck(request_completed, request_failed, status_time)
 
     def __len__(self):
         return len(self._request_handles)
@@ -75,77 +65,83 @@ class MultiRequestsBase(object):
         return iter(self._request_handles.values())
 
 
-class MultiRequests(MultiRequestsBase):
+class MultiRequests(object):
 
-    def get_status(self):
-        status_time = time()
-
-        status = self._get_status(status_time)
-
-        while status.remaining:
-            status = self._get_status(status_time)
-
-        return status
-
-
-class MultiRequestsStatuses(object):
-
-    def __init__(self, curl):
+    def __init__(self, curl=None):
+        curl = curl or CurlMulti()
+        self._requests = MultiRequestsBase(curl=curl)
         self._curl = curl
+        self._handles_requests = OrderedDict()
 
-    def __iter__(self):
-        try:
-            while not self._done():
-                self._curl.execute()
-                status = self._get_status()
+    def _register(self, requests):
+        for request in requests:
+            self._requests.add(request)
+            self._handles_requests[request.handle] = requests
 
-                if not self._done():
-                    if status:
-                        yield status
+    def _update(self):
+        self._curl.execute()
+        self._update_requests()
+        self._curl.select(timeout=1)
 
-                    self._curl.select(timeout=1)
-        finally:
-            self._close()
+    def _update_requests(self):
+        status = self._requests.get_status()
+        for request, request_status in self._group_by_request(status):
+            request.update(request_status)
+            #if request.is_completed():
+            #    for request_handle in request:
+            #        self._requests.close(request_handle)
 
-    def _close(self):
-        return self._curl.close()
+    def _group_by_request(self, status):
+        request_statuses = OrderedDict()
 
-    def _get_status(self):
-        return self._curl.get_status()
+        for request in status.completed:
+            request_group = self._handles_requests[request.handle]
 
-    def _done(self):
-        return False
+            existing = request_statuses.get(request_group)
+            if existing:
+                existing.completed.append(request)
+            else:
+                request_statuses[request_group] = MultiRequestsStatus([request], [], status.check)
+
+        for request in status.failed:
+            request_group = self._handles_requests[request.handle]
+
+            existing = request_statuses.get(request_group)
+            if existing:
+                existing.failed.append(request)
+            else:
+                request_statuses[request_group] = MultiRequestsStatus([], [request], status.check)
+
+        return request_statuses.iteritems()
 
 
-class MultiRequestRefresh(MultiRequestsStatuses):
+class MultiRequestRefresh(MultiRequests):
 
     def __init__(self, curl, refresh=0.5):
         super(MultiRequestRefresh, self).__init__(curl)
         self._refresh_rate = refresh
         self._last_update = 0
 
-    def _get_status(self):
+    def _update(self):
         now = time()
-        status = self._get_status_refresh(now)
+        status = self._update_status(now)
         return status
 
-    def _get_status_refresh(self, now):
+    def _update_status(self, now):
         if now - self._last_update >= self._refresh_rate:
+            status = super(MultiRequestRefresh, self)._update()
             self._last_update = now
-            return self._status()
-
-    def _status(self):
-        return self._curl.get_status()
+            return status
 
 
-class MultiRequestsStatus(CurlMultiStatus):
-    def __init__(self, completed, failed, handles_remaining, status_time=None):
-        super(MultiRequestsStatus, self).__init__(completed, failed, handles_remaining)
+class MultiRequestsStatus(CurlHandlesStatus):
+    def __init__(self, completed, failed, status_time=None):
+        super(MultiRequestsStatus, self).__init__(completed, failed)
         self.check = status_time or time()
 
 
 class MultiRequestStatusCheck(MultiRequestsStatus):
-    def __init__(self, completed, failed, handles_remaining, status_time=None):
+    def __init__(self, completed, failed, status_time=None):
         failed = [request for request in failed if request.failed()]
 
         errors = []
@@ -157,7 +153,7 @@ class MultiRequestStatusCheck(MultiRequestsStatus):
 
         completed = completed if not errors else [request for request in completed if not request in errors]
 
-        super(MultiRequestStatusCheck, self).__init__(completed, failed, handles_remaining, status_time)
+        super(MultiRequestStatusCheck, self).__init__(completed, failed, status_time)
 
 
 class FailedRequest(object):

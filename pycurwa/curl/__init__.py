@@ -60,12 +60,17 @@ class CurlMulti(ClosingCurl):
         return CurlMultiStatus(completed, failed, remaining)
 
 
-class CurlMultiStatus(object):
+class CurlHandlesStatus(object):
 
-    def __init__(self, completed, failed, handles_remaining):
+    def __init__(self, completed, failed):
         self.completed = completed
         self.failed = failed
-        self.remaining = handles_remaining
+
+
+class CurlMultiStatus(CurlHandlesStatus):
+    def __init__(self, completed, failed, remaining):
+        super(CurlMultiStatus, self).__init__(completed, failed)
+        self.remaining = remaining
 
 
 class Curl(ClosingCurl):
