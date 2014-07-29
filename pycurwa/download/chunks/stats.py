@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import numbers
 import operator
-import os
+from pycurwa.download.chunks.requests import ChunksStatuses, ChunksRefresh
 
 
 class ChunkStatus(OrderedDict):
@@ -40,8 +40,8 @@ class ChunkStatus(OrderedDict):
 
 class DownloadStats(object):
 
-    def __init__(self, chunks, refresh_rate=1):
-        self.size = sum(chunk.size for chunk in chunks)
+    def __init__(self, downloads, refresh_rate=1):
+        self._downloads = downloads
         self._last_check = 0
 
         #needed for speed calculation
@@ -52,15 +52,16 @@ class DownloadStats(object):
         self._last_two_speeds = ({}, {})
         self._speed_refresh_time = refresh_rate
 
-    def update_progress(self, status):
-        if self._is_speed_refresh_time(status):
-            self._update_progress(status.check, status.chunks_received)
+    def update_progress(self, status_time):
+        if self._is_speed_refresh_time(status_time):
+            self._update_progress(status_time)
 
-    def _is_speed_refresh_time(self, status):
-        return self._last_check + self._speed_refresh_time < status.check
+    def _is_speed_refresh_time(self, status_time):
+        return self._last_check + self._speed_refresh_time < status_time
 
-    def _update_progress(self, status_time, chunks_received):
-        received_now = ChunkStatus(chunks_received)
+    def _update_progress(self, status_time):
+        received_now = ChunkStatus(self._downloads.chunks_received)
+
         received_diff = received_now - self._last_received
 
         last_speeds = received_diff/float(status_time - self._last_check)
@@ -84,11 +85,12 @@ class DownloadStats(object):
 
     @property
     def received(self):
-        return sum((chunk.size for chunk in self._last_received.values()))
+        return self._downloads.received
+
+    @property
+    def size(self):
+        return self._downloads.size
 
     @property
     def percent(self):
-        if not self.size:
-            return 0
-
         return (self.received * 100) / self.size

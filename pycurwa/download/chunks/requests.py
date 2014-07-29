@@ -106,22 +106,30 @@ class ChunksStatuses(MultiRequestsStatuses):
 
 class ChunksRefresh(ChunksStatuses):
 
-    def __init__(self, chunks_requests, refresh=0.5):
+    def __init__(self, chunks_requests, refresh=0.5, stats=None):
         super(ChunksRefresh, self).__init__(chunks_requests)
         self._chunks_refresh_rate = refresh
+        self._status_time = None
         self._last_status = None
+        self._stats = stats
 
     def _statuses(self):
-        return (status for status in super(ChunksRefresh, self)._statuses() if status)
+        for status in super(ChunksRefresh, self)._statuses():
+            if status:
+                yield status
+            if self._stats:
+                self._stats.update_progress(self._status_time)
 
     def _get_status(self):
+        self._status_time = time()
+
         if self._is_chunk_finish_refresh_time():
             status = super(ChunksRefresh, self)._get_status()
             self._last_status = status
             return status
 
     def _is_chunk_finish_refresh_time(self):
-        return time() - self._last_update >= self._chunks_refresh_rate
+        return self._status_time - self._last_update >= self._chunks_refresh_rate
 
     @property
     def _last_update(self):

@@ -6,10 +6,11 @@ from procol.console import print_err
 
 from . import ExistingDownload, NewChunks
 from pycurwa.download import OneChunk
+from pycurwa.download.chunks.error import ChunksDownloadMismatch
 from .stats import DownloadStats
 from .requests import ChunksDownloads, ChunksRefresh
 from ..request import DownloadHeadersRequest
-from ...error import DownloadedContentMismatch, Abort, FailedChunks
+from ...error import Abort, FailedChunks
 from ...util import save_join
 
 
@@ -20,39 +21,28 @@ class HttpChunks(object):
 
         self._chunks_file = chunks
 
-        self.url = chunks.url
-        self.path = chunks.file_path
-        self.size = chunks.size
-
-        self._cookies = cookies
-        self._bucket = bucket
-
         self._abort = False
 
     def perform(self):
         stats = self._perform()
 
-        if self._download.received < self.size:
-            raise DownloadedContentMismatch(self.path, self._download.received, self.size)
+        if self._download.received < self._chunks_file.size:
+            raise ChunksDownloadMismatch(self._chunks_file, self._download.received)
 
         return stats
 
     def _perform(self):
-        stats = DownloadStats(self._download.chunks)
+        stats = DownloadStats(self._download)
 
-        for status in self._iterate_statuses():
-            stats.update_progress(status)
+        self._execute(stats)
 
         return stats
 
-    def _iterate_statuses(self):
-        statuses = ChunksRefresh(self._download, refresh=0.5)
-
-        for status in statuses:
+    def _execute(self, stats):
+        statuses = ChunksRefresh(self._download, refresh=0.5, stats=stats)
+        for _ in statuses:
             if self._abort:
                 raise Abort()
-
-            yield status
 
     def __len__(self):
         return len(self._download)

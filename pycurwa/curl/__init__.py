@@ -51,6 +51,9 @@ class CurlMulti(ClosingCurl):
             if ret != pycurl.E_CALL_MULTI_PERFORM:
                 break
 
+    def select(self, timeout=None):
+        self.curl.select(timeout)
+
 
 class Curl(ClosingCurl):
 
