@@ -73,7 +73,7 @@ class ChunksStatuses(MultiRequestsStatuses):
         self.failed = ChunksDict()
 
     def _iterate_statuses(self):
-        for status in super(ChunksStatuses, self)._iterate_statuses():
+        for status in self._statuses():
             self._update_chunks_status(status)
 
             if status.failed:
@@ -84,6 +84,9 @@ class ChunksStatuses(MultiRequestsStatuses):
                     raise DownloadedContentMismatch(chunk.path, chunk.received, chunk.size)
 
             yield status
+
+    def _statuses(self):
+        return super(ChunksStatuses, self)._iterate_statuses()
 
     def _update_chunks_status(self, status):
         for chunk in self.completed.values():
@@ -108,16 +111,14 @@ class ChunksRefresh(ChunksStatuses):
         self._chunks_refresh_rate = refresh
         self._last_status = None
 
-    def _iterate_statuses(self):
-        for status in super(ChunksStatuses, self)._iterate_statuses():
-            if status:
-                self._update_chunks_status(status)
-                yield status
-                self._last_status = status
+    def _statuses(self):
+        return (status for status in super(ChunksRefresh, self)._statuses() if status)
 
     def _get_status(self):
         if self._is_chunk_finish_refresh_time():
-            return super(ChunksRefresh, self)._get_status()
+            status = super(ChunksRefresh, self)._get_status()
+            self._last_status = status
+            return status
 
     def _is_chunk_finish_refresh_time(self):
         return time() - self._last_update >= self._chunks_refresh_rate
