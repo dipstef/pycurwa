@@ -46,7 +46,10 @@ class MultiRequestsBase(object):
     def execute(self):
         return self._curl.execute()
 
-    def get_status(self, status_time=None):
+    def get_status(self):
+        return self._get_status(time())
+
+    def _get_status(self, status_time):
         handles_remaining, curl_completed, curl_failed = self._curl.info_read()
 
         request_completed = [self._get_request(handle) for handle in curl_completed]
@@ -74,11 +77,13 @@ class MultiRequestsBase(object):
 
 class MultiRequests(MultiRequestsBase):
 
-    def get_status(self, status_time=None):
-        status = super(MultiRequests, self).get_status(status_time)
+    def get_status(self):
+        status_time = time()
+
+        status = self._get_status(status_time)
 
         while status.handles_remaining:
-            status = super(MultiRequests, self).get_status(status_time)
+            status = self._get_status(status_time)
 
         return status
 
@@ -88,12 +93,15 @@ class MultiRequestsStatuses(object):
     def __init__(self, requests):
         self._requests = requests
 
-    def iterate_statuses(self):
+    def __iter__(self):
+        return self._iterate_statuses()
+
+    def _iterate_statuses(self):
         try:
             while not self._done():
                 self._requests.execute()
 
-                status = self._requests.get_status()
+                status = self._get_status()
 
                 if not self._done():
                     yield status
@@ -101,6 +109,10 @@ class MultiRequestsStatuses(object):
                     self._requests.select(timeout=1)
         finally:
             self._requests.close_all()
+
+    def _get_status(self):
+        status = self._requests.get_status()
+        return status
 
     def _done(self):
         return False
