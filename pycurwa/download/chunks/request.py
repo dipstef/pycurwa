@@ -4,13 +4,12 @@ from ..request import HttpDownloadBase
 class HttpDownloadRange(HttpDownloadBase):
 
     def __init__(self, url, file_path, cookies, bytes_range, bucket=None, resume=False):
-        self._range = bytes_range
         super(HttpDownloadRange, self).__init__(url, file_path, cookies, bucket, resume)
+        self._range = bytes_range
 
         start = self.received + self._range.start
-        bytes_range = '%i-%i' % (start, self._range.end) if self._is_closed_range() else '%i-' % start
 
-        self._curl.set_range(bytes_range)
+        self._curl.set_range('%i-%i' % (start, self._range.end) if self._is_closed_range() else '%i-' % start)
 
     def _write_body(self, buf):
         if not self._is_range_completed():

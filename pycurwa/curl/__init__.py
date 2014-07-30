@@ -62,7 +62,7 @@ class CurlMulti(ClosingCurl):
 
 class CurlHandlesStatus(object):
 
-    def __init__(self, completed, failed):
+    def __init__(self, completed=(), failed=()):
         self.completed = completed
         self.failed = failed
 

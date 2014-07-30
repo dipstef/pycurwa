@@ -1,9 +1,10 @@
 from collections import OrderedDict
 
 from . import ChunksDict
-from pycurwa.error import FailedChunks, DownloadedContentMismatch
 from .request import HttpChunk
-from ...requests import MultiRequestRefresh, MultiRequestsStatus
+from .error import FailedChunks
+from ...error import DownloadedContentMismatch
+from ...requests import MultiRequestRefresh, RequestsStatus
 
 
 class ChunkRequests(object):
@@ -20,6 +21,7 @@ class ChunkRequests(object):
     def _update(self, status):
         if status.failed:
             raise FailedChunks(status)
+
         for chunk in status.completed.values():
             if not chunk.is_completed():
                 raise DownloadedContentMismatch(chunk.path, chunk.received, chunk.size)
@@ -53,7 +55,7 @@ class ChunkRequests(object):
         return self._chunks[item]
 
 
-class HttpChunksStatus(MultiRequestsStatus):
+class HttpChunksStatus(RequestsStatus):
 
     def __init__(self, chunks, status):
         self._chunks = chunks
@@ -119,12 +121,10 @@ class ChunksRefresh(MultiRequestRefresh):
                 self._requests.close(request)
 
     def _update_status(self, now):
-        status = super(ChunksRefresh, self)._update_status(now)
+        super(ChunksRefresh, self)._update_status(now)
 
         if self._stats:
             self._stats.update_progress(now)
-
-        return status
 
     def _done(self):
         return self._downloads.is_done()

@@ -33,11 +33,3 @@ class FailedStatus(Exception):
         super(FailedStatus, self).__init__(status)
         self.status = status
         self.failed = status.failed
-
-
-class FailedChunks(FailedStatus):
-
-    def __init__(self, status):
-        super(FailedChunks, self).__init__(status)
-        self.status = status
-        self.message = '\n'.join('%s: %s' % (chunk_id, chunk.error) for chunk_id, chunk in status.failed.iteritems())
