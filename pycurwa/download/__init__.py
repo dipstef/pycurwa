@@ -26,3 +26,6 @@ class HttpDownloadBase(object):
 class HttpDownload(HttpDownloadBase):
     def __init__(self, bucket=None):
         super(HttpDownload, self).__init__(DownloadChunks(bucket))
+
+    def close(self):
+        pass

@@ -2,7 +2,7 @@ from threading import Thread, Event, Lock
 
 from . import HttpDownloadBase
 from .chunks.download import DownloadChunks, HttpChunks
-from pycurwa.download.chunks.requests import ChunksDownloads
+from pycurwa.download.chunks.requests import ChunksDownloadsThread
 from pycurwa.requests import MultiRequestRefresh
 
 
@@ -57,7 +57,7 @@ class MultiChunks(DownloadChunks):
         return HttpChunks(downloads)
 
 
-class RequestsChunks(ChunksDownloads):
+class RequestsChunks(ChunksDownloadsThread):
     def __init__(self, requests, chunks, cookies=None, bucket=None):
         super(RequestsChunks, self).__init__(chunks, cookies, bucket)
         self._requests = requests

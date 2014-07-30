@@ -8,7 +8,7 @@ from . import ExistingDownload, NewChunks
 from pycurwa.download import OneChunk
 from pycurwa.download.chunks.error import ChunksDownloadMismatch, FailedChunks
 from .stats import DownloadStats
-from .requests import ChunksDownloads, ChunksRefresh
+from .requests import ChunksDownloadsThread, ChunksRefresh, ChunksDownload
 from ..request import DownloadHeadersRequest
 from ...error import Abort
 from ...util import save_join
@@ -33,7 +33,7 @@ class HttpChunks(object):
 
 class HttpChunksDownload(HttpChunks):
     def __init__(self, chunks, cookies=None, bucket=None):
-        super(HttpChunksDownload, self).__init__(ChunksRefresh(chunks, cookies, bucket))
+        super(HttpChunksDownload, self).__init__(ChunksDownload(chunks, cookies, bucket))
 
 
 class DownloadChunks(object):

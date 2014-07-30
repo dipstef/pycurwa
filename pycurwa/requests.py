@@ -120,6 +120,7 @@ class MultiRequests(object):
             status = self._update()
             if status:
                 yield status
+        self._close()
 
     def iterate_completed(self):
         for status in self.iterate_updates():
@@ -130,6 +131,9 @@ class MultiRequests(object):
         #return not self._handles_requests
         return False
 
+    def _close(self):
+        self._curl.close()
+
 
 class MultiRequestRefresh(MultiRequests):
 
@@ -139,7 +143,7 @@ class MultiRequestRefresh(MultiRequests):
         self._last_update = 0
 
     def _update_requests(self):
-        self._update_status(time())
+        return self._update_status(time())
 
     def _update_status(self, now):
         if now - self._last_update >= self._refresh_rate:
