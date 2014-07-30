@@ -1,7 +1,6 @@
 from collections import OrderedDict
 import numbers
 import operator
-from pycurwa.download.chunks.requests import ChunksStatuses, ChunksRefresh
 
 
 class ChunkStatus(OrderedDict):

@@ -73,15 +73,18 @@ class MultiRequests(object):
         self._requests = Requests(curl=curl)
         self._curl = curl
         self._handles_requests = OrderedDict()
+        self._reqs = []
 
     def add(self, requests):
         for request in requests:
             self._requests.add(request)
             self._handles_requests[request.handle] = requests
+        self._reqs.append(requests)
 
     def remove(self, requests):
         for request in requests:
             self._requests.remove(request)
+        self._reqs.remove(requests)
 
     def _update(self):
         self._curl.execute()
@@ -98,14 +101,13 @@ class MultiRequests(object):
         return status
 
     def _group_by_request(self, status):
-        statuses = OrderedDict()
+        statuses = OrderedDict(((requests, RequestsStatus([], [], status.check)) for requests in self._reqs))
 
         for group, completed in itertools.groupby(status.completed, key=lambda r: self._handles_requests[r.handle]):
             statuses[group] = RequestsStatus(list(completed), [], status.check)
 
         for group, failed in itertools.groupby(status.failed, key=lambda r: self._handles_requests[r.handle]):
-            existing = statuses.get(group)
-            statuses[group] = RequestsStatus(existing.completed if existing else [], list(failed), status.check)
+            statuses[group] = RequestsStatus(statuses.get(group).completed, list(failed), status.check)
 
         return statuses.iteritems()
 
@@ -143,7 +145,10 @@ class MultiRequestRefresh(MultiRequests):
         if now - self._last_update >= self._refresh_rate:
             status = super(MultiRequestRefresh, self)._update_requests()
             self._last_update = now
-            return status
+        else:
+            status = RequestsStatus([], [], now)
+
+        return status
 
 
 class RequestsStatus(CurlHandlesStatus):

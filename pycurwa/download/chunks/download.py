@@ -19,29 +19,13 @@ class HttpChunks(object):
     def __init__(self, downloads):
         self._downloads = downloads
 
-        self._abort = False
-
     def perform(self):
-        stats = self._perform()
+        stats = self._downloads.perform()
 
         if not self._downloads.is_completed():
             raise ChunksDownloadMismatch(self._downloads)
 
         return stats
-
-    def _perform(self):
-        stats = DownloadStats(self._downloads)
-
-        for _ in self._iterate_statuses(stats):
-            pass
-
-        return stats
-
-    def _iterate_statuses(self, stats):
-        for status in self._downloads.iterate_updates():
-            if self._abort:
-                raise Abort()
-            yield status
 
     def __len__(self):
         return len(self._downloads)
