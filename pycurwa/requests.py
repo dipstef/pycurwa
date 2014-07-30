@@ -8,7 +8,7 @@ from .curl.error import CurlWriteError, CurlError, MissingHandle
 from .request import CurlRequestBase
 
 
-class MultiRequestsBase(object):
+class Requests(object):
 
     def __init__(self, requests=(), curl=None):
         self._curl = curl or CurlMulti()
@@ -70,7 +70,7 @@ class MultiRequests(object):
 
     def __init__(self, curl=None):
         curl = curl or CurlMulti()
-        self._requests = MultiRequestsBase(curl=curl)
+        self._requests = Requests(curl=curl)
         self._curl = curl
         self._handles_requests = OrderedDict()
 
@@ -79,15 +79,23 @@ class MultiRequests(object):
             self._requests.add(request)
             self._handles_requests[request.handle] = requests
 
+    def _detach(self, requests):
+        for request in requests:
+            self._requests.remove(request)
+
     def _update(self):
         self._curl.execute()
-        self._update_requests()
+        status = self._update_requests()
         self._curl.select(timeout=1)
+        return status
 
     def _update_requests(self):
         status = self._requests.get_status()
+
         for request, request_status in self._group_by_request(status):
             request.update(request_status)
+
+        return status
 
     def _group_by_request(self, status):
         statuses = OrderedDict()
@@ -98,7 +106,27 @@ class MultiRequests(object):
         for group, failed in itertools.groupby(status.failed, key=lambda r: self._handles_requests[r.handle]):
             existing = statuses.get(group)
             statuses[group] = RequestsStatus(existing.completed if existing else [], list(failed), status.check)
+
         return statuses.iteritems()
+
+    def perform(self):
+        for _ in self.iterate_updates():
+            pass
+
+    def iterate_updates(self):
+        while not self._done():
+            status = self._update()
+            if status:
+                yield status
+
+    def iterate_completed(self):
+        for status in self.iterate_updates():
+            for request in status.completed:
+                yield request
+
+    def _done(self):
+        #return not self._handles_requests
+        return False
 
 
 class MultiRequestRefresh(MultiRequests):
@@ -113,8 +141,9 @@ class MultiRequestRefresh(MultiRequests):
 
     def _update_status(self, now):
         if now - self._last_update >= self._refresh_rate:
-            super(MultiRequestRefresh, self)._update_requests()
+            status = super(MultiRequestRefresh, self)._update_requests()
             self._last_update = now
+            return status
 
 
 class RequestsStatus(CurlHandlesStatus):

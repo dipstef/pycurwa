@@ -1,6 +1,8 @@
+from Queue import Queue
 from collections import OrderedDict
 
 from . import ChunksDict
+from threading import Thread
 from .request import HttpChunk
 from .error import FailedChunks
 from ...error import DownloadedContentMismatch
@@ -91,40 +93,72 @@ class ChunksStatuses(ChunkRequests):
         self.failed.update(status.failed)
 
     def is_done(self):
-        return len(self.completed) >= len(self._chunks)
+        return len(self.completed) >= len(self._chunks) or self.failed
 
 
-class ChunksDownloads(ChunksStatuses):
+class ChunksDownloadsBase(ChunksStatuses):
 
     def __init__(self, chunks, cookies=None, bucket=None):
         downloads = [HttpChunk(chunks.url, chunk, cookies, bucket) for chunk in chunks if not chunk.is_completed()]
-        super(ChunksDownloads, self).__init__(downloads)
+        super(ChunksDownloadsBase, self).__init__(downloads)
         self.path = chunks.path
 
 
-class ChunksRefresh(MultiRequestRefresh):
+class MultiRefreshChunks(MultiRequestRefresh):
 
-    def __init__(self, downloads, curl=None, refresh=0.5, stats=None):
-        super(ChunksRefresh, self).__init__(curl, refresh)
+    def __init__(self, downloads, refresh=0.5, stats=None):
+        super(MultiRefreshChunks, self).__init__(curl=None, refresh=refresh)
         self._downloads = downloads
         self._register(downloads)
         self._stats = stats
 
-    def __iter__(self):
-        try:
-            while not self._downloads.is_done():
-                status = self._update()
-                if status:
-                    yield status
-        finally:
-            for request in self._downloads:
-                self._requests.close(request)
-
     def _update_status(self, now):
-        super(ChunksRefresh, self)._update_status(now)
+        status = super(MultiRefreshChunks, self)._update_status(now)
 
         if self._stats:
             self._stats.update_progress(now)
 
+        return status
+
     def _done(self):
         return self._downloads.is_done()
+
+
+class ChunksRefresh(object):
+
+    def __init__(self, downloads, refresh=0.5, stats=None):
+        self._downloads = downloads
+        self._refresh = MultiRefreshChunks(downloads, refresh, stats)
+
+    def __iter__(self):
+        t = Thread(target=self._refresh.perform)
+
+        t.start()
+        try:
+            for status in self._downloads.iterate_updates():
+                yield status
+        finally:
+            t.join()
+
+
+class ChunksDownloads(ChunksDownloadsBase):
+
+    def __init__(self, chunks, cookies=None, bucket=None):
+        super(ChunksDownloads, self).__init__(chunks, cookies, bucket)
+        self._queue = Queue()
+
+    def _update(self, status):
+        self._queue.put(status)
+
+    def perform(self):
+        for _ in self.iterate_updates():
+            pass
+
+    def iterate_updates(self):
+        while not self.is_done():
+            status = self._queue.get()
+            super(ChunksDownloads, self)._update(status)
+            yield status
+
+        for chunk in self.chunks:
+            chunk.close()
