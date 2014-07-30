@@ -68,18 +68,18 @@ class Requests(object):
 
 class MultiRequests(object):
 
-    def __init__(self, curl=None):
-        curl = curl or CurlMulti()
+    def __init__(self):
+        curl = CurlMulti()
         self._requests = Requests(curl=curl)
         self._curl = curl
         self._handles_requests = OrderedDict()
 
-    def _register(self, requests):
+    def add(self, requests):
         for request in requests:
             self._requests.add(request)
             self._handles_requests[request.handle] = requests
 
-    def _detach(self, requests):
+    def remove(self, requests):
         for request in requests:
             self._requests.remove(request)
 
@@ -131,8 +131,8 @@ class MultiRequests(object):
 
 class MultiRequestRefresh(MultiRequests):
 
-    def __init__(self, curl, refresh=0.5):
-        super(MultiRequestRefresh, self).__init__(curl)
+    def __init__(self, refresh=0.5):
+        super(MultiRequestRefresh, self).__init__()
         self._refresh_rate = refresh
         self._last_update = 0
 

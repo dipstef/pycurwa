@@ -106,11 +106,15 @@ class ChunksDownloadsBase(ChunksStatuses):
 
 class MultiRefreshChunks(MultiRequestRefresh):
 
-    def __init__(self, downloads, refresh=0.5, stats=None):
-        super(MultiRefreshChunks, self).__init__(curl=None, refresh=refresh)
+    def __init__(self, downloads, refresh=0.5):
+        super(MultiRefreshChunks, self).__init__(refresh=refresh)
         self._downloads = downloads
-        self._register(downloads)
+        self.add(downloads)
+        self._stats = None
+
+    def perform(self, stats=None):
         self._stats = stats
+        return super(MultiRefreshChunks, self).iterate_updates()
 
     def _update_status(self, now):
         status = super(MultiRefreshChunks, self)._update_status(now)
@@ -126,14 +130,14 @@ class MultiRefreshChunks(MultiRequestRefresh):
 
 class ChunksRefresh(object):
 
-    def __init__(self, downloads, refresh=0.5, stats=None):
-        self._downloads = downloads
-        self._refresh = MultiRefreshChunks(downloads, refresh, stats)
+    def __init__(self, chunks, cookies, bucket=None, refresh=0.5):
+        self._downloads = ChunksDownloads(chunks, cookies, bucket)
+        self._refresh = MultiRefreshChunks(self._downloads, refresh)
 
-    def __iter__(self):
-        t = Thread(target=self._refresh.perform)
-
+    def iterate_updates(self, stats):
+        t = Thread(target=self._refresh.perform, args=(stats, ))
         t.start()
+
         try:
             for status in self._downloads.iterate_updates():
                 yield status
@@ -155,10 +159,14 @@ class ChunksDownloads(ChunksDownloadsBase):
             pass
 
     def iterate_updates(self):
-        while not self.is_done():
-            status = self._queue.get()
-            super(ChunksDownloads, self)._update(status)
-            yield status
+        try:
+            while not self.is_done():
+                status = self._queue.get()
+                super(ChunksDownloads, self)._update(status)
+                yield status
+        finally:
+            self.close()
 
+    def close(self):
         for chunk in self.chunks:
             chunk.close()

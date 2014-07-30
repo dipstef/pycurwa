@@ -38,8 +38,7 @@ class HttpChunks(object):
         return stats
 
     def _iterate_statuses(self, stats):
-        statuses = ChunksRefresh(self._downloads, refresh=0.5, stats=stats)
-        for status in statuses:
+        for status in self._downloads.iterate_updates():
             if self._abort:
                 raise Abort()
             yield status
@@ -50,7 +49,7 @@ class HttpChunks(object):
 
 class HttpChunksDownload(HttpChunks):
     def __init__(self, chunks, cookies=None, bucket=None):
-        super(HttpChunksDownload, self).__init__(ChunksDownloads(chunks, cookies, bucket))
+        super(HttpChunksDownload, self).__init__(ChunksRefresh(chunks, cookies, bucket))
 
 
 class DownloadChunks(object):
@@ -83,13 +82,16 @@ class DownloadChunks(object):
             return self._download(_one_chunk_download(url, chunks_file))
 
     def _download(self, chunks_file):
-        download = HttpChunksDownload(chunks_file, bucket=self._bucket)
+        download = self._create_download(chunks_file)
 
         statistics = download.perform()
 
         chunks_file.copy_chunks()
 
         return statistics
+
+    def _create_download(self, chunks_file):
+        return HttpChunksDownload(chunks_file, bucket=self._bucket)
 
 
 def get_chunks_file(url, file_path, chunks_number=1, resume=True, cookies=None, use_disposition=False):

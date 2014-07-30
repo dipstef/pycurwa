@@ -1,5 +1,5 @@
 from pycurwa.bucket import Bucket
-from pycurwa.download import HttpDownload
+from pycurwa.download.multi import MultiDownloads
 
 
 def main():
@@ -13,11 +13,15 @@ def main():
     bucket = None
 
     print 'starting'
-    d = HttpDownload(bucket=bucket)
+    #d = HttpDownload(bucket=bucket)
+    d = MultiDownloads(bucket)
 
-    stats = d.download(url, file_name, chunks_number=1, resume=True)
-    print stats.speed
+    try:
+        stats = d.download(url, file_name, chunks_number=20, resume=True)
 
+        print stats.speed
+    finally:
+        d.close()
 
 if __name__ == "__main__":
     main()
