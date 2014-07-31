@@ -88,17 +88,20 @@ class MultiRequests(object):
 
     def _update(self):
         self._curl.execute()
-        status = self._update_requests()
+        status = self._get_status()
+
+        self._update_requests(status)
+
         self._curl.select(timeout=1)
         return status
 
-    def _update_requests(self):
+    def _get_status(self):
         status = self._requests.get_status()
+        return status
 
+    def _update_requests(self, status):
         for request, request_status in self._group_by_request(status):
             request.update(request_status)
-
-        return status
 
     def _group_by_request(self, status):
         statuses = OrderedDict(((requests, RequestsStatus([], [], status.check)) for requests in self._reqs))
@@ -142,12 +145,10 @@ class MultiRequestRefresh(MultiRequests):
         self._refresh_rate = refresh
         self._last_update = 0
 
-    def _update_requests(self):
-        return self._update_status(time())
-
-    def _update_status(self, now):
+    def _get_status(self):
+        now = time()
         if now - self._last_update >= self._refresh_rate:
-            status = super(MultiRequestRefresh, self)._update_requests()
+            status = super(MultiRequestRefresh, self)._get_status()
             self._last_update = now
         else:
             status = RequestsStatus([], [], now)

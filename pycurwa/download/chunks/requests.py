@@ -2,7 +2,7 @@ from Queue import Queue
 from collections import OrderedDict
 from threading import Thread
 
-from . import ChunksDict
+from .chunks import ChunksDict
 from .stats import DownloadStats
 from .request import HttpChunk
 from .error import FailedChunks
@@ -47,9 +47,6 @@ class ChunkRequests(object):
 
     def is_completed(self):
         return self.received >= self.size
-
-    def is_done(self):
-        return self.is_completed()
 
     def __iter__(self):
         return self._chunks.itervalues()

@@ -2,8 +2,7 @@
 from httpy.error import InvalidRangeRequest
 from procol.console import print_err
 
-from .chunks import Chunks, OneChunk
-from .chunks.download import get_chunks_file, DownloadChunks
+from .chunks import DownloadChunks
 
 
 class HttpDownloadBase(object):

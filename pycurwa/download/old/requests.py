@@ -1,9 +1,9 @@
 from collections import OrderedDict
 
-from ..chunks import ChunksDict
 from ..chunks.request import HttpChunk
 from ..chunks.error import FailedChunks
 from ...error import DownloadedContentMismatch
+from pycurwa.download.chunks.chunks import ChunksDict
 from .req import MultiRequests, MultiRequestRefresh, MultiRequestsStatus
 
 

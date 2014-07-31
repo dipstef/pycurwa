@@ -1,87 +1,67 @@
+import codecs
+import json
 import os
-import time
 
 from httpy import HttpRequest
-from procol.console import print_err
 
-from . import ExistingDownload, NewChunks
-from pycurwa.download import OneChunk
-from pycurwa.download.chunks.error import ChunksDownloadMismatch, FailedChunks
-from .stats import DownloadStats
-from .requests import ChunksDownloadsThread, ChunksRefresh, ChunksDownload
+from .chunks import chunks_file_path, DownloadChunks
+from .chunk import ChunkFile
 from ..request import DownloadHeadersRequest
-from ...error import Abort
 from ...util import save_join
 
 
-class HttpChunks(object):
+class ExistingDownload(DownloadChunks):
 
-    def __init__(self, downloads):
-        self._downloads = downloads
+    def __init__(self, url, file_path, resume=False):
+        chunks_file = chunks_file_path(file_path)
 
-    def perform(self):
-        stats = self._downloads.perform()
+        with codecs.open(chunks_file, 'r', 'utf-8') as fh:
+            json_dict = json.load(fh)
 
-        if not self._downloads.is_completed():
-            raise ChunksDownloadMismatch(self._downloads)
+        assert url == json_dict['url']
+        expected_size = json_dict['size']
+        total = json_dict['number']
+        chunks_list = json_dict['chunks']
 
-        return stats
+        chunks = []
+        for chunk_dict in chunks_list:
+            chunk_file = ChunkFile(chunk_dict['number'], total, chunk_dict['path'], chunk_dict['range'], resume)
+            chunks.append(chunk_file)
 
-    def __len__(self):
-        return len(self._downloads)
-
-
-class HttpChunksDownload(HttpChunks):
-    def __init__(self, chunks, cookies=None, bucket=None):
-        super(HttpChunksDownload, self).__init__(ChunksDownload(chunks, cookies, bucket))
+        super(ExistingDownload, self).__init__(url, file_path, expected_size, chunks, resume)
 
 
-class DownloadChunks(object):
+class NewChunks(DownloadChunks):
 
-    def __init__(self, bucket):
-        self._bucket = bucket
+    def __init__(self, url, file_path, expected_size, chunks_number, resume=False):
+        super(NewChunks, self).__init__(url, file_path, expected_size, chunks=[], resume=resume)
+        self._create_chunks(chunks_number)
+        self.save()
 
-    def download(self, url, path, chunks_number=1, resume=False):
-        chunks_file = get_chunks_file(url, path, chunks_number, resume=resume)
+    def _create_chunks(self, chunks_number):
+        chunk_size = self.size / chunks_number
+        total = chunks_number - 1
 
-        try:
-            return self._download_chunks(url, chunks_file)
-        except FailedChunks:
-            if not chunks_file.resume:
-                chunks_file.remove()
-            raise
+        current = 0
+        for number in range(chunks_number):
+            end = self.size - 1 if number == total else current + chunk_size
 
-    def _download_chunks(self, url, chunks_file):
-        try:
-            return self._download(chunks_file)
-        except FailedChunks, e:
-            if len(chunks_file.chunks) == 1:
-                raise
+            path = '%s.chunk%s' % (self.file_path, number)
+            self._chunks.append(ChunkFile(number+1, chunks_number, path, (current, end)))
 
-            for chunk in e.failed.values():
-                print_err('Chunk %d failed: %s' % (chunk.id + 1, str(chunk.error)))
-            print_err('Download chunks failed, fallback to single connection')
+            current += chunk_size + 1
 
-            time.sleep(2)
-            return self._download(_one_chunk_download(url, chunks_file))
 
-    def _download(self, chunks_file):
-        download = self._create_download(chunks_file)
-
-        statistics = download.perform()
-
-        chunks_file.copy_chunks()
-
-        return statistics
-
-    def _create_download(self, chunks_file):
-        return HttpChunksDownload(chunks_file, bucket=self._bucket)
+class OneChunk(NewChunks):
+    def __init__(self, url, file_path, expected_size, resume=False):
+        super(OneChunk, self).__init__(url, file_path, expected_size, chunks_number=1, resume=resume)
 
 
 def get_chunks_file(url, file_path, chunks_number=1, resume=True, cookies=None, use_disposition=False):
     headers = None
     if use_disposition:
         headers = _resolve_headers(url, cookies)
+
         if headers.disposition_name:
             directory_path = os.path.dirname(file_path) if os.path.isdir(file_path) else file_path
             file_path = save_join(directory_path, headers.disposition_name)
@@ -108,10 +88,3 @@ def _resolve_headers(url, cookies=None, bucket=None):
         return initial.head()
     finally:
         initial.close()
-
-
-def _one_chunk_download(url, chunks_file):
-    for chunk in chunks_file.chunks[1:]:
-        chunks_file.remove(chunk)
-
-    return OneChunk(url, chunks_file.file_path, chunks_file.size, resume=chunks_file.resume)

@@ -1,9 +1,10 @@
 from threading import Thread, Event, Lock
 
 from . import HttpDownloadBase
-from .chunks.download import DownloadChunks, HttpChunks
-from pycurwa.download.chunks.requests import ChunksDownloadsThread
-from pycurwa.requests import MultiRequestRefresh
+from . import DownloadChunks
+from .chunks import HttpChunks
+from .chunks.requests import ChunksDownloadsThread
+from ..requests import MultiRequestRefresh
 
 
 class DownloadRefresh(MultiRequestRefresh):

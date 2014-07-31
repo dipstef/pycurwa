@@ -1,5 +1,5 @@
 from pycurwa.bucket import Bucket
-from pycurwa.download import HttpDownload
+#from pycurwa.download import HttpDownload
 from pycurwa.download.multi import MultiDownloads as HttpDownload
 
 
@@ -17,7 +17,7 @@ def main():
     d = HttpDownload(bucket=bucket)
 
     try:
-        stats = d.download(url, file_name, chunks_number=20, resume=True)
+        stats = d.download(url, file_name, chunks_number=1, resume=True)
 
         print stats.speed
     finally:
