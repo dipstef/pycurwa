@@ -1,10 +1,29 @@
+from Queue import Queue
 from threading import Thread, Event, Lock
 
 from . import HttpDownloadBase
-from . import DownloadChunks
-from .chunks import HttpChunks
-from .chunks.requests import ChunksDownloadsThread
+from .requests import HttpDownloadsRequests
+from .chunks import HttpChunksRequest, ChunksFileDownload
+from .chunks.requests import RequestsChunkDownloads
 from ..requests import MultiRequestRefresh
+
+
+class MultiDownloadsRequests(HttpDownloadsRequests):
+
+    def __init__(self, bucket=None):
+        self._requests = DownloadRefresh()
+        super(MultiDownloadsRequests, self).__init__(MultiChunks(self._requests, bucket))
+        self._request_thread = Thread(target=self._requests.perform)
+        self._request_thread.start()
+
+    def close(self):
+        self._requests.close()
+        self._request_thread.join()
+
+
+class MultiDownloads(HttpDownloadBase):
+    def __init__(self, bucket=None):
+        super(MultiDownloads, self).__init__(MultiDownloadsRequests(bucket))
 
 
 class DownloadRefresh(MultiRequestRefresh):
@@ -33,37 +52,31 @@ class DownloadRefresh(MultiRequestRefresh):
         return self._closed.set()
 
 
-class MultiDownloads(HttpDownloadBase):
+class MultiChunks(HttpChunksRequest):
 
-    def __init__(self, bucket=None):
-        self._requests = DownloadRefresh()
-        super(MultiDownloads, self).__init__(MultiChunks(bucket, self._requests))
-        self._request_thread = Thread(target=self._requests.perform)
-        self._request_thread.start()
-
-    def close(self):
-        self._requests.close()
-        self._request_thread.join()
+    def __init__(self, requests, bucket=None):
+        super(MultiChunks, self).__init__(ChunksThreadDownload(requests, bucket=bucket))
 
 
-class MultiChunks(DownloadChunks):
+class ChunksThreadDownload(ChunksFileDownload):
 
-    def __init__(self, bucket, requests):
-        super(MultiChunks, self).__init__(bucket)
+    def __init__(self, requests, cookies=None, bucket=None):
+        super(ChunksThreadDownload, self).__init__(cookies, bucket)
         self._requests = requests
 
-    def _create_download(self, chunks_file):
-        downloads = RequestsChunks(self._requests, chunks_file, bucket=self._bucket)
-
-        return HttpChunks(downloads)
+    def _get_chunks(self, chunks_file):
+        return RequestsChunks(self._requests, chunks_file, self._cookies, self._bucket)
 
 
-class RequestsChunks(ChunksDownloadsThread):
+class RequestsChunks(RequestsChunkDownloads):
+
     def __init__(self, requests, chunks, cookies=None, bucket=None):
-        super(RequestsChunks, self).__init__(chunks, cookies, bucket)
-        self._requests = requests
-        self._requests.add(self)
+        super(RequestsChunks, self).__init__(requests, chunks, cookies, bucket)
+        self._queue = Queue()
 
-    def close(self):
-        self._requests.remove(self)
-        super(RequestsChunks, self).close()
+    def _update(self, status):
+        self._queue.put(status)
+
+    def _get_status(self):
+        status = self._queue.get()
+        return status

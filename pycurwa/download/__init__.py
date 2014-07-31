@@ -1,30 +1,23 @@
 # -*- coding: utf-8 -*-
-from httpy.error import InvalidRangeRequest
-from procol.console import print_err
 
 from .chunks import DownloadChunks
+from .requests import HttpDownloadsRequests
 
 
 class HttpDownloadBase(object):
 
-    def __init__(self, chunks_download):
-        self._chunks = chunks_download
+    def __init__(self, requests):
+        self._requests = requests
 
     def download(self, url, file_path, chunks_number=1, resume=False):
-        chunks_number = max(1, chunks_number)
-
-        try:
-            statistics = self._chunks.download(url, file_path, chunks_number, resume)
-        except InvalidRangeRequest:
-            print_err('Restart without resume')
-            statistics = self._chunks.download(url, file_path, chunks_number, resume=False)
-
-        return statistics
+        request = self._requests.download(url, file_path, chunks_number=chunks_number, resume=resume)
+        return request.perform()
 
 
 class HttpDownload(HttpDownloadBase):
     def __init__(self, bucket=None):
-        super(HttpDownload, self).__init__(DownloadChunks(bucket))
+        downloader = DownloadChunks(bucket)
+        super(HttpDownload, self).__init__(HttpDownloadsRequests(downloader))
 
     def close(self):
         pass

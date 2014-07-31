@@ -24,15 +24,29 @@ class HttpChunks(object):
         return len(self._downloads)
 
 
-class HttpChunksDownload(HttpChunks):
-    def __init__(self, chunks, cookies=None, bucket=None):
-        super(HttpChunksDownload, self).__init__(ChunksDownload(chunks, cookies, bucket))
+class ChunksFileDownload(object):
 
-
-class DownloadChunks(object):
-
-    def __init__(self, bucket):
+    def __init__(self, cookies=None, bucket=None):
+        self._cookies = cookies
         self._bucket = bucket
+
+    def download(self, chunks_file):
+        chunks_download = HttpChunks(self._get_chunks(chunks_file))
+
+        statistics = chunks_download.perform()
+
+        chunks_file.copy_chunks()
+
+        return statistics
+
+    def _get_chunks(self, chunks_file):
+        return ChunksDownload(chunks_file, self._cookies, self._bucket)
+
+
+class HttpChunksRequest(object):
+
+    def __init__(self, downloader):
+        self._downloader = downloader
 
     def download(self, url, path, chunks_number=1, resume=False):
         chunks_file = get_chunks_file(url, path, chunks_number, resume=resume)
@@ -46,29 +60,23 @@ class DownloadChunks(object):
 
     def _download_chunks(self, url, chunks_file):
         try:
-            return self._download(chunks_file)
+            return self._downloader.download(chunks_file)
         except FailedChunks, e:
             if len(chunks_file.chunks) == 1:
                 raise
 
-            for chunk in e.failed.values():
-                print_err('Chunk %d failed: %s' % (chunk.id + 1, str(chunk.error)))
+            for chunk_request in e.failed.values():
+                print_err('Chunk %d failed: %s' % (chunk_request.id + 1, str(chunk_request.error)))
+
             print_err('Download chunks failed, fallback to single connection')
-
             time.sleep(2)
-            return self._download(_one_chunk_download(url, chunks_file))
 
-    def _download(self, chunks_file):
-        download = self._create_download(chunks_file)
+            return self._downloader.download(_one_chunk_download(url, chunks_file))
 
-        statistics = download.perform()
 
-        chunks_file.copy_chunks()
-
-        return statistics
-
-    def _create_download(self, chunks_file):
-        return HttpChunksDownload(chunks_file, bucket=self._bucket)
+class DownloadChunks(HttpChunksRequest):
+    def __init__(self, cookies=None, bucket=None):
+        super(DownloadChunks, self).__init__(ChunksFileDownload(cookies, bucket))
 
 
 def _one_chunk_download(url, chunks_file):

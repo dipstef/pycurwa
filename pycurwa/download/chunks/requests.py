@@ -1,6 +1,4 @@
-from Queue import Queue
 from collections import OrderedDict
-from threading import Thread
 
 from .chunks import ChunksDict
 from .stats import DownloadStats
@@ -127,13 +125,32 @@ class ChunksDownloadsBase(ChunksStatuses):
             chunk.close()
 
 
+class RequestsChunkDownloads(ChunksDownloadsBase):
+
+    def __init__(self, requests, chunks, cookies=None, bucket=None):
+        super(RequestsChunkDownloads, self).__init__(chunks, cookies, bucket)
+        self._requests = requests
+        self._requests.add(self)
+
+    def close(self):
+        self._requests.remove(self)
+        super(RequestsChunkDownloads, self).close()
+
+
+class ChunksDownload(RequestsChunkDownloads):
+
+    def __init__(self, chunks, cookies=None, bucket=None, refresh=0.5):
+        super(ChunksDownload, self).__init__(MultiRefreshChunks(self, refresh), chunks, cookies, bucket)
+
+    def _iterate_updates(self):
+        return self._requests.iterate_updates()
+
+
 class MultiRefreshChunks(MultiRequestRefresh):
 
     def __init__(self, downloads, refresh=0.5):
         super(MultiRefreshChunks, self).__init__(refresh=refresh)
         self._downloads = downloads
-        self.add(downloads)
-        self._stats = None
 
     def get_status(self):
         self._curl.execute()
@@ -144,52 +161,3 @@ class MultiRefreshChunks(MultiRequestRefresh):
 
     def _done(self):
         return self._downloads.is_done()
-
-    def _close(self):
-        self.remove(self._downloads)
-        self._downloads.close()
-        super(MultiRefreshChunks, self)._close()
-
-
-class ChunksDownload(ChunksDownloadsBase):
-
-    def __init__(self, chunks, cookies=None, bucket=None, refresh=0.5):
-        super(ChunksDownload, self).__init__(chunks, cookies, bucket)
-        self._requests = MultiRefreshChunks(self, refresh)
-
-    def _iterate_updates(self):
-        return self._requests.iterate_updates()
-
-    def _get_status(self):
-        return self._requests.get_status()
-
-
-class ChunksDownloadsThread(ChunksDownloadsBase):
-
-    def __init__(self, chunks, cookies=None, bucket=None):
-        super(ChunksDownloadsThread, self).__init__(chunks, cookies, bucket)
-        self._queue = Queue()
-
-    def _update(self, status):
-        self._queue.put(status)
-
-    def _get_status(self):
-        status = self._queue.get()
-        return status
-
-
-class ChunksRefresh(ChunksDownloadsThread):
-
-    def __init__(self, chunks, cookies, bucket=None, refresh=0.5):
-        super(ChunksRefresh, self).__init__(chunks, cookies, bucket)
-        self._refresh = MultiRefreshChunks(self, refresh)
-
-    def _iterate_updates(self):
-        t = Thread(target=self._refresh.perform)
-        t.start()
-
-        try:
-            for status in super(ChunksRefresh, self)._iterate_updates():
-                yield status
-        finally:
-            t.join()

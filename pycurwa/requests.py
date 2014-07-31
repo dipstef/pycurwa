@@ -70,21 +70,23 @@ class MultiRequests(object):
 
     def __init__(self):
         curl = CurlMulti()
-        self._requests = Requests(curl=curl)
+        self._requests = Requests(curl)
         self._curl = curl
         self._handles_requests = OrderedDict()
-        self._reqs = []
+        self._request_groups = []
 
     def add(self, requests):
         for request in requests:
             self._requests.add(request)
             self._handles_requests[request.handle] = requests
-        self._reqs.append(requests)
+
+        if not requests in self._request_groups:
+            self._request_groups.append(requests)
 
     def remove(self, requests):
         for request in requests:
             self._requests.remove(request)
-        self._reqs.remove(requests)
+        self._request_groups.remove(requests)
 
     def _update(self):
         self._curl.execute()
@@ -104,7 +106,7 @@ class MultiRequests(object):
             request.update(request_status)
 
     def _group_by_request(self, status):
-        statuses = OrderedDict(((requests, RequestsStatus([], [], status.check)) for requests in self._reqs))
+        statuses = OrderedDict(((requests, RequestsStatus([], [], status.check)) for requests in self._request_groups))
 
         for group, completed in itertools.groupby(status.completed, key=lambda r: self._handles_requests[r.handle]):
             statuses[group] = RequestsStatus(list(completed), [], status.check)
