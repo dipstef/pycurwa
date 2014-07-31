@@ -73,20 +73,15 @@ class MultiRequests(object):
         self._requests = Requests(curl=curl)
         self._curl = curl
         self._handles_requests = OrderedDict()
-        self._request_groups = []
 
     def add(self, requests):
         for request in requests:
             self._requests.add(request)
             self._handles_requests[request.handle] = requests
 
-        if not requests in self._request_groups:
-            self._request_groups.append(requests)
-
     def remove(self, requests):
         for request in requests:
             self._requests.remove(request)
-        self._request_groups.remove(requests)
 
     def _get_status(self):
         status = self._requests.get_status()

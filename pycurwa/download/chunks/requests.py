@@ -99,14 +99,14 @@ class ChunksDownloadsBase(ChunksStatuses):
         super(ChunksDownloadsBase, self).__init__(downloads)
         self.path = chunks.path
         self._abort = False
+        self._stats = DownloadStats(self)
 
     def perform(self):
-        stats = DownloadStats(self)
-        for status in self._iterate_updates():
+        for _ in self._iterate_updates():
             if self._abort:
                 raise Abort()
-            stats.update_progress(status.check)
-        return stats
+
+        return self._stats
 
     def _get_status(self):
         raise NotImplementedError
@@ -115,10 +115,14 @@ class ChunksDownloadsBase(ChunksStatuses):
         try:
             while not self.is_done():
                 status = self._get_status()
-                super(ChunksDownloadsBase, self)._update(status)
+                self._update(status)
                 yield status
         finally:
             self.close()
+
+    def _update(self, status):
+        super(ChunksDownloadsBase, self)._update(status)
+        self._stats.update_progress(status.check)
 
     def close(self):
         for chunk in self.chunks:
@@ -129,6 +133,7 @@ class RequestsChunkDownloads(ChunksDownloadsBase):
 
     def __init__(self, requests, chunks, cookies=None, bucket=None):
         super(RequestsChunkDownloads, self).__init__(chunks, cookies, bucket)
+
         self._requests = requests
         self._requests.add(self)
 
@@ -143,7 +148,9 @@ class ChunksDownload(RequestsChunkDownloads):
         super(ChunksDownload, self).__init__(MultiRefreshChunks(self, refresh), chunks, cookies, bucket)
 
     def _iterate_updates(self):
-        return self._requests.iterate_updates()
+        for status in self._requests.iterate_statuses():
+            self.update(status)
+            yield status
 
 
 class MultiRefreshChunks(MultiRequestRefresh):
@@ -151,13 +158,6 @@ class MultiRefreshChunks(MultiRequestRefresh):
     def __init__(self, downloads, refresh=0.5):
         super(MultiRefreshChunks, self).__init__(refresh=refresh)
         self._downloads = downloads
-
-    def get_status(self):
-        self._curl.execute()
-        status = HttpChunksStatus(self._downloads, self._requests.get_status())
-
-        self._curl.select(timeout=1)
-        return status
 
     def _done(self):
         return self._downloads.is_done()

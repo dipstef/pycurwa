@@ -1,6 +1,5 @@
 from pycurwa.bucket import Bucket
-#from pycurwa.download import HttpDownload
-from pycurwa.download.multi import MultiDownloads as HttpDownload
+from pycurwa.download import HttpDownload
 
 
 def main():
