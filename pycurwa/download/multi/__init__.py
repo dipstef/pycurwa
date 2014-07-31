@@ -1,16 +1,16 @@
 from Queue import Queue
-from threading import Thread, Event, Lock
 
-from . import HttpDownloadBase, HttpDownloadRequests
-from .chunks import DownloadChunks
-from .chunks.requests import RequestsChunkDownloads
-from ..requests import MultiRequestRefresh
+from .requests import DownloadRequests
+
+from .. import HttpDownloadBase, HttpDownloadRequests
+from ..chunks import DownloadChunks
+from ..chunks.requests import RequestsChunkDownloads
 
 
 class MultiDownloadsRequests(HttpDownloadRequests):
 
     def __init__(self, bucket=None):
-        self._requests = DownloadRefresh()
+        self._requests = DownloadRequests()
         super(MultiDownloadsRequests, self).__init__(bucket)
 
     def _request(self, url, file_path, chunks_number, resume):
@@ -26,36 +26,6 @@ class MultiDownloads(HttpDownloadBase):
 
     def close(self):
         self._requests.close()
-
-
-class DownloadRefresh(MultiRequestRefresh):
-
-    def __init__(self, refresh=0.5):
-        super(DownloadRefresh, self).__init__(refresh)
-        self._closed = Event()
-        self._lock = Lock()
-
-        self._thread = Thread(target=self.perform)
-        self._thread.start()
-
-    def add(self, requests):
-        with self._lock:
-            super(DownloadRefresh, self).add(requests)
-
-    def _update(self):
-        with self._lock:
-            return super(DownloadRefresh, self)._update()
-
-    def remove(self, requests):
-        with self._lock:
-            super(DownloadRefresh, self).remove(requests)
-
-    def _done(self):
-        return self._closed.is_set()
-
-    def close(self):
-        self._closed.set()
-        self._thread.join()
 
 
 class ChunksThreadDownload(DownloadChunks):

@@ -88,52 +88,24 @@ class MultiRequests(object):
             self._requests.remove(request)
         self._request_groups.remove(requests)
 
-    def _update(self):
-        self._curl.execute()
-        status = self._get_status()
-
-        self._update_requests(status)
-
-        self._curl.select(timeout=1)
-        return status
-
     def _get_status(self):
         status = self._requests.get_status()
         return status
 
-    def _update_requests(self, status):
-        for request, request_status in self._group_by_request(status):
-            request.update(request_status)
+    def iterate_statuses(self):
+        try:
+            while not self._done():
+                self._curl.execute()
+                status = self._get_status()
 
-    def _group_by_request(self, status):
-        statuses = OrderedDict(((requests, RequestsStatus([], [], status.check)) for requests in self._request_groups))
+                if status:
+                    yield status
 
-        for group, completed in itertools.groupby(status.completed, key=lambda r: self._handles_requests[r.handle]):
-            statuses[group] = RequestsStatus(list(completed), [], status.check)
-
-        for group, failed in itertools.groupby(status.failed, key=lambda r: self._handles_requests[r.handle]):
-            statuses[group] = RequestsStatus(statuses.get(group).completed, list(failed), status.check)
-
-        return statuses.iteritems()
-
-    def perform(self):
-        for _ in self.iterate_updates():
-            pass
-
-    def iterate_updates(self):
-        while not self._done():
-            status = self._update()
-            if status:
-                yield status
-        self._close()
-
-    def iterate_completed(self):
-        for status in self.iterate_updates():
-            for request in status.completed:
-                yield request
+                self._curl.select(timeout=1)
+        finally:
+            self._close()
 
     def _done(self):
-        #return not self._handles_requests
         return False
 
     def _close(self):
