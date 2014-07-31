@@ -1,13 +1,7 @@
 import codecs
 import json
-import os
-
-from httpy import HttpRequest
-
-from .chunks import chunks_file_path, DownloadChunks
+from . import DownloadChunks, chunks_file_path
 from .chunk import ChunkFile
-from ..request import DownloadHeadersRequest
-from ...util import save_join
 
 
 class ExistingDownload(DownloadChunks):
@@ -55,36 +49,3 @@ class NewChunks(DownloadChunks):
 class OneChunk(NewChunks):
     def __init__(self, url, file_path, expected_size, resume=False):
         super(OneChunk, self).__init__(url, file_path, expected_size, chunks_number=1, resume=resume)
-
-
-def get_chunks_file(url, file_path, chunks_number=1, resume=True, cookies=None, use_disposition=False):
-    headers = None
-    if use_disposition:
-        headers = _resolve_headers(url, cookies)
-
-        if headers.disposition_name:
-            directory_path = os.path.dirname(file_path) if os.path.isdir(file_path) else file_path
-            file_path = save_join(directory_path, headers.disposition_name)
-
-    try:
-        chunks = ExistingDownload(url, file_path, resume=resume)
-    except IOError:
-        if headers is None:
-            headers = _resolve_headers(url, cookies)
-        chunks = NewChunks(url, file_path, headers.size, chunks_number)
-
-    return chunks
-
-
-def _resolve_size(url, cookies=None, bucket=None):
-    headers = _resolve_headers(url, cookies, bucket)
-
-    return headers.size
-
-
-def _resolve_headers(url, cookies=None, bucket=None):
-    initial = DownloadHeadersRequest(HttpRequest('HEAD', url), cookies, bucket)
-    try:
-        return initial.head()
-    finally:
-        initial.close()

@@ -16,12 +16,9 @@ def main():
     print 'starting'
     d = HttpDownload(bucket=bucket)
 
-    try:
-        stats = d.download(url, file_name, chunks_number=1, resume=True)
+    stats = d.download(url, file_name, chunks_number=1, resume=True)
 
-        print stats.speed
-    finally:
-        d.close()
+    print stats.speed
 
 if __name__ == "__main__":
     main()

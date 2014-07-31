@@ -70,7 +70,7 @@ class MultiRequests(object):
 
     def __init__(self):
         curl = CurlMulti()
-        self._requests = Requests(curl)
+        self._requests = Requests(curl=curl)
         self._curl = curl
         self._handles_requests = OrderedDict()
         self._request_groups = []

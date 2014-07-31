@@ -1,8 +1,9 @@
 import time
+
 from procol.console import print_err
 
-from .chunk import Chunk, ChunkFile
-from .download import get_chunks_file, OneChunk
+from .chunks import get_chunks_file
+from pycurwa.download.files.download import OneChunk
 from .requests import ChunksDownload
 from .error import ChunksDownloadMismatch, FailedChunks
 
@@ -26,57 +27,70 @@ class HttpChunks(object):
 
 class ChunksFileDownload(object):
 
-    def __init__(self, cookies=None, bucket=None):
+    def __init__(self, chunks_file, cookies=None, bucket=None):
         self._cookies = cookies
         self._bucket = bucket
 
-    def download(self, chunks_file):
-        chunks_download = HttpChunks(self._get_chunks(chunks_file))
+        downloads = self._get_chunks_download(chunks_file)
 
-        statistics = chunks_download.perform()
+        self._downloads = HttpChunks(downloads)
+        self._chunks_file = chunks_file
 
-        chunks_file.copy_chunks()
+    def perform(self):
+        try:
+            return self._download()
+        except FailedChunks:
+            if not self._chunks_file.resume:
+                self._chunks_file.remove()
+            raise
+
+    def _download(self):
+        statistics = self._downloads.perform()
+
+        self._chunks_file.copy_chunks()
 
         return statistics
 
-    def _get_chunks(self, chunks_file):
-        return ChunksDownload(chunks_file, self._cookies, self._bucket)
+    def _get_chunks_download(self, chunks_file):
+        return ChunksDownload(chunks_file)
+
+    @property
+    def chunks(self):
+        return self._chunks_file
 
 
-class HttpChunksRequest(object):
+class DownloadChunks(ChunksFileDownload):
 
-    def __init__(self, downloader):
-        self._downloader = downloader
-
-    def download(self, url, path, chunks_number=1, resume=False):
+    def __init__(self, url, path, chunks_number=1, resume=True, bucket=None):
         chunks_file = get_chunks_file(url, path, chunks_number, resume=resume)
 
-        try:
-            return self._download_chunks(url, chunks_file)
-        except FailedChunks:
-            if not chunks_file.resume:
-                chunks_file.remove()
-            raise
+        super(DownloadChunks, self).__init__(chunks_file, bucket=bucket)
 
-    def _download_chunks(self, url, chunks_file):
+        self.url = url
+        self.path = path
+        self.number = len(self._chunks_file)
+        self.resume = self._chunks_file.resume
+
+    def _download(self):
         try:
-            return self._downloader.download(chunks_file)
+            return super(DownloadChunks, self)._download()
         except FailedChunks, e:
-            if len(chunks_file.chunks) == 1:
+            if len(self.chunks) == 1:
                 raise
 
             for chunk_request in e.failed.values():
                 print_err('Chunk %d failed: %s' % (chunk_request.id + 1, str(chunk_request.error)))
 
-            print_err('Download chunks failed, fallback to single connection')
-            time.sleep(2)
+            one_chunk_download = ChunksFileDownload(self._revert_to_one_chunk(), self._cookies, self._bucket)
 
-            return self._downloader.download(_one_chunk_download(url, chunks_file))
+            return one_chunk_download.perform()
 
+    def _revert_to_one_chunk(self):
 
-class DownloadChunks(HttpChunksRequest):
-    def __init__(self, cookies=None, bucket=None):
-        super(DownloadChunks, self).__init__(ChunksFileDownload(cookies, bucket))
+        print_err('Download chunks failed, fallback to single connection')
+        time.sleep(2)
+        one_chunk = _one_chunk_download(self.url, self._chunks_file)
+        return one_chunk
 
 
 def _one_chunk_download(url, chunks_file):

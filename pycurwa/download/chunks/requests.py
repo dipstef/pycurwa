@@ -1,9 +1,9 @@
 from collections import OrderedDict
 
-from .chunks import ChunksDict
 from .stats import DownloadStats
 from .request import HttpChunk
 from .error import FailedChunks
+from ..files import ChunksDict
 from ...error import DownloadedContentMismatch, Abort
 from ...requests import MultiRequestRefresh, RequestsStatus
 
