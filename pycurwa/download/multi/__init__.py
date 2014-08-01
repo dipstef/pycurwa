@@ -41,17 +41,27 @@ class ChunksThreadDownload(HttpChunksDownload):
     def __init__(self, requests, chunks_file, cookies=None, bucket=None):
         super(ChunksThreadDownload, self).__init__(chunks_file, cookies, bucket)
         self._requests = requests
-        self._queue = Queue()
+        self._outcome = Queue(1)
 
-    def _download_requests(self):
-        return self._perform(self._requests)
+        self._requests.add(self)
 
     def _update(self, status):
-        self._queue.put(status)
+        try:
+            return super(ChunksThreadDownload, self)._update(status)
+        except BaseException, e:
+            self._outcome.put(e)
 
-    def _get_status(self):
-        status = self._queue.get()
-        return status
+    def _done_downloading(self, status):
+        status = super(ChunksThreadDownload, self)._done_downloading(status)
+
+        self._outcome.put(status)
+
+    def _download_requests(self):
+        outcome = self._outcome.get()
+        if isinstance(outcome, Exception):
+            raise outcome
+
+        return self.stats
 
     def close(self):
         self._requests.remove(self)

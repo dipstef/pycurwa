@@ -90,28 +90,10 @@ class ChunksDownload(ChunksStatuses):
     def perform(self):
         raise NotImplementedError
 
-    def _perform(self, requests):
-        requests.add(self)
+    def _update(self, status):
+        if self._abort:
+            raise Abort()
 
-        for _ in self._iterate_updates(requests):
-            if self._abort:
-                raise Abort()
-
-        return self.stats
-
-    def _get_status(self):
-        raise NotImplementedError
-
-    def _iterate_updates(self, requests):
-        try:
-            while not self.is_done():
-                status = self._get_status()
-                self._update_status(status)
-                yield status
-        finally:
-            self.close()
-
-    def _update_status(self, status):
         super(ChunksDownload, self)._update(status)
         self.stats.update_progress(status)
 
@@ -125,6 +107,7 @@ class MultiRefreshChunks(MultiRequestRefresh):
     def __init__(self, downloads, refresh=0.5):
         super(MultiRefreshChunks, self).__init__(refresh=refresh)
         self._downloads = downloads
+        self.add(downloads)
 
     def _done(self):
         return self._downloads.is_done()

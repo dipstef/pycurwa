@@ -17,6 +17,22 @@ class HttpChunks(ChunksDownload):
         super(HttpChunks, self).__init__(downloads)
         self._chunks_file = chunks
 
+    def _update(self, status):
+        super(HttpChunks, self)._update(status)
+
+        if self.is_done():
+            self.close()
+
+            self._done_downloading(status)
+
+    def _done_downloading(self, status):
+        if not self.is_completed():
+            raise ChunksDownloadMismatch(self)
+
+        self._chunks_file.copy_chunks()
+
+        return status
+
     def perform(self, **kwargs):
         try:
             return self._download(**kwargs)
@@ -27,11 +43,6 @@ class HttpChunks(ChunksDownload):
 
     def _download(self, **kwargs):
         stats = self._download_requests(**kwargs)
-
-        if not self.is_completed():
-            raise ChunksDownloadMismatch(self)
-
-        self._chunks_file.copy_chunks()
 
         return stats
 
@@ -78,12 +89,6 @@ class DownloadChunks(HttpChunksDownload):
     def _download_requests(self):
         requests = MultiRefreshChunks(self, refresh=0.5)
 
-        return self._perform(requests)
-
-    def _iterate_updates(self, requests):
-        try:
-            for status in requests.iterate_statuses():
-                self.update(status)
-                yield status
-        finally:
-            self.close()
+        for status in requests.iterate_statuses():
+            self.update(status)
+            yield status
