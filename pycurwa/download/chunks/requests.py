@@ -109,5 +109,5 @@ class MultiRefreshChunks(MultiRequestRefresh):
         self._downloads = downloads
         self.add(downloads)
 
-    def _done(self):
+    def _has_active_requests(self):
         return self._downloads.is_done()

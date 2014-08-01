@@ -95,7 +95,7 @@ class MultiRequests(object):
 
     def iterate_statuses(self):
         try:
-            while not self._done():
+            while self._has_active_requests():
                 self._requests.execute()
                 status = self._get_status()
 
@@ -106,8 +106,8 @@ class MultiRequests(object):
         finally:
             self._close()
 
-    def _done(self):
-        return False
+    def _has_active_requests(self):
+        return bool(self._requests)
 
     def _close(self):
         self._requests.terminate()

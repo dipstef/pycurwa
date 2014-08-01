@@ -15,6 +15,7 @@ class MultiRequests(MultiRequestRefresh):
 
     def add(self, requests):
         super(MultiRequests, self).add(requests)
+
         if not requests in self._request_groups:
             self._request_groups.append(requests)
 
@@ -59,24 +60,49 @@ class DownloadRequests(MultiRequests):
         self._closed = Event()
         self._updates = Queue()
 
+        self._active_requests = Event()
+
         self._perform_thread = Thread(target=self.perform)
         self._perform_thread.start()
 
         self._update_thread = Thread(target=self._process_updates)
         self._update_thread.start()
 
-    def _done(self):
+    def add(self, requests):
+        super(DownloadRequests, self).add(requests)
+        self._active_requests.set()
+
+    def remove(self, requests):
+        super(DownloadRequests, self).remove(requests)
+        if not self._requests:
+            self._active_requests.clear()
+
+    def iterate_statuses(self):
+        return super(DownloadRequests, self).iterate_statuses()
+
+    def _has_active_requests(self):
+        if self._requests:
+            return not self._is_closed()
+        else:
+            self._active_requests.wait()
+            return not self._is_closed()
+
+    def _is_closed(self):
         return self._closed.is_set()
 
     def _update_status(self, status):
         self._updates.put(status)
 
     def _process_updates(self):
-        while not self._done():
+        while not self._is_closed():
             status = self._updates.get()
             super(DownloadRequests, self)._update_status(status)
 
     def close(self):
         self._closed.set()
+
+        if not self._active_requests.is_set():
+            self._active_requests.set()
+
         self._perform_thread.join()
         self._update_thread.join()

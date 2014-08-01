@@ -43,7 +43,14 @@ class ChunksThreadDownload(HttpChunksDownload):
         self._requests = requests
         self._outcome = Queue(1)
 
+    def _download_requests(self):
         self._requests.add(self)
+
+        outcome = self._outcome.get()
+        if isinstance(outcome, Exception):
+            raise outcome
+
+        return self.stats
 
     def _update(self, status):
         try:
@@ -55,13 +62,6 @@ class ChunksThreadDownload(HttpChunksDownload):
         status = super(ChunksThreadDownload, self)._done_downloading(status)
 
         self._outcome.put(status)
-
-    def _download_requests(self):
-        outcome = self._outcome.get()
-        if isinstance(outcome, Exception):
-            raise outcome
-
-        return self.stats
 
     def close(self):
         self._requests.remove(self)
