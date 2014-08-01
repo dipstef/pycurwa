@@ -2,7 +2,7 @@
 from httpy.error import InvalidRangeRequest
 from procol.console import print_err
 
-from .chunks import DownloadChunks
+from .chunks import DownloadChunks, get_chunks_file
 
 
 class HttpDownloadRequest(object):
@@ -24,12 +24,14 @@ class HttpDownloadRequest(object):
         return statistics
 
     def _download(self, resume):
-        request = self._create_request(resume)
+        chunks_file = get_chunks_file(self.url, self.path, self.chunks, resume=resume)
+
+        request = self._create_request(chunks_file)
 
         return request.perform()
 
-    def _create_request(self, resume):
-        return DownloadChunks(self.url, self.path, self.chunks, resume, self._bucket)
+    def _create_request(self, chunks_file):
+        return DownloadChunks(chunks_file, bucket=self._bucket)
 
 
 class HttpDownloadRequests(object):

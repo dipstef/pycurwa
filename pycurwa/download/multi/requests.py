@@ -1,7 +1,7 @@
-from Queue import Queue
 from collections import OrderedDict
-import itertools
+from itertools import groupby
 from threading import Event, Thread
+from Queue import Queue
 
 from .curl import CurlMultiThread
 from ...requests import MultiRequestRefresh, RequestsStatus, Requests
@@ -43,10 +43,10 @@ class MultiRequests(MultiRequestRefresh):
     def _group_by_request(self, status):
         statuses = OrderedDict(((requests, RequestsStatus([], [], status.check)) for requests in self._request_groups))
 
-        for group, completed in itertools.groupby(status.completed, key=lambda r: self._handles_requests[r.handle]):
+        for group, completed in groupby(status.completed, key=lambda r: self._handles_requests[r.handle]):
             statuses[group] = RequestsStatus(list(completed), [], status.check)
 
-        for group, failed in itertools.groupby(status.failed, key=lambda r: self._handles_requests[r.handle]):
+        for group, failed in groupby(status.failed, key=lambda r: self._handles_requests[r.handle]):
             statuses[group] = RequestsStatus(statuses.get(group).completed, list(failed), status.check)
 
         return statuses.iteritems()
