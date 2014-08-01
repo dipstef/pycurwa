@@ -1,6 +1,8 @@
 from collections import OrderedDict
 import numbers
 import operator
+from pycurwa.download.files import ChunksDict
+from pycurwa.requests import RequestsStatus
 
 
 class ChunkStatus(OrderedDict):
@@ -39,11 +41,11 @@ class ChunkStatus(OrderedDict):
 
 class DownloadStats(object):
 
-    def __init__(self, downloads, refresh_rate=1):
-        self._downloads = downloads
+    def __init__(self, size, refresh_rate=1):
+        self.size = size
+
         self._last_check = 0
 
-        #needed for speed calculation
         self._last_received = ChunkStatus()
 
         self._last_speeds = ChunkStatus()
@@ -51,16 +53,14 @@ class DownloadStats(object):
         self._last_two_speeds = ({}, {})
         self._speed_refresh_time = refresh_rate
 
-    def update_progress(self, status_time):
-        if self._is_speed_refresh_time(status_time):
-            self._update_progress(status_time)
+    def update_progress(self, status):
+        if self._is_speed_refresh_time(status.check):
+            self._update_progress(status.check, status.received)
 
     def _is_speed_refresh_time(self, status_time):
         return self._last_check + self._speed_refresh_time < status_time
 
-    def _update_progress(self, status_time):
-        received_now = ChunkStatus(self._downloads.chunks_received)
-
+    def _update_progress(self, status_time, received_now):
         received_diff = received_now - self._last_received
 
         last_speeds = received_diff/float(status_time - self._last_check)
@@ -84,12 +84,15 @@ class DownloadStats(object):
 
     @property
     def received(self):
-        return self._downloads.received
-
-    @property
-    def size(self):
-        return self._downloads.size
+        return self._last_received.sum()
 
     @property
     def percent(self):
         return (self.received * 100) / self.size
+
+
+class HttpChunksStatus(RequestsStatus):
+
+    def __init__(self, status, received):
+        super(HttpChunksStatus, self).__init__(ChunksDict(status.completed), ChunksDict(status.failed), status.check)
+        self.received = ChunkStatus(received)

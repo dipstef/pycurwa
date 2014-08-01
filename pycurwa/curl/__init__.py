@@ -53,7 +53,7 @@ class CurlMulti(ClosingCurl):
                 break
 
     def select(self, timeout=None):
-        self.curl.select(timeout)
+        return self.curl.select(timeout)
 
     def get_status(self):
         remaining, completed, failed = self.curl.info_read()

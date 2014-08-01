@@ -41,8 +41,8 @@ class ChunksThreadDownload(DownloadChunks):
 class RequestsChunks(RequestsChunkDownloads):
 
     def __init__(self, requests, chunks, cookies=None, bucket=None):
-        super(RequestsChunks, self).__init__(requests, chunks, cookies, bucket)
         self._queue = Queue()
+        super(RequestsChunks, self).__init__(requests, chunks, cookies, bucket)
 
     def _update(self, status):
         self._queue.put(status)
@@ -50,3 +50,7 @@ class RequestsChunks(RequestsChunkDownloads):
     def _get_status(self):
         status = self._queue.get()
         return status
+
+    def close(self):
+        self._requests.remove(self)
+        super(RequestsChunks, self).close()

@@ -5,7 +5,7 @@ from httpy import HttpRequest
 from procol.console import print_err
 
 from ..chunks.error import ChunksDownloadMismatch, FailedChunks
-from ..chunks.stats import DownloadStats
+from ..chunks.status import DownloadStats
 from pycurwa.download.files.download import ExistingDownload, NewChunks, OneChunk
 from .requests import ChunksDownloads, ChunksRefresh
 from ..request import DownloadHeadersRequest

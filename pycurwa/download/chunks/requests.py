@@ -1,11 +1,11 @@
 from collections import OrderedDict
 
-from .stats import DownloadStats
+from .status import HttpChunksStatus, DownloadStats
 from .request import HttpChunk
 from .error import FailedChunks
 from ..files import ChunksDict
 from ...error import DownloadedContentMismatch, Abort
-from ...requests import MultiRequestRefresh, RequestsStatus
+from ...requests import MultiRequestRefresh
 
 
 class ChunkRequests(object):
@@ -17,7 +17,7 @@ class ChunkRequests(object):
         self._completed_size = sum((chunk.get_size() for chunk in chunks if chunk.is_completed()))
 
     def update(self, status):
-        self._update(HttpChunksStatus(self._chunks, status))
+        self._update(HttpChunksStatus(status, self.chunks_received))
 
     def _update(self, status):
         if status.failed:
@@ -51,17 +51,6 @@ class ChunkRequests(object):
 
     def __getitem__(self, item):
         return self._chunks[item]
-
-
-class HttpChunksStatus(RequestsStatus):
-
-    def __init__(self, chunks, status):
-        self._chunks = chunks
-
-        completed = ChunksDict(status.completed)
-        failed = ChunksDict(status.failed)
-
-        super(HttpChunksStatus, self).__init__(completed, failed, status.check)
 
 
 class ChunksStatuses(ChunkRequests):
@@ -98,31 +87,12 @@ class ChunksDownloadsBase(ChunksStatuses):
         downloads = [HttpChunk(chunks.url, chunk, cookies, bucket) for chunk in chunks if not chunk.is_completed()]
         super(ChunksDownloadsBase, self).__init__(downloads)
         self.path = chunks.path
+        self.stats = DownloadStats(self.size)
         self._abort = False
-        self._stats = DownloadStats(self)
 
-    def perform(self):
-        for _ in self._iterate_updates():
-            if self._abort:
-                raise Abort()
-
-        return self._stats
-
-    def _get_status(self):
-        raise NotImplementedError
-
-    def _iterate_updates(self):
-        try:
-            while not self.is_done():
-                status = self._get_status()
-                self._update(status)
-                yield status
-        finally:
-            self.close()
-
-    def _update(self, status):
+    def _update_status(self, status):
         super(ChunksDownloadsBase, self)._update(status)
-        self._stats.update_progress(status.check)
+        self.stats.update_progress(status.check)
 
     def close(self):
         for chunk in self.chunks:
@@ -137,9 +107,24 @@ class RequestsChunkDownloads(ChunksDownloadsBase):
         self._requests = requests
         self._requests.add(self)
 
-    def close(self):
-        self._requests.remove(self)
-        super(RequestsChunkDownloads, self).close()
+    def perform(self):
+        for _ in self._iterate_updates():
+            if self._abort:
+                raise Abort()
+
+        return self.stats
+
+    def _get_status(self):
+        raise NotImplementedError
+
+    def _iterate_updates(self):
+        try:
+            while not self.is_done():
+                status = self._get_status()
+                self._update_status(status)
+                yield status
+        finally:
+            self.close()
 
 
 class ChunksDownload(RequestsChunkDownloads):
@@ -148,9 +133,12 @@ class ChunksDownload(RequestsChunkDownloads):
         super(ChunksDownload, self).__init__(MultiRefreshChunks(self, refresh), chunks, cookies, bucket)
 
     def _iterate_updates(self):
-        for status in self._requests.iterate_statuses():
-            self.update(status)
-            yield status
+        try:
+            for status in self._requests.iterate_statuses():
+                self.update(status)
+                yield status
+        finally:
+            self.close()
 
 
 class MultiRefreshChunks(MultiRequestRefresh):

@@ -3,9 +3,9 @@ import time
 from procol.console import print_err
 
 from .chunks import get_chunks_file
-from pycurwa.download.files.download import OneChunk
 from .requests import ChunksDownload
 from .error import ChunksDownloadMismatch, FailedChunks
+from ..files.download import OneChunk
 
 
 class HttpChunks(object):
@@ -86,7 +86,6 @@ class DownloadChunks(ChunksFileDownload):
             return one_chunk_download.perform()
 
     def _revert_to_one_chunk(self):
-
         print_err('Download chunks failed, fallback to single connection')
         time.sleep(2)
         one_chunk = _one_chunk_download(self.url, self._chunks_file)

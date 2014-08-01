@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from collections import OrderedDict
 from time import time
-import itertools
 
 from .curl import CurlMulti, CurlHandlesStatus
 from .curl.error import CurlWriteError, CurlError, MissingHandle
@@ -59,6 +58,15 @@ class Requests(object):
 
         return RequestStatusCheck(request_completed, request_failed, status_time)
 
+    def execute(self):
+        return self._curl.execute()
+
+    def select(self, timeout=None):
+        return self._curl.select(timeout)
+
+    def terminate(self):
+        return self._curl.close()
+
     def __len__(self):
         return len(self._request_handles)
 
@@ -68,10 +76,8 @@ class Requests(object):
 
 class MultiRequests(object):
 
-    def __init__(self):
-        curl = CurlMulti()
-        self._requests = Requests(curl=curl)
-        self._curl = curl
+    def __init__(self, requests=None):
+        self._requests = requests if requests is not None else Requests()
         self._handles_requests = OrderedDict()
 
     def add(self, requests):
@@ -90,13 +96,13 @@ class MultiRequests(object):
     def iterate_statuses(self):
         try:
             while not self._done():
-                self._curl.execute()
+                self._requests.execute()
                 status = self._get_status()
 
                 if status:
                     yield status
 
-                self._curl.select(timeout=1)
+                self._requests.select(timeout=1)
         finally:
             self._close()
 
@@ -104,13 +110,13 @@ class MultiRequests(object):
         return False
 
     def _close(self):
-        self._curl.close()
+        self._requests.terminate()
 
 
 class MultiRequestRefresh(MultiRequests):
 
-    def __init__(self, refresh=0.5):
-        super(MultiRequestRefresh, self).__init__()
+    def __init__(self, refresh=0.5, requests=None):
+        super(MultiRequestRefresh, self).__init__(requests)
         self._refresh_rate = refresh
         self._last_update = 0
 

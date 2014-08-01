@@ -1,13 +1,16 @@
+from Queue import Queue
 from collections import OrderedDict
 import itertools
-from threading import Event, Lock, Thread
-from pycurwa.requests import MultiRequestRefresh, RequestsStatus
+from threading import Event, Thread
+
+from .curl import CurlMultiThread
+from ...requests import MultiRequestRefresh, RequestsStatus, Requests
 
 
 class MultiRequests(MultiRequestRefresh):
 
-    def __init__(self, refresh=0.5):
-        super(MultiRequests, self).__init__(refresh)
+    def __init__(self, refresh=0.5, requests=None):
+        super(MultiRequests, self).__init__(refresh, requests)
         self._request_groups = []
 
     def add(self, requests):
@@ -52,28 +55,28 @@ class MultiRequests(MultiRequestRefresh):
 class DownloadRequests(MultiRequests):
 
     def __init__(self, refresh=0.5):
-        super(DownloadRequests, self).__init__(refresh)
+        super(DownloadRequests, self).__init__(refresh, Requests(curl=CurlMultiThread()))
         self._closed = Event()
-        self._lock = Lock()
+        self._updates = Queue()
 
-        self._thread = Thread(target=self.perform)
-        self._thread.start()
+        self._perform_thread = Thread(target=self.perform)
+        self._perform_thread.start()
 
-    def add(self, requests):
-        with self._lock:
-            super(DownloadRequests, self).add(requests)
-
-    def remove(self, requests):
-        with self._lock:
-            super(DownloadRequests, self).remove(requests)
-
-    def _get_status(self):
-        with self._lock:
-            return super(DownloadRequests, self)._get_status()
+        self._update_thread = Thread(target=self._process_updates)
+        self._update_thread.start()
 
     def _done(self):
         return self._closed.is_set()
 
+    def _update_status(self, status):
+        self._updates.put(status)
+
+    def _process_updates(self):
+        while not self._done():
+            status = self._updates.get()
+            super(DownloadRequests, self)._update_status(status)
+
     def close(self):
         self._closed.set()
-        self._thread.join()
+        self._perform_thread.join()
+        self._update_thread.join()
