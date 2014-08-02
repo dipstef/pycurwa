@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from itertools import groupby
-from threading import Event, Thread
+from threading import Event, Thread, Semaphore
 from Queue import Queue
 
 from .curl import CurlMultiThread
@@ -53,10 +53,50 @@ class MultiRequests(MultiRequestRefresh):
         return statuses.iteritems()
 
 
+class LimitedRequests(Requests):
+
+    def __init__(self, max_connections):
+        self._closed = Event()
+
+        self._handles_add = Queue()
+
+        self._handles_count = Semaphore(max_connections)
+
+        self._handles_thread = Thread(target=self._add_handles)
+        self._handles_thread.start()
+
+        super(LimitedRequests, self).__init__(curl=CurlMultiThread())
+
+    def add(self, request):
+        self._handles_add.put(request)
+
+    def _add_handles(self):
+        while not self._closed.is_set():
+            request = self._handles_add.get()
+            if request:
+                self._handles_count.acquire()
+                super(LimitedRequests, self).add(request)
+
+    def terminate(self):
+        self._closed.set()
+        super(LimitedRequests, self).terminate()
+        #unblocks the queue
+        self._handles_add.put(None)
+        self._handles_thread.join()
+
+    def get_status(self):
+        status = super(LimitedRequests, self).get_status()
+
+        for _ in range(len(status.completed) + len(status.failed)):
+            self._handles_count.release()
+
+        return status
+
+
 class DownloadRequests(MultiRequests):
 
-    def __init__(self, refresh=0.5):
-        super(DownloadRequests, self).__init__(refresh, Requests(curl=CurlMultiThread()))
+    def __init__(self, max_connections=2, refresh=0.5):
+        super(DownloadRequests, self).__init__(refresh, LimitedRequests(max_connections))
         self._closed = Event()
         self._updates = Queue()
 
@@ -96,7 +136,8 @@ class DownloadRequests(MultiRequests):
     def _process_updates(self):
         while not self._is_closed():
             status = self._updates.get()
-            super(DownloadRequests, self)._update_status(status)
+            if status:
+                super(DownloadRequests, self)._update_status(status)
 
     def close(self):
         self._closed.set()
@@ -105,4 +146,7 @@ class DownloadRequests(MultiRequests):
             self._active_requests.set()
 
         self._perform_thread.join()
+
+        #unblocks the queue
+        self._updates.put(None)
         self._update_thread.join()

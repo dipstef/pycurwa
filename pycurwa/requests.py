@@ -65,7 +65,7 @@ class Requests(object):
         return self._curl.select(timeout)
 
     def terminate(self):
-        return self._curl.close()
+        self._curl.close()
 
     def __len__(self):
         return len(self._request_handles)
