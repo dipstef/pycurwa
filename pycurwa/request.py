@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import pycurl
+from httpy import HttpRequest
 from httpy.error import error_status, HttpStatusError
 
 from httpy.http.headers import headers_raw_to_dict, HttpHeaders
@@ -30,7 +31,6 @@ class CurlRequestBase(object):
         self.handle = self._curl.curl
 
         self.headers = self.__headers_class__()
-        self.cookies = cookies
 
         self._bucket = bucket
         self._header_str = ''
@@ -42,6 +42,7 @@ class CurlRequestBase(object):
         if self._header_parse:
             self._curl.set_header_fun(self._write_header)
 
+        self._cookies = cookies
         if cookies:
             self._curl.unset_cookie_files()
             self._set_curl_cookies()
@@ -58,14 +59,9 @@ class CurlRequestBase(object):
         if code != 404 and code in error_status:
             return HttpStatusError(self, code)
 
-    def _add_curl_cookies(self):
-        if self.cookies:
-            self.cookies.add_cookies(self._curl.get_cookies())
-
     def _set_curl_cookies(self):
-        if self.cookies:
-            for cookie in self.cookies.get_cookies():
-                self._curl.set_cookies(cookie)
+        for cookie in self._cookies.get_cookies():
+            self._curl.set_cookies(cookie)
 
     def _write_header(self, buf):
         self._header_str += buf
@@ -89,6 +85,7 @@ class CurlRequestBase(object):
 
 
 class CurlBodyRequest(CurlRequestBase):
+
     def __init__(self, writer, cookies=None, bucket=None):
         super(CurlBodyRequest, self).__init__(cookies, bucket)
         self.received = 0
@@ -107,10 +104,11 @@ class CurlBodyRequest(CurlRequestBase):
             self._bucket.sleep_if_above_rate(received=size)
 
 
-class CurlRequest(CurlBodyRequest):
+class CurlRequest(CurlBodyRequest, HttpRequest):
+
     def __init__(self, request, writer, cookies=None, bucket=None):
         super(CurlRequest, self).__init__(writer, cookies, bucket)
-        self.request = request
+        self._request = request
         self.url = request.url
         self._curl.set_request_context(request.url)
 
@@ -162,6 +160,10 @@ class CurlRequests(CurlBodyRequest):
             rep = decode_response(rep, self._header_str)
 
         return rep
+
+    def _add_curl_cookies(self):
+        if self._cookies:
+            self._cookies.add_cookies(self._curl.get_cookies())
 
     def _get_response(self):
         if self._rep is None:
