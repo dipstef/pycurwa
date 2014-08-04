@@ -1,12 +1,12 @@
-from pycurwa.request import CurlRequests
+from pycurwa import client
 
 
 def main():
     url = 'http://www.google.com'
 
-    c = CurlRequests()
-    print c.load(url)
+    response = client.get(url)
 
+    print response.body
 
 if __name__ == '__main__':
     main()

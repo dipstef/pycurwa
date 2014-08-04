@@ -78,6 +78,9 @@ class SetOptions(object):
     def headers_only(self):
         self.setopt(pycurl.NOBODY, 1)
 
+    def enable_body_retrieve(self):
+        self.setopt(pycurl.NOBODY, 0)
+
 
 class GetOptions(object):
 

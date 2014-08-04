@@ -5,9 +5,9 @@ import pycurl
 from httpy import HttpRequest
 from httpy.error import error_status, HttpStatusError
 
-from .curl import Curl, BytesIO
+from .curl import Curl
 from .curl.request import curl_request
-from .response import CurlResponse, CurlResponseBase
+from .response import CurlResponseBase, CurlBodyResponse
 
 
 class CurlRequestBase(HttpRequest):
@@ -27,19 +27,9 @@ class CurlRequestBase(HttpRequest):
             self._set_curl_cookies()
 
         self.header_parse = True
-        self._response = None
-
-    def execute(self):
-        self._curl.perform()
-
-        error = self.get_status_error()
-        if error:
-            raise error
-
-        return self._response
 
     def get_status_error(self):
-        code = self._response.get_status_code()
+        code = self._curl.get_status_code()
 
         if code != 404 and code in error_status:
             return HttpStatusError(self, code)
@@ -54,9 +44,20 @@ class CurlRequestBase(HttpRequest):
 
 class CurlRequest(CurlRequestBase):
 
-    def __init__(self, writer, request, cookies=None, bucket=None):
+    def __init__(self, request, cookies=None, bucket=None):
         super(CurlRequest, self).__init__(request, cookies=cookies)
-        self._response = CurlResponse(self, writer, bucket)
+        self._bucket = bucket
+
+    def execute(self):
+        response = CurlBodyResponse(self, self._bucket)
+
+        self._curl.perform()
+
+        error = self.get_status_error()
+        if error:
+            raise error
+
+        return response
 
 
 class CurlHeadersRequest(CurlRequestBase):
@@ -68,8 +69,7 @@ class CurlHeadersRequest(CurlRequestBase):
 
 class CurlRequests(CurlRequest):
     def __init__(self, cookies=None):
-        self._rep = BytesIO()
-        super(CurlRequests, self).__init__(self._rep.write, cookies)
+        super(CurlRequests, self).__init__(cookies)
 
     def load(self, url, get=None, post=None, referrer=True, cookies=True, multi_part=False, decode=False):
         self._curl.set_request_context(url, get, post, referrer, multi_part)
@@ -93,9 +93,6 @@ class CurlRequests(CurlRequest):
             self._cookies.add_cookies(self._curl.get_cookies())
 
     def _get_response(self):
-        if self._rep is None:
-            return ''
-
         value = self._rep.getvalue()
         self._rep.close()
 

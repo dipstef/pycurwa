@@ -119,9 +119,11 @@ class Curl:
         m = {}
         m['effective-url'] = self.handle.getinfo(pycurl.EFFECTIVE_URL)
         m['http-code'] = self.handle.getinfo(pycurl.HTTP_CODE)
+
         m['total-time'] = self.handle.getinfo(pycurl.TOTAL_TIME)
         m['namelookup-time'] = self.handle.getinfo(pycurl.NAMELOOKUP_TIME)
         m['connect-time'] = self.handle.getinfo(pycurl.CONNECT_TIME)
+
         m['pretransfer-time'] = self.handle.getinfo(pycurl.PRETRANSFER_TIME)
         m['redirect-time'] = self.handle.getinfo(pycurl.REDIRECT_TIME)
         m['redirect-count'] = self.handle.getinfo(pycurl.REDIRECT_COUNT)
@@ -130,22 +132,29 @@ class Curl:
         m['speed-upload'] = self.handle.getinfo(pycurl.SPEED_UPLOAD)
         m['header-size'] = self.handle.getinfo(pycurl.HEADER_SIZE)
         m['request-size'] = self.handle.getinfo(pycurl.REQUEST_SIZE)
+
         m['content-length-download'] = self.handle.getinfo(pycurl.CONTENT_LENGTH_DOWNLOAD)
         m['content-length-upload'] = self.handle.getinfo(pycurl.CONTENT_LENGTH_UPLOAD)
+
         m['content-type'] = self.handle.getinfo(pycurl.CONTENT_TYPE)
         m['response-code'] = self.handle.getinfo(pycurl.RESPONSE_CODE)
+
         m['speed-download'] = self.handle.getinfo(pycurl.SPEED_DOWNLOAD)
         m['ssl-verifyresult'] = self.handle.getinfo(pycurl.SSL_VERIFYRESULT)
         m['filetime'] = self.handle.getinfo(pycurl.INFO_FILETIME)
+
         m['starttransfer-time'] = self.handle.getinfo(pycurl.STARTTRANSFER_TIME)
         m['redirect-time'] = self.handle.getinfo(pycurl.REDIRECT_TIME)
         m['redirect-count'] = self.handle.getinfo(pycurl.REDIRECT_COUNT)
+
         m['http-connectcode'] = self.handle.getinfo(pycurl.HTTP_CONNECTCODE)
         m['httpauth-avail'] = self.handle.getinfo(pycurl.HTTPAUTH_AVAIL)
         m['proxyauth-avail'] = self.handle.getinfo(pycurl.PROXYAUTH_AVAIL)
+
         m['os-errno'] = self.handle.getinfo(pycurl.OS_ERRNO)
         m['num-connects'] = self.handle.getinfo(pycurl.NUM_CONNECTS)
         m['ssl-engines'] = self.handle.getinfo(pycurl.SSL_ENGINES)
+
         m['cookielist'] = self.handle.getinfo(pycurl.INFO_COOKIELIST)
         m['lastsocket'] = self.handle.getinfo(pycurl.LASTSOCKET)
         m['ftp-entry-path'] = self.handle.getinfo(pycurl.FTP_ENTRY_PATH)

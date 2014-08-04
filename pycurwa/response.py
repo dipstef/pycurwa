@@ -1,5 +1,6 @@
 from httpy import ResponseStatus, HttpHeaders
 from httpy.http.headers import headers_raw_to_dict
+from .curl import BytesIO
 
 
 class CurlResponseBase(object):
@@ -59,7 +60,6 @@ class CurlResponse(CurlResponseStatus):
         self.received = 0
 
         self._response_writer = writer
-
         self._curl.set_body_fun(self._write_body)
 
     def _write_body(self, buf):
@@ -71,3 +71,30 @@ class CurlResponse(CurlResponseStatus):
 
         if self._bucket:
             self._bucket.sleep_if_above_rate(received=size)
+
+
+class CurlBodyResponse(CurlResponse):
+
+    def __init__(self, request, bucket=None):
+        self._bytes = BytesIO()
+        super(CurlBodyResponse, self).__init__(request, self._bytes.write, bucket)
+        self._curl.headers_only()
+        self._body = None
+
+    def read(self, *args, **kwargs):
+        self._curl.enable_body_retrieve()
+
+        self._curl.perform()
+        body = self._bytes.getvalue()
+        self.close()
+        return body
+
+    @property
+    def body(self):
+        if self._body is None:
+            self._body = self.read()
+        return self._body
+
+    def close(self):
+        self._bytes.close()
+        self.handle.close()
