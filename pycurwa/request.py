@@ -15,7 +15,7 @@ class CurlRequestBase(HttpRequest):
         self._curl = Curl()
         self.handle = self._curl.curl
 
-        curl_request(self._curl, request, referrer=self.headers.get('referer'))
+        curl_request(self._curl, request)
 
         self._cookies = cookies
 

@@ -1,15 +1,16 @@
 import pycurl
 from httpy.client import user_agent
-from httpy.http.headers import header_dict_to_lines
+from httpy.http.headers import header_dict_to_lines, HttpHeaders
 from unicoder import byte_string
 from urllib import urlencode
 from urlo import params_url
 
-_default_headers = ['Accept: */*',
-                    'Accept-Language: en-US,en',
-                    'Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7',
-                    'Connection: keep-alive',
-                    'Keep-Alive: 300', 'Expect:']
+_default_headers = {'Accept': '*/*',
+                    'Accept-Language': 'en-US,en',
+                    'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+                    'Connection': 'keep-alive',
+                    'Keep-Alive': '300',
+                    'Expect': ''}
 
 
 def _curl_request(curl, verbose=False, redirect=True):
@@ -37,7 +38,7 @@ def _curl_request(curl, verbose=False, redirect=True):
         curl.setopt(pycurl.ENCODING, 'gzip, deflate')
 
 
-def curl_request(curl, request, referrer=None, params=None, multi_part=False):
+def curl_request(curl, request, params=None, multi_part=False):
     _curl_request(curl)
 
     url = byte_string(request.url)
@@ -54,12 +55,13 @@ def curl_request(curl, request, referrer=None, params=None, multi_part=False):
     elif method != 'get':
         curl.set_method(request.method)
 
-    headers = list(_default_headers)
+    headers = HttpHeaders(_default_headers)
     if request.headers:
-        headers += header_dict_to_lines(request.headers)
+        headers.update(request.headers)
 
-    curl.set_headers(headers)
+    curl.set_headers(header_dict_to_lines(headers))
 
+    referrer = headers.get('referer')
     if referrer:
         curl.set_referrer(referrer)
 
