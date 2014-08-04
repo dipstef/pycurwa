@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-import pycurl
+import urllib2
 
 from httpy import HttpRequest
 from httpy.error import error_status, HttpStatusError
@@ -35,8 +33,16 @@ class CurlRequestBase(HttpRequest):
             return HttpStatusError(self, code)
 
     def _set_curl_cookies(self):
-        for cookie in self._cookies.get_cookies():
-            self._curl.set_cookies(cookie)
+        cookies = self._get_cookie_string()
+        if cookies:
+            self._curl.set_cookies(cookies)
+
+    def _get_cookie_string(self):
+        request = urllib2.Request(self.url, headers=self.headers)
+
+        self._cookies.add_cookie_header(request)
+        cookie = request.unredirected_hdrs.get('Cookie')
+        return cookie
 
     def close(self):
         self.handle.close()
@@ -65,39 +71,3 @@ class CurlHeadersRequest(CurlRequestBase):
     def __init__(self, url, headers=None, data=None, cookies=None):
         super(CurlHeadersRequest, self).__init__(HttpRequest('HEAD', url, headers, data), cookies)
         self._response = CurlResponseBase(self)
-
-
-class CurlRequests(CurlRequest):
-    def __init__(self, cookies=None):
-        super(CurlRequests, self).__init__(cookies)
-
-    def load(self, url, get=None, post=None, referrer=True, cookies=True, multi_part=False, decode=False):
-        self._curl.set_request_context(url, get, post, referrer, multi_part)
-
-        self._curl.set_headers(self.headers)
-
-        self._curl.perform()
-
-        rep = self._get_response()
-
-        self._curl.setopt(pycurl.POSTFIELDS, '')
-
-        response_url = self._curl.get_effective_url()
-
-        self._add_curl_cookies()
-
-        return rep
-
-    def _add_curl_cookies(self):
-        if self._cookies:
-            self._cookies.add_cookies(self._curl.get_cookies())
-
-    def _get_response(self):
-        value = self._rep.getvalue()
-        self._rep.close()
-
-        return value
-
-    def close(self):
-        self._rep.close()
-        self._curl.close()

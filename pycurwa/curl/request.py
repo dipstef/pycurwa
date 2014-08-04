@@ -1,5 +1,6 @@
 import pycurl
 from httpy.client import user_agent
+from httpy.http.headers import header_dict_to_lines
 from unicoder import byte_string
 from urllib import urlencode
 from urlo import params_url
@@ -35,8 +36,6 @@ def _curl_request(curl, verbose=False, redirect=True):
     if pycurl.version_info()[7]:
         curl.setopt(pycurl.ENCODING, 'gzip, deflate')
 
-    curl.setopt(pycurl.HTTPHEADER, _default_headers)
-
 
 def curl_request(curl, request, referrer=None, params=None, multi_part=False):
     _curl_request(curl)
@@ -49,6 +48,12 @@ def curl_request(curl, request, referrer=None, params=None, multi_part=False):
 
     if request.method.lower() == 'head':
         curl.headers_only()
+
+    headers = _default_headers
+    if request.headers:
+        headers += header_dict_to_lines(request.headers)
+
+    curl.set_headers(headers)
 
     if request.data:
         _post_request(curl, request.data, multi_part)
@@ -78,4 +83,3 @@ def _url_encode(data):
     data = dict(data)
     data = {byte_string(x): byte_string(y) for x, y in data.iteritems()}
     return urlencode(data)
-

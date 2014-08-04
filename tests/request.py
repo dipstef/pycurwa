@@ -6,7 +6,7 @@ def main():
 
     response = client.get(url)
 
-    print response.body
+    print response.read()
 
 if __name__ == '__main__':
     main()

@@ -1,5 +1,5 @@
 from httpy import ResponseStatus, HttpHeaders
-from httpy.http.headers import headers_raw_to_dict
+from httpy.http.headers import header_string_to_dict
 from .curl import BytesIO
 
 
@@ -30,7 +30,7 @@ class CurlResponseBase(object):
             self.headers.update(self._parse_http_header())
 
     def _parse_http_header(self):
-        return headers_raw_to_dict(self._header_str)
+        return header_string_to_dict(self._header_str)
 
     def get_status_code(self):
         code = self._curl.get_status_code()
@@ -81,15 +81,15 @@ class CurlBodyResponse(CurlResponse):
         self._curl.headers_only()
         self._body = None
 
-    def read(self, *args, **kwargs):
+    def read(self):
         self._curl.enable_body_retrieve()
 
         self._curl.perform()
-        body = self._bytes.getvalue()
-        self.close()
-        return body
+        self._body = self._bytes.getvalue()
 
-    @property
+        self.close()
+        return self._body
+
     def body(self):
         if self._body is None:
             self._body = self.read()

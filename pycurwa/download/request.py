@@ -53,9 +53,4 @@ class HttpDownloadRange(HttpDownloadBase):
         self.range = bytes_range
         super(HttpDownloadRange, self).__init__(request, file_path, cookies, bucket, resume)
 
-        start = self.received + self.range.start
-
-        self._curl.set_range('%i-%i' % (start, self.range.end) if self.is_closed_range() else '%i-' % start)
-
-    def is_closed_range(self):
-        return bool(self.range.end)
+        self._curl.set_range(self.received + self.range.start, self.range.end)

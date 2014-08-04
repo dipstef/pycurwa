@@ -60,7 +60,8 @@ class SetOptions(object):
     def set_headers(self, headers):
         self.setopt(pycurl.HTTPHEADER, headers)
 
-    def set_range(self, bytes_range):
+    def set_range(self, start, end=None):
+        bytes_range = '%i-%i' % (start, end) if end else '%i-' % start
         self.setopt(pycurl.RANGE, bytes_range)
 
     def set_resume(self, resume):
