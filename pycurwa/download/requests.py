@@ -1,6 +1,6 @@
 from httpy.error import InvalidRangeRequest
 from procol.console import print_err
-from pycurwa.download import get_chunks_file, DownloadChunks
+from . import DownloadChunks, get_chunks_file
 
 
 class HttpDownloadRequest(object):

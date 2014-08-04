@@ -1,6 +1,5 @@
 import os
 import sys
-from urllib import urlencode
 from unicoder import byte_string, to_unicode
 
 

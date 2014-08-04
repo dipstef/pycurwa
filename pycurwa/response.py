@@ -2,7 +2,7 @@ from datetime import datetime
 from httpy import ResponseStatus, HttpHeaders, date_header
 from httpy.http.headers import header_string_to_dict
 from .curl import BytesIO
-from pycurwa.cookies import write_cookies
+from .cookies import write_cookies
 
 
 class CurlResponseBase(object):

@@ -1,5 +1,4 @@
-from pycurwa.download.response import CurlRangeDownload
-from .response import CurlDownloadResponse, HttpDownloadHeaders
+from .response import CurlDownloadResponse, HttpDownloadHeaders, CurlRangeDownload
 from ..request import CurlRequestBase, CurlHeadersRequest
 
 

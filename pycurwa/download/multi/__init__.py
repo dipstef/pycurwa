@@ -1,8 +1,8 @@
 from Queue import Queue
-from pycurwa.download.requests import HttpDownloadRequest, HttpDownloadRequests
 
 from .requests import DownloadRequests
 from .. import HttpDownloadBase
+from ..requests import HttpDownloadRequest, HttpDownloadRequests
 from ..chunks import HttpChunksDownload
 
 

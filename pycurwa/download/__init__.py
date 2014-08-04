@@ -1,7 +1,5 @@
-# -*- coding: utf-8 -*-
-
 from .chunks import DownloadChunks, get_chunks_file
-from pycurwa.download.requests import HttpDownloadRequest, HttpDownloadRequests
+from .requests import HttpDownloadRequest, HttpDownloadRequests
 
 
 class HttpDownloadBase(object):

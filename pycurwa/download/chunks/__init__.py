@@ -3,10 +3,10 @@ import time
 from procol.console import print_err
 
 from .files import get_chunks_file
-from pycurwa.download.files.download import OneChunk
 from .request import HttpChunk
 from .requests import ChunksDownload, ChunksDownload, MultiRefreshChunks
 from .error import ChunksDownloadMismatch, FailedChunks
+from ..files.download import OneChunk
 
 
 class HttpChunks(ChunksDownload):

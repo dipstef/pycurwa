@@ -1,4 +1,4 @@
-from pycurwa.error import DownloadedContentMismatch, FailedStatus
+from ...error import DownloadedContentMismatch, FailedStatus
 
 
 class ChunksDownloadMismatch(DownloadedContentMismatch):

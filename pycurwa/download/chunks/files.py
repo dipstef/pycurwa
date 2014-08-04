@@ -1,7 +1,5 @@
 import os
 
-from httpy import HttpRequest
-
 from ..files.download import ExistingDownload, NewChunks
 from ..request import DownloadHeadersRequest
 from ..files.util import save_join
