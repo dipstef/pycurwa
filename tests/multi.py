@@ -14,7 +14,7 @@ def _request(downloads, url, chunks=1):
 def main():
 
     bucket = Bucket()
-    bucket.set_max_speed(200 * 1024)
+    bucket.max_speed = 200 * 1024
 
     bucket = None
 

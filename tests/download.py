@@ -9,7 +9,7 @@ def main():
     file_name = os.path.basename(url)
 
     bucket = Bucket()
-    bucket.set_max_speed(200 * 1024)
+    bucket.max_speed = 200 * 1024
 
     bucket = None
 

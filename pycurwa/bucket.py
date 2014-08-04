@@ -2,16 +2,14 @@ from threading import Lock
 from time import time, sleep
 
 
+#bandwidth limit
 class Bucket(object):
     def __init__(self, max_speed=0):
         self._speed_rate = max_speed
         self._tokens = 0
+
         self._last_transfer_time = time()
         self._lock = Lock()
-
-    def set_max_speed(self, rate):
-        with self._lock:
-            self._speed_rate = int(rate)
 
     def sleep_if_above_rate(self, received):
         #min. 10kb, may become unresponsive otherwise
@@ -32,6 +30,15 @@ class Bucket(object):
                     if seconds > 0:
                         #print 'Sleeping: ', seconds
                         sleep(seconds)
+
+    @property
+    def max_speed(self):
+        return self._speed_rate
+
+    @max_speed.setter
+    def max_speed(self, rate):
+        with self._lock:
+            self._speed_rate = int(rate)
 
     def __nonzero__(self):
         return not self._speed_rate < 10240
