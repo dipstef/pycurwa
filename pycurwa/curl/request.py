@@ -38,20 +38,20 @@ def _curl_request(curl, verbose=False, redirect=True):
     curl.setopt(pycurl.HTTPHEADER, _default_headers)
 
 
-def curl_request(curl, url, method, params=None, post_data=None, referrer=None, multi_part=False):
+def curl_request(curl, request, referrer=None, params=None, multi_part=False):
     _curl_request(curl)
 
-    url = byte_string(url)
+    url = byte_string(request.url)
 
     url = params_url(url, urlencode(params)) if params else url
 
     curl.set_url(url)
 
-    if method.lower() == 'head':
+    if request.method.lower() == 'head':
         curl.headers_only()
 
-    if post_data:
-        _post_request(curl, post_data, multi_part)
+    if request.data:
+        _post_request(curl, request.data, multi_part)
     else:
         curl.setopt(pycurl.POST, 0)
 

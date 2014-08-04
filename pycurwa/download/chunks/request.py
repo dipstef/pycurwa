@@ -1,23 +1,16 @@
-from pycurwa.download.response import CurlRangeDownload
-from ..request import HttpDownloadBase
-
-
-class HttpDownloadRange(HttpDownloadBase):
-
-    def __init__(self, url, file_path, cookies, bytes_range, bucket=None, resume=False):
-        super(HttpDownloadRange, self).__init__('GET', url, cookies=cookies)
-        self._response = CurlRangeDownload(self, file_path, bytes_range, resume, bucket)
+from httpy import HttpRequest
+from ..request import HttpDownloadRange
 
 
 class HttpChunk(HttpDownloadRange):
 
     def __init__(self, url, chunk, cookies=None, bucket=None):
-        super(HttpChunk, self).__init__(url, chunk.path, cookies, chunk.range, bucket, chunk.resume)
+        request = HttpRequest('GET', url)
+        super(HttpChunk, self).__init__(request, chunk.path, chunk.range, cookies, bucket, chunk.resume)
         self._header_parse = False
 
         self.id = chunk.id
         self._chunk = chunk
-
 
     @property
     def size(self):

@@ -58,13 +58,9 @@ class CurlDownloadResponse(CurlResponse):
 
 
 class CurlRangeDownload(CurlDownloadResponse):
-    def __init__(self, request, file_path, bytes_range, resume=False, bucket=None):
+    def __init__(self, request, file_path, resume=False, bucket=None):
         super(CurlRangeDownload, self).__init__(request, file_path, resume, bucket)
-        self.range = bytes_range
-
-        start = self.received + self.range.start
-
-        self._curl.set_range('%i-%i' % (start, self.range.end) if self.is_closed_range() else '%i-' % start)
+        self.range = request.range
 
     def _write_body(self, buf):
         if not self._is_range_completed():
@@ -73,7 +69,4 @@ class CurlRangeDownload(CurlDownloadResponse):
             raise Exception('Above Range: ', self.path, self.range, self.received + len(buf))
 
     def _is_range_completed(self):
-        return self.is_closed_range() and self.received > self.range.size
-
-    def is_closed_range(self):
-        return bool(self.range.end)
+        return self.request.is_closed_range() and self.received > self.range.size

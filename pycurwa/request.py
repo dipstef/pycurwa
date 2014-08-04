@@ -12,13 +12,13 @@ from .response import CurlResponse, CurlResponseBase
 
 class CurlRequestBase(HttpRequest):
 
-    def __init__(self, method, url, headers=None, data=None, cookies=None):
-        super(CurlRequestBase, self).__init__(method, url, headers, data)
+    def __init__(self, request, cookies=None):
+        super(CurlRequestBase, self).__init__(request.method, request.url, request.headers, request.data)
 
         self._curl = Curl()
         self.handle = self._curl.curl
 
-        curl_request(self._curl, url, method, post_data=data, referrer=self.headers.get('referer'))
+        curl_request(self._curl, request, referrer=self.headers.get('referer'))
 
         self._cookies = cookies
 
@@ -54,15 +54,15 @@ class CurlRequestBase(HttpRequest):
 
 class CurlRequest(CurlRequestBase):
 
-    def __init__(self, writer, method, url, headers=None, data=None, cookies=None, bucket=None):
-        super(CurlRequest, self).__init__(method, url, headers, data, cookies)
+    def __init__(self, writer, request, cookies=None, bucket=None):
+        super(CurlRequest, self).__init__(request, cookies=cookies)
         self._response = CurlResponse(self, writer, bucket)
 
 
 class CurlHeadersRequest(CurlRequestBase):
 
     def __init__(self, url, headers=None, data=None, cookies=None):
-        super(CurlHeadersRequest, self).__init__('HEAD', url, headers, data, cookies)
+        super(CurlHeadersRequest, self).__init__(HttpRequest('HEAD', url, headers, data), cookies)
         self._response = CurlResponseBase(self)
 
 
