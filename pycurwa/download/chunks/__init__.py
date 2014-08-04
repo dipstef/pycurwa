@@ -42,9 +42,9 @@ class HttpChunks(ChunksDownload):
             raise
 
     def _download(self, **kwargs):
-        stats = self._download_requests(**kwargs)
+        self._download_requests(**kwargs)
 
-        return stats
+        return self.stats
 
     def _download_requests(self, **kwargs):
         raise NotImplementedError
@@ -87,8 +87,7 @@ class HttpChunksDownload(HttpChunks):
 class DownloadChunks(HttpChunksDownload):
 
     def _download_requests(self):
-        requests = MultiRefreshChunks(self, refresh=0.5)
+        curl_requests = MultiRefreshChunks(self, refresh=0.5)
 
-        for status in requests.iterate_statuses():
+        for status in curl_requests.iterate_statuses():
             self.update(status)
-            yield status

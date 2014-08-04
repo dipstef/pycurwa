@@ -4,7 +4,7 @@ from threading import Event, Thread, Semaphore
 from Queue import Queue
 
 from .curl import CurlMultiThread
-from ...requests import MultiRequestRefresh, RequestsStatus, Requests
+from ...curl.requests import MultiRequestRefresh, RequestsStatus, Requests
 
 
 class MultiRequests(MultiRequestRefresh):

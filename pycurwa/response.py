@@ -1,28 +1,73 @@
-from codecs import getincrementaldecoder, lookup, BOM_UTF8
+from httpy import ResponseStatus, HttpHeaders
+from httpy.http.headers import headers_raw_to_dict
 
 
-def decode_response(rep, header_string):
-    encoding = 'utf8'  # default encoding
+class CurlResponseBase(object):
+    __headers_class__ = HttpHeaders
 
-    header = header_string.splitlines()
-    for line in header:
-        line = line.lower().replace(' ', '')
-        if not line.startswith('content-type:') or ('text' not in line and 'application' not in line):
-            continue
+    def __init__(self, request):
+        self._curl = request._curl
+        self.handle = request.handle
 
-        none, delimiter, charset = line.rpartition('charset=')
-        if delimiter:
-            charset = charset.split(';')
-            if charset:
-                encoding = charset[0]
+        self.request = request
 
-    # self.log.debug('Decoded %s' % encoding )
-    if lookup(encoding).name == 'utf-8' and rep.startswith(BOM_UTF8):
-        encoding = 'utf-8-sig'
+        self._header_str = ''
 
-    decoder = getincrementaldecoder(encoding)('replace')
-    rep = decoder.decode(rep, True)
+        self.headers = self.__headers_class__()
 
-    # TODO: html_un-escape as default
+        if request.header_parse:
+            self._curl.set_header_fun(self._write_header)
 
-    return rep
+    def _write_header(self, buf):
+        self._header_str += buf
+
+        self._parse_header()
+
+    def _parse_header(self):
+        if self._header_str.endswith('\r\n\r\n'):
+            self.headers.clear()
+            self.headers.update(self._parse_http_header())
+
+    def _parse_http_header(self):
+        return headers_raw_to_dict(self._header_str)
+
+    def get_status_code(self):
+        code = self._curl.get_status_code()
+        return code
+
+
+class CurlResponseStatus(CurlResponseBase, ResponseStatus):
+
+    def __init__(self, request):
+        super(CurlResponseStatus, self).__init__(request)
+
+    @property
+    def url(self):
+        return self._curl.get_effective_url()
+
+    @property
+    def status(self):
+        return self.get_status_code()
+
+
+class CurlResponse(CurlResponseStatus):
+
+    def __init__(self, request, writer, bucket=None):
+        super(CurlResponse, self).__init__(request)
+        self._bucket = bucket
+
+        self.received = 0
+
+        self._response_writer = writer
+
+        self._curl.set_body_fun(self._write_body)
+
+    def _write_body(self, buf):
+        size = len(buf)
+
+        self.received += size
+
+        self._response_writer(buf)
+
+        if self._bucket:
+            self._bucket.sleep_if_above_rate(received=size)

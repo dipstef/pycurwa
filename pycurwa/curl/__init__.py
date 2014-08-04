@@ -1,8 +1,8 @@
 from contextlib import closing
 import pycurl
 import sys
-from httpy.client.requests import user_agent
-from .error import PyCurlError, CurlError
+
+from .error import CurlError
 from .options import SetOptions, GetOptions
 
 
@@ -83,39 +83,5 @@ class Curl(ClosingCurl):
     def perform(self):
         try:
             self.curl.perform()
-        except PyCurlError, e:
+        except pycurl.error, e:
             raise CurlError(*e.args)
-
-
-_default_headers = ['Accept: */*',
-                    'Accept-Language: en-US,en',
-                    'Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7',
-                    'Connection: keep-alive',
-                    'Keep-Alive: 300', 'Expect:']
-
-
-def curl_request(curl, verbose=False):
-    curl.setopt(pycurl.FOLLOWLOCATION, 1)
-    curl.setopt(pycurl.MAXREDIRS, 5)
-
-    curl.setopt(pycurl.CONNECTTIMEOUT, 30)
-    curl.setopt(pycurl.NOSIGNAL, 1)
-    curl.setopt(pycurl.NOPROGRESS, 1)
-
-    if hasattr(pycurl, 'AUTOREFERER'):
-        curl.setopt(pycurl.AUTOREFERER, 1)
-
-    curl.setopt(pycurl.SSL_VERIFYPEER, 0)
-
-    curl.setopt(pycurl.LOW_SPEED_TIME, 30)
-    curl.setopt(pycurl.LOW_SPEED_LIMIT, 5)
-
-    if verbose:
-        curl.setopt(pycurl.VERBOSE, 1)
-
-    curl.setopt(pycurl.USERAGENT, user_agent)
-
-    if pycurl.version_info()[7]:
-        curl.setopt(pycurl.ENCODING, 'gzip, deflate')
-
-    curl.setopt(pycurl.HTTPHEADER, _default_headers)

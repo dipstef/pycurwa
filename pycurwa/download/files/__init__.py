@@ -3,9 +3,11 @@ from collections import OrderedDict
 import json
 import os
 import shutil
+
 from unicoder import to_unicode, encoded
+
 from ...error import UnexpectedCopyChunk, UnexpectedContent
-from ...util import fs_encode
+from ..files.util import fs_encode
 
 
 class Chunks(object):

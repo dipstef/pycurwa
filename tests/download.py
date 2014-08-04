@@ -5,6 +5,7 @@ from pycurwa.download import HttpDownload
 def main():
     import os
     url = 'http://download.thinkbroadband.com/10MB.zip'
+    url = 'http://download.thinkbroadband.com/5MB.zip'
     file_name = os.path.basename(url)
 
     bucket = Bucket()

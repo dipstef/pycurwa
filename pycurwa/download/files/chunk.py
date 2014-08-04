@@ -1,6 +1,7 @@
 from collections import namedtuple
 import os
-from ...util import fs_encode
+
+from .util import fs_encode
 
 
 class Chunk(namedtuple('Chunk', ['number', 'chunks', 'path', 'range'])):

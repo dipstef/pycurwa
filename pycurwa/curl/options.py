@@ -1,9 +1,5 @@
+from collections import namedtuple
 import pycurl
-from urllib import urlencode
-from unicoder import byte_string
-from urlo import params_url
-from ..util import url_encode
-
 
 class SetOptions(object):
 
@@ -76,42 +72,11 @@ class SetOptions(object):
     def set_header_fun(self, header):
         self.setopt(pycurl.HEADERFUNCTION, header)
 
-    def set_request_context(self, url, params=None, post_data=None, referrer=None, multi_part=False):
-        url = byte_string(url)
-        url = params_url(url, urlencode(params)) if params else url
-
-        self.set_url(url)
-
-        if post_data:
-            self.post_request(post_data, multi_part)
-        else:
-            self.unset_post()
-
-        if referrer:
-            self.set_referrer(referrer)
-
     def set_progress_function(self, fun):
         self.setopt(pycurl.PROGRESSFUNCTION, fun)
 
-    def post_request(self, post, multi_part=False):
-        self.set_post()
-
-        if not multi_part:
-            if type(post) == unicode:
-                post = byte_string(post)
-            elif not type(post) == str:
-                post = url_encode(post)
-
-            self.setopt(pycurl.POSTFIELDS, post)
-        else:
-            post = [(x, byte_string(y)) for x, y in post.iteritems()]
-            self.setopt(pycurl.HTTPPOST, post)
-
-    def set_post(self):
-        self.setopt(pycurl.POST, 1)
-
-    def unset_post(self):
-        self.setopt(pycurl.POST, 0)
+    def headers_only(self):
+        self.setopt(pycurl.NOBODY, 1)
 
 
 class GetOptions(object):
@@ -127,3 +92,20 @@ class GetOptions(object):
 
     def get_speed_download(self):
         return self.getinfo(pycurl.SPEED_DOWNLOAD)
+
+
+class Auth(namedtuple('Auth', ['user', 'password'])):
+    def __new__(cls, user, password):
+        return super(Auth, cls).__new__(cls, user, password)
+
+
+class Proxy(namedtuple('Proxy', ['type', 'address', 'port', 'auth'])):
+
+    def __new__(cls, proxy_type, address, port, auth=None):
+        return super(Proxy, cls).__new__(cls, proxy_type, address, port, auth)
+
+    def is_socks4(self):
+        return self.type == 'socks4'
+
+    def is_socks5(self):
+        return self.type == 'socks5'

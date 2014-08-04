@@ -4,7 +4,7 @@ from .status import HttpChunksStatus, DownloadStats
 from .error import FailedChunks
 from ..files import ChunksDict
 from ...error import DownloadedContentMismatch, Abort
-from ...requests import MultiRequestRefresh
+from ...curl.requests import MultiRequestRefresh
 
 
 class ChunkRequests(object):
@@ -77,7 +77,7 @@ class ChunksStatuses(ChunkRequests):
         self.failed.update(status.failed)
 
     def is_done(self):
-        return len(self.completed) >= len(self._chunks) or self.failed
+        return len(self.completed) >= len(self._chunks) or bool(self.failed)
 
 
 class ChunksDownload(ChunksStatuses):
@@ -110,4 +110,4 @@ class MultiRefreshChunks(MultiRequestRefresh):
         self.add(downloads)
 
     def _has_active_requests(self):
-        return self._downloads.is_done()
+        return not self._downloads.is_done()

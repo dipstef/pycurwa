@@ -2,9 +2,8 @@
 from collections import OrderedDict
 from time import time
 
-from .curl import CurlMulti, CurlHandlesStatus
-from .curl.error import CurlWriteError, CurlError, MissingHandle
-from .request import CurlRequestBase
+from . import CurlMulti, CurlHandlesStatus
+from .error import CurlWriteError, CurlError, MissingHandle
 
 
 class Requests(object):
@@ -17,18 +16,10 @@ class Requests(object):
             self.add(request)
 
     def add(self, request):
-        assert isinstance(request, CurlRequestBase)
-        self._add(request)
-
-    def _add(self, request):
         self._curl.add_handle(request.handle)
         self._request_handles[request.handle] = request
 
     def remove(self, request):
-        assert isinstance(request, CurlRequestBase)
-        self._remove(request)
-
-    def _remove(self, request):
         self._curl.remove_handle(request.handle)
         del self._request_handles[request.handle]
 
@@ -144,16 +135,17 @@ class RequestStatusCheck(RequestsStatus):
         errors = []
         for request in completed:
             status_error = request.get_status_error()
+
             if status_error:
                 errors.append(request)
-                failed.append(FailedRequest(request, status_error))
+                failed.append(FailedHandle(request, status_error))
 
         completed = completed if not errors else [request for request in completed if not request in errors]
 
         super(RequestStatusCheck, self).__init__(completed, failed, status_time)
 
 
-class FailedRequest(object):
+class FailedHandle(object):
 
     def __init__(self, request, error):
         self._request = request
@@ -167,7 +159,7 @@ class FailedRequest(object):
         return '%s: %s' % (repr(self._request), repr(self.error))
 
 
-class CurlFailed(FailedRequest):
+class CurlFailed(FailedHandle):
     def __init__(self, request, errno, msg):
         super(CurlFailed, self).__init__(request, CurlError(errno, msg))
 

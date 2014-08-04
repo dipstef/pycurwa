@@ -50,8 +50,6 @@ class ChunksThreadDownload(HttpChunksDownload):
         if isinstance(outcome, Exception):
             raise outcome
 
-        return self.stats
-
     def _update(self, status):
         try:
             return super(ChunksThreadDownload, self)._update(status)

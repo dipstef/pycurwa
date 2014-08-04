@@ -1,8 +1,9 @@
 from collections import OrderedDict
 import numbers
 import operator
-from pycurwa.download.files import ChunksDict
-from pycurwa.requests import RequestsStatus
+
+from ..files import ChunksDict
+from ...curl.requests import RequestsStatus
 
 
 class ChunkStatus(OrderedDict):

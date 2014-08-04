@@ -11,11 +11,5 @@ else:
     fs_encode = lambda x: x  # do nothing
 
 
-def url_encode(data):
-    data = dict(data)
-    data = {byte_string(x): byte_string(y) for x, y in data.iteritems()}
-    return urlencode(data)
-
-
 def save_join(*args):
     return fs_encode(os.path.join(*[to_unicode(x, encoding='utf-8') for x in args]))

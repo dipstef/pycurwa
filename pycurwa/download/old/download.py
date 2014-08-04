@@ -10,7 +10,7 @@ from pycurwa.download.files.download import ExistingDownload, NewChunks, OneChun
 from .requests import ChunksDownloads, ChunksRefresh
 from ..request import DownloadHeadersRequest
 from ...error import Abort
-from ...util import save_join
+from ...pycurwa.download.files.util import save_join
 
 
 class HttpChunks(object):

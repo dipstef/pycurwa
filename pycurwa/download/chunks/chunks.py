@@ -4,7 +4,7 @@ from httpy import HttpRequest
 
 from ..files.download import ExistingDownload, NewChunks
 from ..request import DownloadHeadersRequest
-from ...util import save_join
+from ..files.util import save_join
 
 
 def get_chunks_file(url, file_path, chunks_number=1, resume=True, cookies=None, use_disposition=False):
@@ -33,7 +33,7 @@ def _resolve_size(url, cookies=None, bucket=None):
 
 
 def _resolve_headers(url, cookies=None, bucket=None):
-    initial = DownloadHeadersRequest(HttpRequest('HEAD', url), cookies, bucket)
+    initial = DownloadHeadersRequest(url, cookies, bucket)
     try:
         return initial.head()
     finally:
