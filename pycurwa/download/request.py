@@ -8,7 +8,7 @@ class HttpDownloadBase(CurlRequestBase):
 
     def __init__(self, request, file_path, cookies=None, bucket=None, resume=False):
         super(HttpDownloadBase, self).__init__(request, cookies)
-        self._response = self.__response__(self, file_path, resume, bucket)
+        self._response = self.__response__(self, file_path, resume, cookies, bucket)
 
     def get_speed(self):
         return self._curl.get_speed_download()
@@ -37,8 +37,8 @@ class HttpDownloadRequest(HttpDownloadBase):
 
 class DownloadHeadersRequest(CurlHeadersRequest):
 
-    def __init__(self, url, cookies=None, bucket=None):
-        super(DownloadHeadersRequest, self).__init__(url, cookies, bucket)
+    def __init__(self, url, headers=None, data=None, cookies=None):
+        super(DownloadHeadersRequest, self).__init__(url, headers, data, cookies=cookies)
 
     def head(self):
         self._curl.perform()

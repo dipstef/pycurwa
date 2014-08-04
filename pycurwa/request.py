@@ -1,10 +1,9 @@
-import urllib2
-
 from httpy import HttpRequest
 from httpy.error import error_status, HttpStatusError
 
 from .curl import Curl
 from .curl.request import curl_request
+from .cookies import get_cookie_string
 from .response import CurlResponseBase, CurlBodyResponse
 
 
@@ -33,16 +32,9 @@ class CurlRequestBase(HttpRequest):
             return HttpStatusError(self, code)
 
     def _set_curl_cookies(self):
-        cookies = self._get_cookie_string()
-        if cookies:
-            self._curl.set_cookies(cookies)
-
-    def _get_cookie_string(self):
-        request = urllib2.Request(self.url, headers=self.headers)
-
-        self._cookies.add_cookie_header(request)
-        cookie = request.unredirected_hdrs.get('Cookie')
-        return cookie
+        cookie = get_cookie_string(self._cookies, self)
+        if cookie:
+            self._curl.set_cookie(cookie)
 
     def close(self):
         self.handle.close()
@@ -55,7 +47,7 @@ class CurlRequest(CurlRequestBase):
         self._bucket = bucket
 
     def execute(self):
-        response = CurlBodyResponse(self, self._bucket)
+        response = CurlBodyResponse(self, self._cookies, self._bucket)
 
         self._curl.perform()
 
@@ -70,4 +62,5 @@ class CurlHeadersRequest(CurlRequestBase):
 
     def __init__(self, url, headers=None, data=None, cookies=None):
         super(CurlHeadersRequest, self).__init__(HttpRequest('HEAD', url, headers, data), cookies)
-        self._response = CurlResponseBase(self)
+
+        self._response = CurlResponseBase(self, self._cookies)

@@ -1,12 +1,14 @@
-from httpy import ResponseStatus, HttpHeaders
+from datetime import datetime
+from httpy import ResponseStatus, HttpHeaders, date_header
 from httpy.http.headers import header_string_to_dict
 from .curl import BytesIO
+from pycurwa.cookies import write_cookies
 
 
 class CurlResponseBase(object):
     __headers_class__ = HttpHeaders
 
-    def __init__(self, request):
+    def __init__(self, request, cookies=None):
         self._curl = request._curl
         self.handle = request.handle
 
@@ -14,23 +16,29 @@ class CurlResponseBase(object):
 
         self._header_str = ''
 
-        self.headers = self.__headers_class__()
-
         if request.header_parse:
             self._curl.set_header_fun(self._write_header)
+
+        self._date = datetime.utcnow()
+        self._cookies = cookies
 
     def _write_header(self, buf):
         self._header_str += buf
 
-        self._parse_header()
-
-    def _parse_header(self):
         if self._header_str.endswith('\r\n\r\n'):
-            self.headers.clear()
-            self.headers.update(self._parse_http_header())
+            self._parse_http_header()
 
     def _parse_http_header(self):
-        return header_string_to_dict(self._header_str)
+        headers = header_string_to_dict(self._header_str)
+
+        self.headers = self.__headers_class__(headers)
+
+        self._date = date_header(headers) or datetime.utcnow()
+
+        if self._cookies is not None:
+            write_cookies(self._cookies, self)
+
+        return headers
 
     def get_status_code(self):
         code = self._curl.get_status_code()
@@ -39,8 +47,8 @@ class CurlResponseBase(object):
 
 class CurlResponseStatus(CurlResponseBase, ResponseStatus):
 
-    def __init__(self, request):
-        super(CurlResponseStatus, self).__init__(request)
+    def __init__(self, request, cookies=None):
+        super(CurlResponseStatus, self).__init__(request, cookies)
 
     @property
     def url(self):
@@ -50,11 +58,15 @@ class CurlResponseStatus(CurlResponseBase, ResponseStatus):
     def status(self):
         return self.get_status_code()
 
+    @property
+    def date(self):
+        return self._date
+
 
 class CurlResponse(CurlResponseStatus):
 
-    def __init__(self, request, writer, bucket=None):
-        super(CurlResponse, self).__init__(request)
+    def __init__(self, request, writer, cookies, bucket=None):
+        super(CurlResponse, self).__init__(request, cookies)
         self._bucket = bucket
 
         self.received = 0
@@ -75,9 +87,9 @@ class CurlResponse(CurlResponseStatus):
 
 class CurlBodyResponse(CurlResponse):
 
-    def __init__(self, request, bucket=None):
+    def __init__(self, request, cookies, bucket=None):
         self._bytes = BytesIO()
-        super(CurlBodyResponse, self).__init__(request, self._bytes.write, bucket)
+        super(CurlBodyResponse, self).__init__(request, self._bytes.write, cookies, bucket)
         self._curl.headers_only()
         self._body = None
 
@@ -90,6 +102,7 @@ class CurlBodyResponse(CurlResponse):
         self.close()
         return self._body
 
+    @property
     def body(self):
         if self._body is None:
             self._body = self.read()

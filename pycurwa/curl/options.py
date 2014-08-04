@@ -41,7 +41,10 @@ class SetOptions(object):
     def set_low_speed_timeout(self, timeout):
         self.setopt(pycurl.LOW_SPEED_TIME, timeout)
 
-    def set_cookies(self, cookie):
+    def set_cookie(self, cookie):
+        self.setopt(pycurl.COOKIE, cookie)
+
+    def set_cookie_list(self, cookie):
         self.setopt(pycurl.COOKIELIST, cookie)
 
     def clear_cookies(self):

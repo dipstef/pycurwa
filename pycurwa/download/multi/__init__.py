@@ -34,7 +34,7 @@ class ChunksThreadRequest(HttpDownloadRequest):
         super(ChunksThreadRequest, self).__init__(url, file_path, chunks_number, resume, bucket)
 
     def _create_request(self, chunks_file):
-        return ChunksThreadDownload(self._requests, chunks_file, bucket=self._bucket)
+        return ChunksThreadDownload(self._requests, chunks_file, self._cookies, self._bucket)
 
 
 class ChunksThreadDownload(HttpChunksDownload):

@@ -16,5 +16,5 @@ class HttpDownloadBase(object):
 
 
 class HttpDownload(HttpDownloadBase):
-    def __init__(self, bucket=None):
-        super(HttpDownload, self).__init__(HttpDownloadRequests(bucket))
+    def __init__(self, cookies=None, bucket=None):
+        super(HttpDownload, self).__init__(HttpDownloadRequests(cookies, bucket))

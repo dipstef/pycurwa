@@ -26,12 +26,12 @@ class CurlDownloadResponse(CurlResponse):
 
     __headers_class__ = HttpDownloadHeaders
 
-    def __init__(self, request, file_path, resume=False, bucket=None):
+    def __init__(self, request, file_path, resume=False, cookies=None, bucket=None):
         self.path = fs_encode(file_path)
 
         self._fp = open(file_path, 'ab' if resume else 'wb')
 
-        super(CurlDownloadResponse, self).__init__(request, self._fp.write, bucket)
+        super(CurlDownloadResponse, self).__init__(request, self._fp.write, cookies, bucket)
 
         if resume:
             self.received = self._fp.tell() or os.stat(self.path).st_size
@@ -59,8 +59,8 @@ class CurlDownloadResponse(CurlResponse):
 
 class CurlRangeDownload(CurlDownloadResponse):
 
-    def __init__(self, request, file_path, resume=False, bucket=None):
-        super(CurlRangeDownload, self).__init__(request, file_path, resume, bucket)
+    def __init__(self, request, file_path, resume=False, cookies=None, bucket=None):
+        super(CurlRangeDownload, self).__init__(request, file_path, resume, cookies, bucket)
         self.range = request.range
 
     def _write_body(self, buf):
