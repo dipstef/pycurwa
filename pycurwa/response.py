@@ -90,13 +90,9 @@ class CurlBodyResponse(CurlResponse):
     def __init__(self, request, cookies, bucket=None):
         self._bytes = BytesIO()
         super(CurlBodyResponse, self).__init__(request, self._bytes.write, cookies, bucket)
-        self._curl.headers_only()
         self._body = None
 
     def read(self):
-        self._curl.enable_body_retrieve()
-
-        self._curl.perform()
         self._body = self._bytes.getvalue()
 
         self.close()

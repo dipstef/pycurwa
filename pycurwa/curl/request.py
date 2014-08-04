@@ -46,19 +46,19 @@ def curl_request(curl, request, referrer=None, params=None, multi_part=False):
 
     curl.set_url(url)
 
-    if request.method.lower() == 'head':
+    method = request.method.lower()
+    if method == 'head':
         curl.headers_only()
+    elif request.data:
+        _post_request(curl, request.data, multi_part)
+    elif method != 'get':
+        curl.set_method(request.method)
 
-    headers = _default_headers
+    headers = list(_default_headers)
     if request.headers:
         headers += header_dict_to_lines(request.headers)
 
     curl.set_headers(headers)
-
-    if request.data:
-        _post_request(curl, request.data, multi_part)
-    else:
-        curl.setopt(pycurl.POST, 0)
 
     if referrer:
         curl.set_referrer(referrer)
@@ -68,15 +68,20 @@ def _post_request(curl, post, multi_part=False):
     curl.setopt(pycurl.POST, 1)
 
     if not multi_part:
-        if type(post) == unicode:
-            post = byte_string(post)
-        elif not type(post) == str:
-            post = _url_encode(post)
+        post = _encode(post)
 
         curl.setopt(pycurl.POSTFIELDS, post)
     else:
         post = [(x, byte_string(y)) for x, y in post.iteritems()]
         curl.setopt(pycurl.HTTPPOST, post)
+
+
+def _encode(post):
+    if type(post) == unicode:
+        post = byte_string(post)
+    elif not type(post) == str:
+        post = _url_encode(post)
+    return post
 
 
 def _url_encode(data):

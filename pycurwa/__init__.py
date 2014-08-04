@@ -13,4 +13,4 @@ class PyCurwa(HttpRequests):
 
         return request.execute()
 
-client = PyCurwa()
+pycurwa = PyCurwa()

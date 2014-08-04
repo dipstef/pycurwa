@@ -20,7 +20,7 @@ class CurlRequestBase(HttpRequest):
         self._cookies = cookies
 
         if cookies:
-            self._curl.unset_cookie_files()
+            #self._curl.unset_cookie_files()
             self._set_curl_cookies()
 
         self.header_parse = True

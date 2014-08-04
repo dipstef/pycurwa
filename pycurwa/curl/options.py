@@ -57,6 +57,9 @@ class SetOptions(object):
     def set_url(self, url):
         self.setopt(pycurl.URL, url)
 
+    def set_method(self, method):
+        self.setopt(pycurl.CUSTOMREQUEST, method)
+
     def set_referrer(self, referrer):
         self.setopt(pycurl.REFERER, referrer)
 

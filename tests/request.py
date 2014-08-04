@@ -1,10 +1,10 @@
-from pycurwa import client
+from pycurwa import pycurwa
 
 
 def main():
     url = 'http://www.google.com'
 
-    response = client.get(url)
+    response = pycurwa.get(url)
 
     print response.read()
 
