@@ -40,8 +40,11 @@ class DownloadHeadersRequest(CurlHeadersRequest):
         super(DownloadHeadersRequest, self).__init__(url, headers, data, cookies=cookies)
 
     def head(self):
-        self._curl.perform()
-        return HttpDownloadHeaders(self._response.headers)
+        try:
+            self._curl.perform()
+            return HttpDownloadHeaders(self._response.headers)
+        finally:
+            self.close()
 
 
 class HttpDownloadRange(HttpDownloadBase):

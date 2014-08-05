@@ -32,7 +32,4 @@ def _download_chunks(request, cookies=None, headers=None):
 
 def _resolve_headers(request, cookies=None):
     initial = DownloadHeadersRequest(request.url, headers=request.headers, data=request.data, cookies=cookies)
-    try:
-        return initial.head()
-    finally:
-        initial.close()
+    return initial.head()
