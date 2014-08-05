@@ -17,14 +17,18 @@ class DownloadRequest(HttpyRequest):
 
 class HttpDownloadRequest(object):
 
-    def __init__(self, request, cookies=None, bucket=None):
+    def __init__(self, request, path, chunks=1, resume=False, cookies=None, bucket=None):
         self._request = request
+        self._path = path
+        self._chunks = chunks
+        self._resume = resume
+
         self._cookies = cookies
         self._bucket = bucket
 
     def perform(self):
         try:
-            statistics = self._download(resume=self._request.resume)
+            statistics = self._download(resume=self._resume)
         except InvalidRangeRequest:
             print_err('Restart without resume')
             statistics = self._download(resume=False)
@@ -32,14 +36,16 @@ class HttpDownloadRequest(object):
         return statistics
 
     def _download(self, resume):
-        chunks_file = get_chunks_file(self._request, resume=resume, cookies=self._cookies)
+        request = DownloadRequest(self._request, self._path, self._chunks, resume)
 
-        request = self._create_request(chunks_file)
+        chunks_file = get_chunks_file(request, cookies=self._cookies)
+
+        request = self._create_request(request, chunks_file)
 
         return request.perform()
 
-    def _create_request(self, chunks_file):
-        return DownloadChunks(self._request, chunks_file, cookies=self._cookies, bucket=self._bucket)
+    def _create_request(self, request, chunks_file):
+        return DownloadChunks(request, chunks_file, cookies=self._cookies, bucket=self._bucket)
 
 
 class HttpDownloadRequests(HttpClient):
@@ -50,9 +56,7 @@ class HttpDownloadRequests(HttpClient):
         self._bucket = bucket
 
     def execute(self, request, path, chunks=1, resume=False):
-        request = DownloadRequest(request, path, chunks, resume)
+        return self._get_request(request, path, chunks, resume)
 
-        return self._get_request(request)
-
-    def _get_request(self, request):
-        return HttpDownloadRequest(request, self._cookies, self._bucket)
+    def _get_request(self, request, path, chunks, resume):
+        return HttpDownloadRequest(request, path, chunks, resume, self._cookies, self._bucket)

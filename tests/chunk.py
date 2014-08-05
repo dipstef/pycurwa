@@ -1,5 +1,5 @@
 import json
-from pycurwa.download.files import DownloadChunks
+from pycurwa.download.files import DownloadChunkFiles
 from pycurwa.download.files.chunk import Chunk
 
 
@@ -15,7 +15,7 @@ print json.dumps(chunk0)
 print json.dumps(chunk1)
 print json.dumps(chunk2)
 
-downloads = DownloadChunks('http://test.com/test.zip', './test.zip', 345, [chunk0, chunk1, chunk2])
+downloads = DownloadChunkFiles('http://test.com/test.zip', './test.zip', 345, [chunk0, chunk1, chunk2])
 
 #print downloads
 assert downloads.is_completed()

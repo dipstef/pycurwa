@@ -1,35 +1,39 @@
 import codecs
 import json
-from . import DownloadChunks, chunks_file_path
+from . import DownloadChunkFiles, chunks_file_path
 from .chunk import ChunkFile
 
 
-class ExistingDownload(DownloadChunks):
+class ExistingDownload(DownloadChunkFiles):
 
-    def __init__(self, url, file_path, resume=False):
-        chunks_file = chunks_file_path(file_path)
+    def __init__(self, request):
+        json_dict = _load_json(request.path)
 
-        with codecs.open(chunks_file, 'r', 'utf-8') as fh:
-            json_dict = json.load(fh)
+        assert request.url == json_dict['url']
 
-        assert url == json_dict['url']
-        expected_size = json_dict['size']
-        total = json_dict['number']
-        chunks_list = json_dict['chunks']
+        chunks = _chunks(json_dict['chunks'], json_dict['number'], request.resume)
 
-        chunks = []
-        for chunk_dict in chunks_list:
-            chunk_file = ChunkFile(chunk_dict['number'], total, chunk_dict['path'], chunk_dict['range'], resume)
-            chunks.append(chunk_file)
-
-        super(ExistingDownload, self).__init__(url, file_path, expected_size, chunks, resume)
+        super(ExistingDownload, self).__init__(request, request.path, json_dict['size'], chunks, request.resume)
 
 
-class NewChunks(DownloadChunks):
+def _load_json(file_path):
+    chunks_file = chunks_file_path(file_path)
 
-    def __init__(self, url, file_path, expected_size, chunks_number, resume=False):
-        super(NewChunks, self).__init__(url, file_path, expected_size, chunks=[], resume=resume)
-        self._create_chunks(chunks_number)
+    with codecs.open(chunks_file, 'r', 'utf-8') as fh:
+        json_dict = json.load(fh)
+
+    return json_dict
+
+
+def _chunks(chunks, total, resume):
+    return [ChunkFile(chunk['number'], total, chunk['path'], chunk['range'], resume) for chunk in chunks]
+
+
+class NewDownload(DownloadChunkFiles):
+
+    def __init__(self, request, download_size, chunks, resume):
+        super(NewDownload, self).__init__(request, request.path, download_size, chunks=[], resume=resume)
+        self._create_chunks(chunks)
         self.save()
 
     def _create_chunks(self, chunks_number):
@@ -46,6 +50,6 @@ class NewChunks(DownloadChunks):
             current += chunk_size + 1
 
 
-class OneChunk(NewChunks):
-    def __init__(self, url, file_path, expected_size, resume=False):
-        super(OneChunk, self).__init__(url, file_path, expected_size, chunks_number=1, resume=resume)
+class OneChunk(NewDownload):
+    def __init__(self, request, expected_size, resume=False):
+        super(OneChunk, self).__init__(request, expected_size, chunks=1, resume=resume)

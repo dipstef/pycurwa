@@ -81,7 +81,7 @@ class HttpChunksDownload(HttpChunks):
         for chunk in self._chunks_file.chunks[1:]:
             self._chunks_file.remove(chunk)
 
-        return OneChunk(self.url, self.path, self._chunks_file.size, self._chunks_file.resume)
+        return OneChunk(self._request, self._chunks_file.size, resume=self._chunks_file.resume)
 
 
 class DownloadChunks(HttpChunksDownload):

@@ -5,27 +5,27 @@ class Abort(HttpError):
     pass
 
 
-class UnexpectedContent(Exception):
-    def __init__(self, path, actual, expected):
-        message = '%s content %d different than expected %d. Try to reduce download connections.'
-        message = message % (path, actual, expected)
-        super(UnexpectedContent, self).__init__(message)
-
-
-class UnexpectedCopyChunk(UnexpectedContent):
-    def __init__(self, path, actual, expected):
-        super(UnexpectedCopyChunk, self).__init__(path, actual, expected)
-        self.message = 'Not Completed %s: %d expected %d' % (path, actual, expected)
-
-
 class HttpDownloadError(HttpError):
     pass
 
 
-class DownloadedContentMismatch(HttpDownloadError, UnexpectedContent):
+class UnexpectedContent(HttpDownloadError):
+    def __init__(self, request, path, actual, expected):
+        super(UnexpectedContent, self).__init__(request, path, path, actual, expected)
+        message = '%s content %d different than expected %d. Try to reduce download connections.'
+        self.message = message % (path, actual, expected)
+
+
+class DownloadedContentMismatch(UnexpectedContent):
     def __init__(self, request, path, actual, expected):
         super(DownloadedContentMismatch, self).__init__(request, path, actual, expected)
         self.message = 'Content size mismatch% s: received: %d, expected: %d' % (path, actual, expected)
+
+
+class UnexpectedCopyChunk(DownloadedContentMismatch):
+    def __init__(self, request, path, actual, expected):
+        super(UnexpectedCopyChunk, self).__init__(request, path, actual, expected)
+        self.message = 'Not Completed %s: %d expected %d' % (path, actual, expected)
 
 
 class FailedStatus(HttpResponseError):

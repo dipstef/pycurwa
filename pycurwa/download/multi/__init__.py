@@ -13,7 +13,7 @@ class MultiDownloadsRequests(HttpDownloadRequests):
         self._requests = DownloadRequests()
         super(MultiDownloadsRequests, self).__init__(cookies, bucket, timeout)
 
-    def _get_request(self, request):
+    def _get_request(self, request, path, chunks, resume):
         return ChunksThreadRequest(self._requests, request, self._bucket)
 
     def close(self):
@@ -32,12 +32,12 @@ class MultiDownloads(MultiDownloadsRequests):
 
 class ChunksThreadRequest(HttpDownloadRequest):
 
-    def __init__(self, requests, request, cookies=None, bucket=None):
+    def __init__(self, requests, request, path, chunks=1, resume=False, cookies=None, bucket=None):
         self._requests = requests
-        super(ChunksThreadRequest, self).__init__(request, cookies, bucket)
+        super(ChunksThreadRequest, self).__init__(request, path, chunks, resume, cookies, bucket)
 
-    def _create_request(self, chunks_file):
-        return ChunksThreadDownload(self._requests, self._request, chunks_file, self._cookies, self._bucket)
+    def _create_request(self, request, chunks_file):
+        return ChunksThreadDownload(self._requests, request, chunks_file, self._cookies, self._bucket)
 
 
 class ChunksThreadDownload(HttpChunksDownload):

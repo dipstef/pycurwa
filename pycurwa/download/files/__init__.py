@@ -111,14 +111,20 @@ def _remove(path):
             pass
 
 
-class DownloadChunks(ChunksFile):
+class DownloadFile(ChunksFile):
 
-    def __init__(self, url, file_path, expected_size, chunks, resume=False):
-        self.url = url
+    def __init__(self, request, file_path, expected_size, chunks, resume=False):
+        self.request = request
+
         assert expected_size
         self._expected_size = expected_size
-        super(DownloadChunks, self).__init__(file_path, chunks)
+
+        super(DownloadFile, self).__init__(file_path, chunks)
         self.resume = resume
+
+    @property
+    def url(self):
+        return self.request.url
 
     @property
     def size(self):
@@ -126,7 +132,7 @@ class DownloadChunks(ChunksFile):
 
     @property
     def chunks_size(self):
-        return super(DownloadChunks, self).size
+        return super(DownloadFile, self).size
 
     def remaining(self):
         return [chunk for chunk in self.chunks if not chunk.is_completed()]
@@ -145,16 +151,23 @@ class DownloadChunks(ChunksFile):
     def _json_dict(self):
         json_dict = OrderedDict()
         json_dict['url'] = self.url
-        json_dict.update(super(DownloadChunks, self)._json_dict())
+        json_dict.update(super(DownloadFile, self)._json_dict())
         return json_dict
+
+
+class DownloadChunkFiles(DownloadFile):
 
     def copy_chunks(self):
         first_chunk = self[0]
 
-        _ensure_chunk_sizes(self._chunks)
+        try:
+            self._ensure_chunk_sizes()
 
-        if self.count > 1:
-            self._merge_to_first_chunk(first_chunk)
+            if self.count > 1:
+                self._merge_to_first_chunk(first_chunk)
+        except UnexpectedContent:
+            self.remove()
+            raise
 
         shutil.move(first_chunk.path, fs_encode(self.file_path))
         _remove(self.path_encoded)
@@ -168,16 +181,14 @@ class DownloadChunks(ChunksFile):
         path_size = first_chunk.get_size()
 
         if not path_size == self.size:
-            self.remove()
-            raise UnexpectedCopyChunk(first_chunk.path, path_size, self.size)
+            raise UnexpectedCopyChunk(self.request, first_chunk.path, path_size, self.size)
 
+    def _ensure_chunk_sizes(self):
+        for chunk in self.chunks:
+            chunk_size = chunk.get_size()
 
-def _ensure_chunk_sizes(chunks):
-    for chunk in chunks:
-        chunk_size = chunk.get_size()
-
-        if chunk_size != chunk.size:
-            raise UnexpectedContent(chunk.path, chunk_size, chunk.size)
+            if chunk_size != chunk.size:
+                raise UnexpectedContent(self.request, chunk.path, chunk_size, chunk.size)
 
 
 def _copy_chunk(chunk, first_chunk, buf_size=32 * 1024):

@@ -1,27 +1,32 @@
 import os
 
-from ..files.download import ExistingDownload, NewChunks
+from ..files.download import ExistingDownload, NewDownload
 from ..request import DownloadHeadersRequest
 from ..files.util import save_join
 
 
-def get_chunks_file(request, resume=True, cookies=None, use_disposition=False):
+def get_chunks_file(request, cookies=None):
     headers = None
-    file_path = request.path
 
-    if use_disposition:
+    if os.path.isdir(request.path):
         headers = _resolve_headers(request.url, cookies)
 
-        if headers.disposition_name:
-            directory_path = os.path.dirname(file_path) if os.path.isdir(file_path) else file_path
-            file_path = save_join(directory_path, headers.disposition_name)
-    try:
-        chunks = ExistingDownload(request.url, file_path, resume=resume)
-    except IOError:
-        if headers is None:
-            headers = _resolve_headers(request.url, cookies=cookies)
-        chunks = NewChunks(request.url, file_path, headers.size, request.chunks)
+        file_name = headers.file_name or os.path.basename(request.url)
 
+        assert file_name
+        request.path = save_join(request.path, file_name)
+
+    chunks = _download_chunks(request, cookies, headers)
+
+    return chunks
+
+
+def _download_chunks(request, cookies=None, headers=None):
+    try:
+        chunks = ExistingDownload(request)
+    except IOError:
+        headers = headers or _resolve_headers(request.url, cookies=cookies)
+        chunks = NewDownload(request, headers.size, request.chunks, resume=request.resume)
     return chunks
 
 

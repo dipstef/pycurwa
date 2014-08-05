@@ -4,7 +4,7 @@ from httpy import HttpHeaders
 from httpy.http.headers.content import disposition_file_name, content_length
 
 from .files.util import fs_encode
-from pycurwa.download.error import AboveRange
+from .error import AboveRange
 from ..response import CurlResponse
 
 
