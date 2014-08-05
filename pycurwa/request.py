@@ -25,10 +25,8 @@ class CurlRequestBase(HttpyRequest):
         if cookies:
             self._set_curl_cookies()
 
-        self._response = self._create_response()
-
     def get_status_error(self):
-        code = self._response.get_status_code()
+        code = self._curl.get_status_code()
 
         if code != 404 and code in error_status:
             return HttpStatusError(self, code)
@@ -41,15 +39,13 @@ class CurlRequestBase(HttpyRequest):
     def close(self):
         self.handle.close()
 
-    def _create_response(self):
-        return CurlResponseBase(self, self._cookies)
-
 
 class CurlRequest(CurlRequestBase):
 
     def __init__(self, request, cookies=None, bucket=None):
         self._bucket = bucket
         super(CurlRequest, self).__init__(request, cookies=cookies)
+        self._response = self._create_response()
 
     def execute(self):
         try:
@@ -73,8 +69,9 @@ class CurlHeadersRequest(CurlRequestBase):
         super(CurlHeadersRequest, self).__init__(HttpyRequest('HEAD', url, headers, data), cookies)
 
     def head(self):
+        response = CurlResponseBase(self, self._cookies)
         try:
             self._curl.perform()
-            return self._response.headers
+            return response.headers
         finally:
             self.close()
