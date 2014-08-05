@@ -3,14 +3,14 @@ from itertools import groupby
 from threading import Event, Thread
 from Queue import Queue
 
-from ...curl.requests import RequestsStatus, MultiRequestsRefresh
+from ...curl.requests import RequestsStatus, MultiRequests
 from ...multi.requests import LimitedRequests
 
 
-class DownloadMultiRequests(MultiRequestsRefresh):
+class DownloadMultiRequests(MultiRequests):
 
-    def __init__(self, refresh=0.5, requests=None):
-        super(DownloadMultiRequests, self).__init__(requests, refresh)
+    def __init__(self, requests):
+        super(DownloadMultiRequests, self).__init__(requests)
         self._request_groups = []
 
     def add(self, requests):
@@ -58,7 +58,7 @@ class DownloadRequests(DownloadMultiRequests):
     def __init__(self, max_connections=2, refresh=0.5):
         self._closed = Event()
 
-        super(DownloadRequests, self).__init__(refresh, LimitedRequests(max_connections))
+        super(DownloadRequests, self).__init__(LimitedRequests(max_connections, refresh=refresh))
         self._updates = Queue()
 
         self._perform_thread = Thread(target=self.perform)
@@ -78,6 +78,7 @@ class DownloadRequests(DownloadMultiRequests):
 
     def close(self):
         self._closed.set()
+        self._requests.stop()
 
         self._perform_thread.join()
 
@@ -85,7 +86,7 @@ class DownloadRequests(DownloadMultiRequests):
         self._updates.put(None)
         self._update_thread.join()
 
-        self._requests.terminate()
+        self._requests.stop()
 
     def _is_closed(self):
         return self._closed.is_set()

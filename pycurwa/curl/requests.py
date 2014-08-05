@@ -7,12 +7,9 @@ from .error import CurlWriteError, CurlError, MissingHandle
 
 class Requests(object):
 
-    def __init__(self, requests=(), curl=None):
+    def __init__(self, curl=None):
         self._curl = curl or CurlMulti()
         self._requests = RequestsDict()
-
-        for request in requests:
-            self.add(request)
 
     def add(self, request):
         self._curl.add_handle(request.handle)
@@ -59,9 +56,9 @@ class Requests(object):
 
                 self._curl.select(timeout=1)
         finally:
-            self.terminate()
+            self.stop()
 
-    def terminate(self):
+    def stop(self):
         self._curl.close()
 
     def _has_active_requests(self):
@@ -74,17 +71,17 @@ class Requests(object):
         return iter(self._requests.values())
 
 
-class RequestRefresh(object):
+class RequestRefresh(Requests):
 
-    def __init__(self, requests, refresh=0.5):
-        self._requests = requests
+    def __init__(self, refresh=0.5, curl=None):
+        super(RequestRefresh, self).__init__(curl)
         self._refresh_rate = refresh
         self._last_update = 0
 
     def get_status(self):
         now = time()
         if now - self._last_update >= self._refresh_rate:
-            status = self._requests.get_status()
+            status = super(RequestRefresh, self).get_status()
             self._last_update = now
         else:
             status = RequestsStatus([], [], now)
@@ -168,10 +165,9 @@ class MultiRequests(object):
         return self._requests.iterate_statuses()
 
     def _close(self):
-        self._requests.terminate()
+        self._requests.stop()
 
 
 class MultiRequestsRefresh(MultiRequests):
-    def __init__(self, requests=None, refresh=0.5):
-        request = Requests() if requests is None else requests
-        super(MultiRequestsRefresh, self).__init__(RequestRefresh(request, refresh))
+    def __init__(self, refresh=0.5):
+        super(MultiRequestsRefresh, self).__init__(RequestRefresh(refresh))
