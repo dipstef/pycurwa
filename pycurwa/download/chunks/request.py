@@ -7,8 +7,11 @@ class HttpChunk(HttpDownloadRange):
         super(HttpChunk, self).__init__(request, chunk.path, chunk.download_range, cookies, bucket, chunk.resume)
         self._header_parse = False
 
-        self.id = chunk.id
         self._chunk = chunk
+
+    @property
+    def id(self):
+        return self._chunk.id
 
     @property
     def size(self):
