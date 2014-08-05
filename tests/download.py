@@ -16,7 +16,7 @@ def main():
     print 'starting'
     d = HttpDownload(bucket=bucket)
 
-    stats = d.download(url, file_name, chunks_number=1, resume=True)
+    stats = d.get(url, path=file_name, chunks=1, resume=True)
 
     print stats.speed
 
