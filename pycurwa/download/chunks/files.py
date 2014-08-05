@@ -25,19 +25,13 @@ def _download_chunks(request, cookies=None, headers=None):
     try:
         chunks = ExistingDownload(request)
     except IOError:
-        headers = headers or _resolve_headers(request.url, cookies=cookies)
+        headers = headers or _resolve_headers(request, cookies=cookies)
         chunks = NewDownload(request, headers.size, request.chunks, resume=request.resume)
     return chunks
 
 
-def _resolve_size(url, cookies=None):
-    headers = _resolve_headers(url, cookies)
-
-    return headers.size
-
-
-def _resolve_headers(url, cookies=None):
-    initial = DownloadHeadersRequest(url, cookies=cookies)
+def _resolve_headers(request, cookies=None):
+    initial = DownloadHeadersRequest(request.url, headers=request.headers, data=request.data, cookies=cookies)
     try:
         return initial.head()
     finally:
