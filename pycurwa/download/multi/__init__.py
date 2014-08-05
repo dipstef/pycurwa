@@ -14,7 +14,7 @@ class MultiDownloadsRequests(HttpDownloadRequests):
         super(MultiDownloadsRequests, self).__init__(cookies, bucket, timeout)
 
     def _get_request(self, request, path, chunks, resume):
-        return ChunksThreadRequest(self._requests, request, self._bucket)
+        return ChunksThreadRequest(self._requests, request, path, chunks, resume, self._bucket)
 
     def close(self):
         self._requests.close()
