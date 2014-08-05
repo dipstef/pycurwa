@@ -56,10 +56,13 @@ class Requests(object):
 
                 self._curl.select(timeout=1)
         finally:
-            self.stop()
+            self._terminate()
+
+    def _terminate(self):
+        self._curl.close()
 
     def stop(self):
-        self._curl.close()
+        self._terminate()
 
     def _has_requests(self):
         return bool(self._requests)

@@ -1,22 +1,28 @@
 from Queue import Queue
-from threading import Thread
+from threading import Thread, Event
 
 from httpy.client import cookie_jar
 
 from pycurwa import PyCurwa
-from pycurwa.multi.requests import LimitedRequests
+from pycurwa.multi.requests import LimitedRequests, RequestsProcess
 from pycurwa.request import CurlRequestBase
 from pycurwa.response import CurlBodyResponse
 
 
 class PyCurwaMulti(PyCurwa):
 
-    def __init__(self, cookies=cookie_jar, bucket=None, timeout=30):
+    def __init__(self, max_connections=20, cookies=cookie_jar, bucket=None, timeout=30):
         super(PyCurwaMulti, self).__init__(cookies, bucket, timeout)
-        self._requests = None
+        self._requests = CurlMultiRequests(max_connections)
 
     def execute(self, request, **kwargs):
-        return super(PyCurwaMulti, self).execute(request, **kwargs)
+        request = CurlMultiRequest(request, self._cookies, self._bucket)
+
+        self._requests.add(request)
+        return request.response
+
+    def close(self):
+        self._requests.stop()
 
 
 class CurlMultiRequest(CurlRequestBase):
@@ -24,23 +30,28 @@ class CurlMultiRequest(CurlRequestBase):
     def __init__(self, request, cookies=None, bucket=None):
         super(CurlMultiRequest, self).__init__(request, cookies)
         self._outcome = Queue(1)
-        self._response = CurlBodyResponse(self, cookies, bucket)
+        self.response = CurlMultiResponse(self, self._outcome, cookies, bucket)
 
-    def completed(self, completion):
-        self._outcome.put(completion)
-        self.close()
+    def update(self, outcome):
+        self._outcome.put(outcome)
 
-    def failed(self, error):
-        self._outcome.put(error)
-        self.close()
 
-    def execute(self):
-        outcome = self._outcome.get()
+class CurlMultiResponse(CurlBodyResponse):
 
-        if isinstance(outcome, BaseException):
-            raise outcome
+    def __init__(self, request, outcome, cookies, bucket=None):
+        super(CurlMultiResponse, self).__init__(request, cookies, bucket)
+        self._outcome = outcome
+        self._completed = Event()
 
-        return self._response
+    def read(self):
+        if not self._completed.is_set():
+            outcome = self._outcome.get()
+            self._completed.set()
+
+            if isinstance(outcome, BaseException):
+                raise outcome
+
+        return self._read()
 
 
 class CurlMultiRequests(LimitedRequests):
@@ -56,7 +67,8 @@ class CurlMultiRequests(LimitedRequests):
 
     def perform(self):
         for status in self.iterate_statuses():
-            self._updates.put(status)
+            if status.failed or status.completed:
+                self._updates.put(status)
 
     def _process_updates(self):
         while not self._is_closed():
@@ -64,19 +76,23 @@ class CurlMultiRequests(LimitedRequests):
             if status:
                 self._send_updates(status)
 
-    def close(self, request):
-        super(CurlMultiRequests, self).close(request)
-        self._perform_thread.join()
-
+    def _terminate(self):
+        self._closed.set()
         #unblocks the queue
         self._updates.put(None)
         self._update_thread.join()
 
-        self._requests.stop()
+        super(CurlMultiRequests, self)._terminate()
 
+    def stop(self):
+        self._terminate()
+        self._perform_thread.join()
 
-def _send_updates(status):
-    for request in status.completed:
-        request.completed(status.time)
-    for request in status.failed:
-        request.failed(request.error)
+    def _send_updates(self, status):
+        for request in status.completed:
+            request.update(status.check)
+            self.close(request)
+
+        for request in status.failed:
+            request.update(request.error)
+            self.close(request)

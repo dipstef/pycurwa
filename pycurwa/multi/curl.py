@@ -1,12 +1,12 @@
 from threading import Lock
-from ...curl import CurlMulti
+from ..curl import CurlMulti
 
 
 class CurlMultiThread(CurlMulti):
 
     def __init__(self):
-        super(CurlMultiThread, self).__init__()
         self._lock = Lock()
+        super(CurlMultiThread, self).__init__()
 
     def add_handle(self, curl):
         with self._lock:
@@ -27,3 +27,7 @@ class CurlMultiThread(CurlMulti):
     def select(self, timeout=None):
         with self._lock:
             return super(CurlMultiThread, self).select(timeout)
+
+    def close(self):
+        with self._lock:
+            return super(CurlMultiThread, self).close()

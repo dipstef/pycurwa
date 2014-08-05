@@ -59,6 +59,9 @@ class CurlMulti(ClosingCurl):
         remaining, completed, failed = self.curl.info_read()
         return CurlMultiStatus(completed, failed, remaining)
 
+    def close(self):
+        self.curl.close()
+
 
 class CurlHandlesStatus(object):
 

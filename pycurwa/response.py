@@ -93,9 +93,13 @@ class CurlBodyResponse(CurlResponse):
         self._body = None
 
     def read(self):
-        self._body = self._bytes.getvalue()
+        try:
+            return self._read()
+        finally:
+            self.close()
 
-        self.close()
+    def _read(self):
+        self._body = self._bytes.getvalue()
         return self._body
 
     @property
@@ -106,4 +110,4 @@ class CurlBodyResponse(CurlResponse):
 
     def close(self):
         self._bytes.close()
-        self.handle.close()
+        self._curl.close()

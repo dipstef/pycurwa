@@ -1,8 +1,8 @@
 from Queue import Queue
 from threading import Event, Semaphore, Thread
 
+from .curl import CurlMultiThread
 from ..curl.requests import RequestRefresh
-from ..download.multi.curl import CurlMultiThread
 
 
 class RequestsProcess(RequestRefresh):
@@ -24,12 +24,14 @@ class RequestsProcess(RequestRefresh):
     def _is_closed(self):
         return self._closed.is_set()
 
-    def stop(self):
-        self._closed.set()
+    def _terminate(self):
+        if not self._is_closed():
+            self._closed.set()
+
         if not self._on_going_requests.is_set():
             self._on_going_requests.set()
 
-        super(RequestsProcess, self).stop()
+        super(RequestsProcess, self)._terminate()
 
 
 class LimitedRequests(RequestsProcess):
@@ -69,8 +71,8 @@ class LimitedRequests(RequestsProcess):
 
         return status
 
-    def stop(self):
-        super(LimitedRequests, self).stop()
+    def _terminate(self):
+        super(LimitedRequests, self)._terminate()
         #unblocks the queue
         self._handles_add.put(None)
         self._handles_thread.join()
