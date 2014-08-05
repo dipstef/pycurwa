@@ -5,21 +5,42 @@ from ..curl.requests import RequestRefresh
 from ..download.multi.curl import CurlMultiThread
 
 
-class LimitedRequests(RequestRefresh):
+class RequestsProcess(RequestRefresh):
 
-    def __init__(self, max_connections, refresh=0.5):
+    def __init__(self, refresh=0.5, curl=None):
         self._closed = Event()
 
+        self._on_going_requests = Event()
+
+        super(RequestsProcess, self).__init__(refresh, curl)
+
+    def _has_requests(self):
+        if self._requests:
+            return not self._is_closed()
+        else:
+            self._on_going_requests.wait()
+            return not self._is_closed()
+
+    def _is_closed(self):
+        return self._closed.is_set()
+
+    def stop(self):
+        self._closed.set()
+        if not self._on_going_requests.is_set():
+            self._on_going_requests.set()
+
+        super(RequestsProcess, self).stop()
+
+
+class LimitedRequests(RequestsProcess):
+
+    def __init__(self, max_connections, refresh=0.5):
+        super(LimitedRequests, self).__init__(refresh, CurlMultiThread())
         self._handles_add = Queue()
-
-        self._active_requests = Event()
-
         self._handles_count = Semaphore(max_connections)
 
         self._handles_thread = Thread(target=self._add_handles)
         self._handles_thread.start()
-
-        super(LimitedRequests, self).__init__(refresh, curl=CurlMultiThread())
 
     def add(self, request):
         self._handles_add.put(request)
@@ -33,23 +54,12 @@ class LimitedRequests(RequestRefresh):
 
     def _add_request(self, request):
         super(LimitedRequests, self).add(request)
-        self._active_requests.set()
+        self._on_going_requests.set()
 
     def remove(self, request):
         super(LimitedRequests, self).remove(request)
         if not self._requests:
-            self._active_requests.clear()
-
-    def stop(self):
-        self._closed.set()
-        if not self._active_requests.is_set():
-            self._active_requests.set()
-
-        super(LimitedRequests, self).stop()
-
-        #unblocks the queue
-        self._handles_add.put(None)
-        self._handles_thread.join()
+            self._on_going_requests.clear()
 
     def get_status(self):
         status = super(LimitedRequests, self).get_status()
@@ -59,12 +69,8 @@ class LimitedRequests(RequestRefresh):
 
         return status
 
-    def _has_active_requests(self):
-        if self._requests:
-            return not self._is_closed()
-        else:
-            self._active_requests.wait()
-            return not self._is_closed()
-
-    def _is_closed(self):
-        return self._closed.is_set()
+    def stop(self):
+        super(LimitedRequests, self).stop()
+        #unblocks the queue
+        self._handles_add.put(None)
+        self._handles_thread.join()

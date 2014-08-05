@@ -47,7 +47,7 @@ class Requests(object):
 
     def iterate_statuses(self):
         try:
-            while self._has_active_requests():
+            while self._has_requests():
                 self._curl.execute()
                 status = self.get_status()
 
@@ -61,7 +61,7 @@ class Requests(object):
     def stop(self):
         self._curl.close()
 
-    def _has_active_requests(self):
+    def _has_requests(self):
         return bool(self._requests)
 
     def __len__(self):
