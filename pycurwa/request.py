@@ -14,7 +14,6 @@ class CurlRequestBase(HttpyRequest):
     def __init__(self, request, cookies=None):
         super(CurlRequestBase, self).__init__(request.method, request.url, request.headers, request.data,
                                               request.params, request.timeout, request.redirect)
-
         self._curl = Curl()
         self.handle = self._curl.curl
 
