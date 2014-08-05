@@ -6,7 +6,7 @@ from .cookies import write_cookies
 
 
 class CurlResponseBase(object):
-    __headers_class__ = HttpHeaders
+    __headers__ = HttpHeaders
 
     def __init__(self, request, cookies=None):
         self._curl = request._curl
@@ -31,7 +31,7 @@ class CurlResponseBase(object):
     def _parse_http_header(self):
         headers = header_string_to_dict(self._header_str)
 
-        self.headers = self.__headers_class__(headers)
+        self.headers = self.__headers__(headers)
 
         self._date = date_header(headers) or datetime.utcnow()
 
@@ -52,7 +52,7 @@ class CurlResponseStatus(CurlResponseBase, ResponseStatus):
 
     @property
     def url(self):
-        return self._curl.get_effective_url()
+        return self._curl.get_response_url()
 
     @property
     def status(self):

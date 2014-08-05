@@ -6,7 +6,7 @@ from pycurwa.download.multi import MultiDownloadsRequests
 def _request(downloads, url, chunks=1):
     file_name = os.path.basename(url)
 
-    request = downloads.download(url, file_name, chunks, resume=True)
+    request = downloads.get(url, path=file_name, chunks=chunks, resume=True)
 
     return request
 

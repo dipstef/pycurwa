@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 from .status import HttpChunksStatus, DownloadStats
-from .error import FailedChunks
+from ..error import FailedChunks
 from ..files import ChunksDict
 from ...error import DownloadedContentMismatch, Abort
 from ...curl.requests import MultiRequestRefresh
@@ -9,7 +9,8 @@ from ...curl.requests import MultiRequestRefresh
 
 class ChunkRequests(object):
 
-    def __init__(self, chunks):
+    def __init__(self, request, chunks):
+        self._request = request
         self._chunks = ChunksDict(chunks)
 
         self._download_size = sum(chunk.size for chunk in chunks)
@@ -20,7 +21,7 @@ class ChunkRequests(object):
 
     def _update(self, status):
         if status.failed:
-            raise FailedChunks(status)
+            raise FailedChunks(self._request, status)
 
         for chunk in status.completed.values():
             if not chunk.is_completed():
@@ -54,8 +55,8 @@ class ChunkRequests(object):
 
 class ChunksStatuses(ChunkRequests):
 
-    def __init__(self, chunks):
-        super(ChunksStatuses, self).__init__(chunks)
+    def __init__(self, request, chunks):
+        super(ChunksStatuses, self).__init__(request, chunks)
 
         self.completed = ChunksDict()
         self.failed = ChunksDict()
@@ -82,8 +83,8 @@ class ChunksStatuses(ChunkRequests):
 
 class ChunksDownload(ChunksStatuses):
 
-    def __init__(self, downloads):
-        super(ChunksDownload, self).__init__(downloads)
+    def __init__(self, request, downloads):
+        super(ChunksDownload, self).__init__(request, downloads)
         self.stats = DownloadStats(self.size)
         self._abort = False
 
@@ -92,7 +93,7 @@ class ChunksDownload(ChunksStatuses):
 
     def _update(self, status):
         if self._abort:
-            raise Abort()
+            raise Abort(self._request)
 
         super(ChunksDownload, self)._update(status)
         self.stats.update_progress(status)

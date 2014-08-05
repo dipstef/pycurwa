@@ -11,7 +11,6 @@ class Chunk(namedtuple('Chunk', ['number', 'chunks', 'path', 'range'])):
         assert number <= chunks
         return super(Chunk, cls).__new__(cls, number, chunks, fs_encode(path), Range(*bytes_range))
 
-    @property
     def is_last(self):
         return self.number == self.chunks
 
@@ -30,6 +29,10 @@ class Chunk(namedtuple('Chunk', ['number', 'chunks', 'path', 'range'])):
     @property
     def end(self):
         return self.range.end
+
+    @property
+    def download_range(self):
+        return self.range if not self.is_last() else Range(self.start, None)
 
 
 class ChunkFileSave(Chunk):
@@ -65,4 +68,4 @@ class Range(namedtuple('Range', ['start', 'end'])):
 
     @property
     def size(self):
-        return (self.end - self.start) + 1
+        return (self.end - self.start) + 1 if self.end else None

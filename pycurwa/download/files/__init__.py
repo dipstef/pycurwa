@@ -167,6 +167,7 @@ class DownloadChunks(ChunksFile):
                         _copy_chunk(self[i], fo)
 
                 path_size = first_chunk.get_size()
+
                 if not path_size == self.size:
                     raise UnexpectedCopyChunk(first_chunk.path, path_size, self.size)
 

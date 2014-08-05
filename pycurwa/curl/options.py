@@ -91,7 +91,7 @@ class SetOptions(object):
 
 class GetOptions(object):
 
-    def get_effective_url(self):
+    def get_response_url(self):
         return self.getinfo(pycurl.EFFECTIVE_URL)
 
     def get_cookies(self):

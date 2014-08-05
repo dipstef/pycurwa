@@ -1,11 +1,10 @@
-from httpy import HttpRequest
 from ..request import HttpDownloadRange
 
 
 class HttpChunk(HttpDownloadRange):
 
     def __init__(self, request, chunk, cookies=None, bucket=None):
-        super(HttpChunk, self).__init__(request, chunk.path, chunk.range, cookies, bucket, chunk.resume)
+        super(HttpChunk, self).__init__(request, chunk.path, chunk.download_range, cookies, bucket, chunk.resume)
         self._header_parse = False
 
         self.id = chunk.id

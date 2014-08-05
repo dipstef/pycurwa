@@ -4,6 +4,7 @@ from httpy import HttpHeaders
 from httpy.http.headers.content import disposition_file_name, content_length
 
 from .files.util import fs_encode
+from pycurwa.download.error import AboveRange
 from ..response import CurlResponse
 
 
@@ -24,7 +25,7 @@ class HttpDownloadHeaders(HttpHeaders):
 
 class CurlDownloadResponse(CurlResponse):
 
-    __headers_class__ = HttpDownloadHeaders
+    __headers__ = HttpDownloadHeaders
 
     def __init__(self, request, file_path, resume=False, cookies=None, bucket=None):
         self.path = fs_encode(file_path)
@@ -34,7 +35,7 @@ class CurlDownloadResponse(CurlResponse):
         super(CurlDownloadResponse, self).__init__(request, self._fp.write, cookies, bucket)
 
         if resume:
-            self.received = self._fp.tell() or os.stat(self.path).st_size
+            self.received = self._fp.tell() or os.path.getsize(self.path)
 
     def close(self):
         self._flush()
@@ -67,7 +68,7 @@ class CurlRangeDownload(CurlDownloadResponse):
         if not self._is_range_completed():
             super(CurlRangeDownload, self)._write_body(buf)
         else:
-            raise Exception('Above Range: ', self.path, self.range, self.received + len(buf))
+            raise AboveRange(self.request, self.path, self.received + len(buf), self.range.size)
 
     def _is_range_completed(self):
         return self._is_closed_range() and self.received > self.range.size

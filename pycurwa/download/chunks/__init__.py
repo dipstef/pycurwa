@@ -5,7 +5,7 @@ from procol.console import print_err
 from .files import get_chunks_file
 from .request import HttpChunk
 from .requests import ChunksDownload, ChunksDownload, MultiRefreshChunks
-from .error import ChunksDownloadMismatch, FailedChunks
+from ..error import ChunksDownloadMismatch, FailedChunks
 from ..files.download import OneChunk
 
 
@@ -13,9 +13,8 @@ class HttpChunks(ChunksDownload):
 
     def __init__(self, request, chunks, cookies=None, bucket=None):
         downloads = [HttpChunk(request, chunk, cookies, bucket) for chunk in chunks if not chunk.is_completed()]
-        super(HttpChunks, self).__init__(downloads)
+        super(HttpChunks, self).__init__(request, downloads)
 
-        self._request = request
         self._chunks_file = chunks
 
     def _update(self, status):
@@ -28,7 +27,7 @@ class HttpChunks(ChunksDownload):
 
     def _done_downloading(self, status):
         if not self.is_completed():
-            raise ChunksDownloadMismatch(self)
+            raise ChunksDownloadMismatch(self._request, self)
 
         self._chunks_file.copy_chunks()
 
