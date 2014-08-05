@@ -8,7 +8,7 @@ class HttpDownloadBase(object):
         self._requests = requests
 
     def download(self, url, file_path, chunks_number=1, resume=False):
-        request = self._requests.download(url, file_path, chunks_number=chunks_number, resume=resume)
+        request = self._requests.get(url, path=file_path, chunks=chunks_number, resume=resume)
 
         return request.perform()
 

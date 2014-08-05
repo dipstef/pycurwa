@@ -1,4 +1,5 @@
-from httpy import HttpRequest
+from httpy.client import HttpyRequest
+
 from httpy.error import error_status, HttpStatusError
 
 from .curl import Curl
@@ -7,10 +8,11 @@ from .cookies import get_cookie_string
 from .response import CurlResponseBase, CurlBodyResponse
 
 
-class CurlRequestBase(HttpRequest):
+class CurlRequestBase(HttpyRequest):
 
     def __init__(self, request, cookies=None):
-        super(CurlRequestBase, self).__init__(request.method, request.url, request.headers, request.data)
+        super(CurlRequestBase, self).__init__(request.method, request.url, request.headers, request.data,
+                                              request.params, request.timeout, request.redirect)
 
         self._curl = Curl()
         self.handle = self._curl.curl
@@ -20,7 +22,6 @@ class CurlRequestBase(HttpRequest):
         self._cookies = cookies
 
         if cookies:
-            #self._curl.unset_cookie_files()
             self._set_curl_cookies()
 
         self.header_parse = True
@@ -61,6 +62,6 @@ class CurlRequest(CurlRequestBase):
 class CurlHeadersRequest(CurlRequestBase):
 
     def __init__(self, url, headers=None, data=None, cookies=None):
-        super(CurlHeadersRequest, self).__init__(HttpRequest('HEAD', url, headers, data), cookies)
+        super(CurlHeadersRequest, self).__init__(HttpyRequest('HEAD', url, headers, data), cookies)
 
         self._response = CurlResponseBase(self, self._cookies)

@@ -11,10 +11,11 @@ from ..files.download import OneChunk
 
 class HttpChunks(ChunksDownload):
 
-    def __init__(self, chunks, cookies=None, bucket=None):
-        downloads = [HttpChunk(chunks.url, chunk, cookies, bucket) for chunk in chunks if not chunk.is_completed()]
-
+    def __init__(self, request, chunks, cookies=None, bucket=None):
+        downloads = [HttpChunk(request, chunk, cookies, bucket) for chunk in chunks if not chunk.is_completed()]
         super(HttpChunks, self).__init__(downloads)
+
+        self._request = request
         self._chunks_file = chunks
 
     def _update(self, status):
@@ -52,8 +53,8 @@ class HttpChunks(ChunksDownload):
 
 class HttpChunksDownload(HttpChunks):
 
-    def __init__(self, chunks_file, cookies=None, bucket=None):
-        super(HttpChunksDownload, self).__init__(chunks_file, cookies=cookies, bucket=bucket)
+    def __init__(self, request, chunks_file, cookies=None, bucket=None):
+        super(HttpChunksDownload, self).__init__(request, chunks_file, cookies=cookies, bucket=bucket)
 
         self.url = chunks_file.url
         self.path = chunks_file.file_path
@@ -71,7 +72,7 @@ class HttpChunksDownload(HttpChunks):
             for chunk_request in e.failed.values():
                 print_err('Chunk %d failed: %s' % (chunk_request.id + 1, str(chunk_request.error)))
 
-            chunk = self.__class__(self._revert_to_one_chunk(), self._cookies, self._bucket)
+            chunk = self.__class__(self._request, self._revert_to_one_chunk(), self._cookies, self._bucket)
             return chunk.perform(**kwargs)
 
     def _revert_to_one_chunk(self):

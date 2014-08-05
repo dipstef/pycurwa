@@ -1,4 +1,5 @@
 from Queue import Queue
+from httpy.client import cookie_jar
 
 from .requests import DownloadRequests
 from .. import HttpDownloadBase
@@ -16,12 +17,12 @@ class MultiDownloads(HttpDownloadBase):
 
 class MultiDownloadsRequests(HttpDownloadRequests):
 
-    def __init__(self, bucket=None):
+    def __init__(self, cookies=cookie_jar, bucket=None, timeout=30):
         self._requests = DownloadRequests()
-        super(MultiDownloadsRequests, self).__init__(bucket)
+        super(MultiDownloadsRequests, self).__init__(cookies, bucket, timeout)
 
-    def _request(self, url, file_path, chunks_number, resume):
-        return ChunksThreadRequest(self._requests, url, file_path, chunks_number, resume, self._bucket)
+    def _get_request(self, request):
+        return ChunksThreadRequest(self._requests, request, self._bucket)
 
     def close(self):
         self._requests.close()
@@ -29,18 +30,18 @@ class MultiDownloadsRequests(HttpDownloadRequests):
 
 class ChunksThreadRequest(HttpDownloadRequest):
 
-    def __init__(self, requests, url, file_path, chunks_number=1, resume=True, bucket=None):
+    def __init__(self, requests, request, cookies=None, bucket=None):
         self._requests = requests
-        super(ChunksThreadRequest, self).__init__(url, file_path, chunks_number, resume, bucket)
+        super(ChunksThreadRequest, self).__init__(request, cookies, bucket)
 
     def _create_request(self, chunks_file):
-        return ChunksThreadDownload(self._requests, chunks_file, self._cookies, self._bucket)
+        return ChunksThreadDownload(self._requests, self._request, chunks_file, self._cookies, self._bucket)
 
 
 class ChunksThreadDownload(HttpChunksDownload):
 
-    def __init__(self, requests, chunks_file, cookies=None, bucket=None):
-        super(ChunksThreadDownload, self).__init__(chunks_file, cookies, bucket)
+    def __init__(self, requests, request, chunks_file, cookies=None, bucket=None):
+        super(ChunksThreadDownload, self).__init__(request, chunks_file, cookies, bucket)
         self._requests = requests
         self._outcome = Queue(1)
 

@@ -1,10 +1,12 @@
-from httpy.client.requests import HttpRequests, cookie_jar
+from httpy.client import HttpClient
+from httpy.client.requests import cookie_jar
 from .request import CurlRequest
 
 
-class PyCurwa(HttpRequests):
+class PyCurwa(HttpClient):
 
-    def __init__(self, cookies=cookie_jar, bucket=None):
+    def __init__(self, cookies=cookie_jar, bucket=None, timeout=30):
+        super(PyCurwa, self).__init__(timeout)
         self._cookies = cookies
         self._bucket = bucket
 

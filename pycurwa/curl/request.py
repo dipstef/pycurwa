@@ -1,6 +1,6 @@
 import pycurl
 from httpy.client import user_agent
-from httpy.http.headers import header_dict_to_lines, HttpHeaders
+from httpy.http.headers import HttpHeaders, header_dict_to_lines
 from unicoder import byte_string
 from urllib import urlencode
 from urlo import params_url
@@ -13,11 +13,13 @@ _default_headers = {'Accept': '*/*',
                     'Expect': ''}
 
 
-def _curl_request(curl, verbose=False, redirect=True):
+def _curl_request(curl, timeout=30, redirect=True, verbose=False):
     curl.setopt(pycurl.FOLLOWLOCATION, int(redirect))
     curl.setopt(pycurl.MAXREDIRS, 5)
 
-    curl.setopt(pycurl.CONNECTTIMEOUT, 30)
+    if timeout:
+        curl.setopt(pycurl.CONNECTTIMEOUT, timeout)
+
     curl.setopt(pycurl.NOSIGNAL, 1)
     curl.setopt(pycurl.NOPROGRESS, 1)
 
@@ -39,7 +41,7 @@ def _curl_request(curl, verbose=False, redirect=True):
 
 
 def curl_request(curl, request, params=None, multi_part=False):
-    _curl_request(curl)
+    _curl_request(curl, request.timeout, request.redirect)
 
     url = byte_string(request.url)
 

@@ -4,8 +4,7 @@ from ..request import HttpDownloadRange
 
 class HttpChunk(HttpDownloadRange):
 
-    def __init__(self, url, chunk, cookies=None, bucket=None):
-        request = HttpRequest('GET', url)
+    def __init__(self, request, chunk, cookies=None, bucket=None):
         super(HttpChunk, self).__init__(request, chunk.path, chunk.range, cookies, bucket, chunk.resume)
         self._header_parse = False
 
