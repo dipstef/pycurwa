@@ -2,7 +2,7 @@ from collections import namedtuple
 import pycurl
 
 
-class _setions(object):
+class SetOptions(object):
 
     def set_network_options(self, interface=None, proxy=None, use_ipv6=False):
         if interface:
