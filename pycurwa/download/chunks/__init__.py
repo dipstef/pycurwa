@@ -12,7 +12,7 @@ from ..files.download import OneChunk
 class HttpChunks(ChunksDownload):
 
     def __init__(self, request, chunks, cookies=None, bucket=None):
-        downloads = [HttpChunk(request, chunk, cookies, bucket) for chunk in chunks if not chunk.is_completed()]
+        downloads = [HttpChunk(request, chunk, cookies, bucket) for chunk in chunks.remaining()]
         super(HttpChunks, self).__init__(request, downloads)
 
         self._chunks_file = chunks
