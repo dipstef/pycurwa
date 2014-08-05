@@ -3,8 +3,9 @@ from collections import OrderedDict
 from .status import HttpChunksStatus, DownloadStats
 from ..error import FailedChunks
 from ..files import ChunksDict
+from ...curl.requests import MultiRequestsRefresh
 from ...error import DownloadedContentMismatch, Abort
-from ...curl.requests import MultiRequestRefresh
+
 
 
 class ChunkRequests(object):
@@ -103,7 +104,7 @@ class ChunksDownload(ChunksStatuses):
             chunk.close()
 
 
-class MultiRefreshChunks(MultiRequestRefresh):
+class MultiRefreshChunks(MultiRequestsRefresh):
 
     def __init__(self, downloads, refresh=0.5):
         super(MultiRefreshChunks, self).__init__(refresh=refresh)
