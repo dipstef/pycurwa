@@ -3,7 +3,6 @@ import os
 from httpy import HttpHeaders
 from httpy.http.headers.content import disposition_file_name, content_length
 
-from .files.util import fs_encode
 from .error import AboveRange
 from ..response import CurlResponse
 
@@ -27,14 +26,14 @@ class CurlDownloadResponse(CurlResponse):
 
     __headers__ = HttpDownloadHeaders
 
-    def __init__(self, request, file_path, resume=False, cookies=None, bucket=None):
-        self.path = fs_encode(file_path)
+    def __init__(self, request, cookies=None, bucket=None):
+        self.path = request.path
 
-        self._fp = open(file_path, 'ab' if resume else 'wb')
+        self._fp = open(self.path, 'ab' if request.resume else 'wb')
 
         super(CurlDownloadResponse, self).__init__(request, self._fp.write, cookies, bucket)
 
-        if resume:
+        if request.resume:
             self.received = self._fp.tell() or os.path.getsize(self.path)
 
     def close(self):
@@ -60,8 +59,8 @@ class CurlDownloadResponse(CurlResponse):
 
 class CurlRangeDownload(CurlDownloadResponse):
 
-    def __init__(self, request, file_path, resume=False, cookies=None, bucket=None):
-        super(CurlRangeDownload, self).__init__(request, file_path, resume, cookies, bucket)
+    def __init__(self, request, cookies=None, bucket=None):
+        super(CurlRangeDownload, self).__init__(request, cookies, bucket)
         self.range = request.range
 
     def _write_body(self, buf):

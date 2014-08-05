@@ -1,13 +1,14 @@
 from .response import CurlDownloadResponse, HttpDownloadHeaders, CurlRangeDownload
-from ..request import CurlRequestBase, CurlHeadersRequest
+from ..request import CurlHeadersRequest, CurlRequest
 
 
-class HttpDownloadBase(CurlRequestBase):
-    __response__ = CurlDownloadResponse
+class HttpDownloadBase(CurlRequest):
 
     def __init__(self, request, file_path, cookies=None, bucket=None, resume=False):
-        super(HttpDownloadBase, self).__init__(request, cookies)
-        self._response = self.__response__(self, file_path, resume, cookies, bucket)
+        self.path = file_path
+        self.resume = resume
+
+        super(HttpDownloadBase, self).__init__(request, cookies, bucket)
 
     def get_speed(self):
         return self._curl.get_speed_download()
@@ -23,6 +24,9 @@ class HttpDownloadBase(CurlRequestBase):
     @property
     def size(self):
         return self._response.size
+
+    def _create_response(self):
+        return CurlDownloadResponse(self, self._cookies, self._bucket)
 
 
 class HttpDownloadRequest(HttpDownloadBase):
@@ -40,19 +44,17 @@ class DownloadHeadersRequest(CurlHeadersRequest):
         super(DownloadHeadersRequest, self).__init__(url, headers, data, cookies=cookies)
 
     def head(self):
-        try:
-            self._curl.perform()
-            return HttpDownloadHeaders(self._response.headers)
-        finally:
-            self.close()
+        headers = super(DownloadHeadersRequest, self).head()
+        return HttpDownloadHeaders(headers)
 
 
 class HttpDownloadRange(HttpDownloadBase):
-
-    __response__ = CurlRangeDownload
 
     def __init__(self, request, file_path, bytes_range, cookies=None, bucket=None, resume=False):
         self.range = bytes_range
         super(HttpDownloadRange, self).__init__(request, file_path, cookies, bucket, resume)
 
         self._curl.set_range(self.received + self.range.start, self.range.end)
+
+    def _create_response(self):
+        return CurlRangeDownload(self, self._cookies, self._bucket)

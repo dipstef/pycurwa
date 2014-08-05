@@ -16,7 +16,7 @@ class CurlResponseBase(object):
 
         self._header_str = ''
 
-        if request.header_parse:
+        if self.__headers__:
             self._curl.set_header_fun(self._write_header)
 
         self._date = datetime.utcnow()

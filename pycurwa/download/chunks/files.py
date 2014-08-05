@@ -9,7 +9,7 @@ def get_chunks_file(request, cookies=None):
     headers = None
 
     if os.path.isdir(request.path):
-        headers = _resolve_headers(request.url, cookies)
+        headers = _resolve_headers(request, cookies)
 
         file_name = headers.file_name or os.path.basename(request.url)
 

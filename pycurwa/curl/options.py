@@ -1,6 +1,7 @@
 from collections import namedtuple
 import pycurl
 
+
 class SetOptions(object):
 
     def set_network_options(self, interface=None, proxy=None, use_ipv6=False):
@@ -76,8 +77,8 @@ class SetOptions(object):
     def set_body_fun(self, body):
         self.setopt(pycurl.WRITEFUNCTION, body)
 
-    def set_header_fun(self, header):
-        self.setopt(pycurl.HEADERFUNCTION, header)
+    def set_header_fun(self, header_fun):
+        self.setopt(pycurl.HEADERFUNCTION, header_fun)
 
     def set_progress_function(self, fun):
         self.setopt(pycurl.PROGRESSFUNCTION, fun)

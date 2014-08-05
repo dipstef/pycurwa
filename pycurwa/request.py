@@ -3,6 +3,7 @@ from httpy.client import HttpyRequest
 from httpy.error import error_status, HttpStatusError
 
 from .curl import Curl
+
 from .curl.request import curl_request
 from .cookies import get_cookie_string
 from .response import CurlResponseBase, CurlBodyResponse
@@ -24,10 +25,10 @@ class CurlRequestBase(HttpyRequest):
         if cookies:
             self._set_curl_cookies()
 
-        self.header_parse = True
+        self._response = self._create_response()
 
     def get_status_error(self):
-        code = self._curl.get_status_code()
+        code = self._response.get_status_code()
 
         if code != 404 and code in error_status:
             return HttpStatusError(self, code)
@@ -40,23 +41,30 @@ class CurlRequestBase(HttpyRequest):
     def close(self):
         self.handle.close()
 
+    def _create_response(self):
+        return CurlResponseBase(self, self._cookies)
+
 
 class CurlRequest(CurlRequestBase):
 
     def __init__(self, request, cookies=None, bucket=None):
-        super(CurlRequest, self).__init__(request, cookies=cookies)
         self._bucket = bucket
+        super(CurlRequest, self).__init__(request, cookies=cookies)
 
     def execute(self):
-        response = CurlBodyResponse(self, self._cookies, self._bucket)
+        try:
+            self._curl.perform()
 
-        self._curl.perform()
+            error = self.get_status_error()
+            if error:
+                raise error
 
-        error = self.get_status_error()
-        if error:
-            raise error
+            return self._response
+        finally:
+            self.close()
 
-        return response
+    def _create_response(self):
+        return CurlBodyResponse(self, self._cookies, self._bucket)
 
 
 class CurlHeadersRequest(CurlRequestBase):
@@ -64,4 +72,9 @@ class CurlHeadersRequest(CurlRequestBase):
     def __init__(self, url, headers=None, data=None, cookies=None):
         super(CurlHeadersRequest, self).__init__(HttpyRequest('HEAD', url, headers, data), cookies)
 
-        self._response = CurlResponseBase(self, self._cookies)
+    def head(self):
+        try:
+            self._curl.perform()
+            return self._response.headers
+        finally:
+            self.close()

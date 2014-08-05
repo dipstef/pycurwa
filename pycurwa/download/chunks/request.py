@@ -1,3 +1,4 @@
+from pycurwa.download.response import CurlRangeDownload
 from ..request import HttpDownloadRange
 
 
@@ -5,7 +6,6 @@ class HttpChunk(HttpDownloadRange):
 
     def __init__(self, request, chunk, cookies=None, bucket=None):
         super(HttpChunk, self).__init__(request, chunk.path, chunk.download_range, cookies, bucket, chunk.resume)
-        self._header_parse = False
 
         self._chunk = chunk
 
@@ -20,8 +20,16 @@ class HttpChunk(HttpDownloadRange):
     def is_completed(self):
         return self.size == self.received
 
+    def _create_response(self):
+        return HttpChunkDownload(self, self._cookies, self._bucket)
+
     def __str__(self):
         if self._response.is_closed_range():
             return '<HTTPChunk id=%d, size=%d, arrived=%d>' % (self.id, self._response.range.size, self.received)
         else:
             return '<HTTPChunk id=%d, arrived=%d>' % (self.id, self.received)
+
+
+class HttpChunkDownload(CurlRangeDownload):
+    #avoids parsing headers
+    __headers__ = None
