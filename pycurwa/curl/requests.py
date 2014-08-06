@@ -76,17 +76,17 @@ class Requests(object):
         return iter(self._requests.values())
 
 
-class RequestRefresh(Requests):
+class RequestsRefresh(Requests):
 
     def __init__(self, refresh=0.5, curl=None):
-        super(RequestRefresh, self).__init__(curl)
+        super(RequestsRefresh, self).__init__(curl)
         self._refresh_rate = refresh
         self._last_update = 0
 
     def get_status(self):
         now = time()
         if now - self._last_update >= self._refresh_rate:
-            status = super(RequestRefresh, self).get_status()
+            status = super(RequestsRefresh, self).get_status()
             self._last_update = now
         else:
             status = RequestsStatus([], [], now)
@@ -169,10 +169,5 @@ class MultiRequests(object):
     def iterate_statuses(self):
         return self._requests.iterate_statuses()
 
-    def _close(self):
+    def close(self):
         self._requests.stop()
-
-
-class MultiRequestsRefresh(MultiRequests):
-    def __init__(self, refresh=0.5):
-        super(MultiRequestsRefresh, self).__init__(RequestRefresh(refresh))
