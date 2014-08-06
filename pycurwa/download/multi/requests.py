@@ -1,10 +1,8 @@
 from collections import OrderedDict
 from itertools import groupby
-from threading import Event, Thread
-from Queue import Queue
 
 from ...curl.requests import RequestsStatus, MultiRequests
-from ...multi.requests import LimitedRequests
+from ...multi.requests import LimitedRequests, RequestsUpdates
 
 
 class DownloadMultiRequests(MultiRequests):
@@ -24,20 +22,10 @@ class DownloadMultiRequests(MultiRequests):
         self._request_groups.remove(requests)
 
     def perform(self):
-        for _ in self.iterate_updates():
-            pass
-
-    def iterate_updates(self):
         for status in self.iterate_statuses():
-            self._update_status(status)
-            yield status
+            self._send_updates(status)
 
-    def iterate_completed(self):
-        for status in self.iterate_updates():
-            for request in status.completed:
-                yield request
-
-    def _update_status(self, status):
+    def _send_updates(self, status):
         for request, request_status in self._group_by_request(status):
             request.update(request_status)
 
@@ -53,40 +41,22 @@ class DownloadMultiRequests(MultiRequests):
         return statuses.iteritems()
 
 
-class DownloadRequests(DownloadMultiRequests):
+class DownloadRequests(RequestsUpdates):
 
     def __init__(self, max_connections=2, refresh=0.5):
-        self._closed = Event()
+        requests = LimitedRequests(max_connections, refresh=refresh)
+        super(DownloadRequests, self).__init__(requests)
 
-        super(DownloadRequests, self).__init__(LimitedRequests(max_connections, refresh=refresh))
-        self._updates = Queue()
+        self._multi = DownloadMultiRequests(requests)
 
-        self._perform_thread = Thread(target=self.perform)
-        self._perform_thread.start()
+    def add(self, requests):
+        self._multi.add(requests)
 
-        self._update_thread = Thread(target=self._process_updates)
-        self._update_thread.start()
+    def remove(self, requets):
+        self._multi.remove(requets)
 
-    def _update_status(self, status):
-        self._updates.put(status)
-
-    def _process_updates(self):
-        while not self._is_closed():
-            status = self._updates.get()
-            if status:
-                super(DownloadRequests, self)._update_status(status)
+    def _send_updates(self, status):
+        self._multi._send_updates(status)
 
     def close(self):
-        self._closed.set()
-        self._requests.stop()
-
-        self._perform_thread.join()
-
-        #unblocks the queue
-        self._updates.put(None)
-        self._update_thread.join()
-
-        self._requests.stop()
-
-    def _is_closed(self):
-        return self._closed.is_set()
+        self.stop()
