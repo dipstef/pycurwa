@@ -1,6 +1,6 @@
 from Queue import Queue
 from abc import abstractmethod
-from threading import Event, Semaphore, Thread
+from threading import Event, Semaphore, Thread, Lock
 
 from .curl import CurlMulti
 from ..curl.requests import RequestsRefresh
@@ -9,19 +9,28 @@ from ..curl.error import CurlError
 
 class RequestsProcess(RequestsRefresh):
 
-    def __init__(self, refresh=0.5, curl=None):
+    def __init__(self, refresh=0.5):
+        self._lock = Lock()
         self._closed = Event()
 
         self._on_going_requests = Event()
 
-        super(RequestsProcess, self).__init__(refresh, curl)
+        super(RequestsProcess, self).__init__(refresh, CurlMulti())
+
+    def add(self, request):
+        with self._lock:
+            super(RequestsProcess, self).add(request)
+        self._on_going_requests.set()
+
+    def remove(self, request):
+        super(RequestsProcess, self).remove(request)
+        with self._lock:
+            if not self._requests:
+                self._on_going_requests.clear()
 
     def _has_requests(self):
-        if self._requests:
-            return not self.is_closed()
-        else:
-            self._on_going_requests.wait()
-            return not self.is_closed()
+        self._on_going_requests.wait()
+        return not self.is_closed()
 
     def is_closed(self):
         return self._closed.is_set()
@@ -50,7 +59,7 @@ class RequestsProcess(RequestsRefresh):
 class LimitedRequests(RequestsProcess):
 
     def __init__(self, max_connections, refresh=0.5):
-        super(LimitedRequests, self).__init__(refresh, CurlMulti())
+        super(LimitedRequests, self).__init__(refresh)
         self._handles_add = Queue()
         self._handles_count = Semaphore(max_connections)
 
@@ -72,11 +81,6 @@ class LimitedRequests(RequestsProcess):
         super(LimitedRequests, self).add(request)
         self._on_going_requests.set()
 
-    def remove(self, request):
-        super(LimitedRequests, self).remove(request)
-        if not self._requests:
-            self._on_going_requests.clear()
-
     def get_status(self):
         status = super(LimitedRequests, self).get_status()
 
@@ -95,18 +99,26 @@ class LimitedRequests(RequestsProcess):
         self._handles_thread.join()
 
 
+class Requests(RequestsRefresh):
+    def __new__(cls, max_connections=None, refresh=0.5):
+        return RequestsProcess() if not max_connections else LimitedRequests(max_connections)
+
+
 class RequestsStatuses(object):
     def __init__(self, requests):
         self._requests = requests
         self._updates = Queue()
 
-    def perform(self):
+        self._perform_thread = Thread(target=self._perform)
+        self._perform_thread.start()
+
+    def _perform(self):
         for status in self._requests.iterate_statuses():
             if self._is_status_update(status):
                 self._updates.put(status)
 
     def _is_status_update(self, status):
-        return True
+        return status.completed or status.failed
 
     def iterate_statuses(self):
         while not self._requests.is_closed():
@@ -118,15 +130,19 @@ class RequestsStatuses(object):
         self._requests.stop()
         #unblocks the queue
         self._updates.put(None)
+        self._perform_thread.join()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.stop()
 
 
 class RequestsUpdates(RequestsStatuses):
 
     def __init__(self, requests):
         super(RequestsUpdates, self).__init__(requests)
-
-        self._perform_thread = Thread(target=self.perform)
-        self._perform_thread.start()
 
         self._update_thread = Thread(target=self._process_updates)
         self._update_thread.start()
@@ -141,5 +157,40 @@ class RequestsUpdates(RequestsStatuses):
 
     def stop(self):
         super(RequestsUpdates, self).stop()
-        self._perform_thread.join()
         self._update_thread.join()
+
+
+class RequestProcessed(RequestsStatuses):
+
+    def __init__(self, max_connections=None):
+        super(RequestProcessed, self).__init__(Requests(max_connections))
+        self._closed = Event()
+
+    def add(self, request):
+        self._requests.add(request)
+
+    def iterate_statuses(self):
+        for status in super(RequestProcessed, self).iterate_statuses():
+            for request in status.completed + status.failed:
+                self._requests.close(request)
+            yield status
+
+
+class ProcessRequests(RequestProcessed):
+
+    def __init__(self, requests, max_connections=None):
+        super(ProcessRequests, self).__init__(max_connections)
+        self._added = Event()
+
+        self._update_thread = Thread(target=self._add_requests, args=(requests, ))
+        self._update_thread.start()
+
+    def _add_requests(self, requests):
+        for request in requests:
+            self.add(request)
+        self._added.set()
+
+    def iterate_statuses(self):
+        status_iterator = super(ProcessRequests, self).iterate_statuses()
+        while self._requests or not self._added.is_set():
+            yield status_iterator.next()

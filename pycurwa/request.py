@@ -66,6 +66,9 @@ class CurlRequest(CurlRequestBase):
     def _create_response(self):
         return CurlBodyResponse(self, self._cookies, self._bucket)
 
+    def get_response(self):
+        return self._response
+
     def close(self):
         self._response.close()
 

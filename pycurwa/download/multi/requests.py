@@ -2,7 +2,7 @@ from collections import OrderedDict
 from itertools import groupby
 
 from ...curl.requests import RequestsStatus, MultiRequests
-from ...multi.requests import LimitedRequests, RequestsUpdates
+from ...multi.requests import Requests, RequestsUpdates
 
 
 class DownloadMultiRequests(MultiRequests):
@@ -43,8 +43,8 @@ class DownloadMultiRequests(MultiRequests):
 
 class DownloadRequests(RequestsUpdates):
 
-    def __init__(self, max_connections=2, refresh=0.5):
-        requests = LimitedRequests(max_connections, refresh=refresh)
+    def __init__(self, max_connections=10, refresh=0.5):
+        requests = Requests(max_connections, refresh=refresh)
         super(DownloadRequests, self).__init__(requests)
 
         self._multi = DownloadMultiRequests(requests)
@@ -54,6 +54,10 @@ class DownloadRequests(RequestsUpdates):
 
     def remove(self, requets):
         self._multi.remove(requets)
+
+    def _is_status_update(self, status):
+        #always send updates
+        return True
 
     def _send_updates(self, status):
         self._multi._send_updates(status)

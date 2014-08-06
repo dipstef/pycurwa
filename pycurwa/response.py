@@ -43,12 +43,12 @@ class CurlResponseBase(object):
         return headers
 
     def get_status_code(self):
-        if not self._status_code:
-            self._set_status_code()
+        self._set_status_code()
         return self._status_code
 
     def _set_status_code(self):
-        self._status_code = self._curl.get_status_code()
+        if not self._status_code:
+            self._status_code = self._curl.get_status_code()
 
     def close(self):
         self._set_status_code()
