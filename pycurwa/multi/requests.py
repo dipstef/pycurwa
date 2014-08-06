@@ -1,8 +1,9 @@
 from Queue import Queue
 from threading import Event, Semaphore, Thread
 
-from .curl import CurlMultiThread
+from .curl import CurlMulti
 from ..curl.requests import RequestRefresh
+from pycurwa.curl import CurlError
 
 
 class RequestsProcess(RequestRefresh):
@@ -25,19 +26,30 @@ class RequestsProcess(RequestRefresh):
         return self._closed.is_set()
 
     def _terminate(self):
-        if not self._is_closed():
-            self._closed.set()
+        self._closed.set()
 
-        if not self._on_going_requests.is_set():
-            self._on_going_requests.set()
+        self._close()
 
         super(RequestsProcess, self)._terminate()
+
+    def _close(self):
+        #unblocks thread waiting for requests
+        self._on_going_requests.set()
+
+    def _select(self, timeout=1):
+        try:
+            super(RequestsProcess, self)._select(timeout)
+        except CurlError:
+            #might happen when requests a close meanwhile a status has been yielded, followed by the _select call
+            #We simply ignore this case rather than checking on flag in each iteration
+            if not self._is_closed():
+                raise
 
 
 class LimitedRequests(RequestsProcess):
 
     def __init__(self, max_connections, refresh=0.5):
-        super(LimitedRequests, self).__init__(refresh, CurlMultiThread())
+        super(LimitedRequests, self).__init__(refresh, CurlMulti())
         self._handles_add = Queue()
         self._handles_count = Semaphore(max_connections)
 
@@ -52,7 +64,8 @@ class LimitedRequests(RequestsProcess):
             request = self._handles_add.get()
             if request:
                 self._handles_count.acquire()
-                self._add_request(request)
+                if not self._closed.is_set():
+                    self._add_request(request)
 
     def _add_request(self, request):
         super(LimitedRequests, self).add(request)
@@ -71,8 +84,11 @@ class LimitedRequests(RequestsProcess):
 
         return status
 
-    def _terminate(self):
-        super(LimitedRequests, self)._terminate()
+    def _close(self):
+        super(LimitedRequests, self)._close()
+        #unblocks semaphore
+        for i in range(len(self._requests)):
+            self._handles_count.release()
         #unblocks the queue
         self._handles_add.put(None)
         self._handles_thread.join()
