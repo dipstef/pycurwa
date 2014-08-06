@@ -1,10 +1,10 @@
 from Queue import Queue
-from threading import Thread, Event
+from threading import Event
 
 from httpy.client import cookie_jar
 
 from pycurwa import PyCurwa
-from pycurwa.multi.requests import LimitedRequests, RequestsProcess
+from pycurwa.multi.requests import LimitedRequests, RequestsProcess, RequestsUpdates
 from pycurwa.request import CurlRequestBase
 from pycurwa.response import CurlBodyResponse
 
@@ -13,7 +13,7 @@ class PyCurwaMulti(PyCurwa):
 
     def __init__(self, max_connections=20, cookies=cookie_jar, bucket=None, timeout=30):
         super(PyCurwaMulti, self).__init__(cookies, bucket, timeout)
-        self._requests = CurlMultiRequests(max_connections)
+        self._requests = RequestsUpdates(LimitedRequests(max_connections))
 
     def execute(self, request, **kwargs):
         request = CurlMultiRequest(request, self._cookies, self._bucket)
@@ -74,45 +74,3 @@ class CurlMultiResponse(CurlBodyResponse):
 
             if isinstance(outcome, BaseException):
                 raise outcome
-
-
-class CurlMultiRequests(LimitedRequests):
-    def __init__(self, max_connections, refresh=0.5):
-        super(CurlMultiRequests, self).__init__(max_connections, refresh)
-        self._updates = Queue()
-
-        self._perform_thread = Thread(target=self.perform)
-        self._perform_thread.start()
-
-        self._update_thread = Thread(target=self._process_updates)
-        self._update_thread.start()
-
-    def perform(self):
-        for status in self.iterate_statuses():
-            if status.failed or status.completed:
-                self._updates.put(status)
-
-    def _process_updates(self):
-        while not self._is_closed():
-            status = self._updates.get()
-            if status:
-                self._send_updates(status)
-
-    def _close(self):
-        super(CurlMultiRequests, self)._close()
-        #unblocks the queue
-        self._updates.put(None)
-        self._update_thread.join()
-
-    def stop(self):
-        self._terminate()
-        self._perform_thread.join()
-
-    def _send_updates(self, status):
-        for request in status.completed:
-            self.close(request)
-            request.update(status.check)
-
-        for request in status.failed:
-            self.close(request)
-            request.update(request.error)
