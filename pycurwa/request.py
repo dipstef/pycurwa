@@ -2,10 +2,11 @@ from httpy.client import HttpyRequest
 
 from httpy.error import error_status, HttpStatusError
 
-from .curl import Curl
+from .curl import Curl, PyCurlError
 
 from .curl.request import curl_request
 from .cookies import get_cookie_string
+from pycurwa.curl.error import HttpCurlError
 from .response import CurlResponseBase, CurlBodyResponse
 
 
@@ -48,18 +49,25 @@ class CurlRequest(CurlRequestBase):
 
     def execute(self):
         try:
-            self._curl.perform()
-
-            error = self.get_status_error()
-            if error:
-                raise error
-
-            return self._response
+            return self._execute()
+        except PyCurlError, e:
+            raise HttpCurlError(self, e.curl_errno, e.curl_message)
         finally:
             self.close()
 
+    def _execute(self):
+        self._curl.perform()
+
+        error = self.get_status_error()
+        if error:
+            raise error
+        return self._response
+
     def _create_response(self):
         return CurlBodyResponse(self, self._cookies, self._bucket)
+
+    def close(self):
+        self._response.close()
 
 
 class CurlHeadersRequest(CurlRequestBase):
