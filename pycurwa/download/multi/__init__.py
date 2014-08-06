@@ -48,11 +48,12 @@ class ChunksThreadDownload(HttpChunksDownload):
         self._outcome = Queue(1)
 
     def _download_requests(self):
-        self._requests.add(self)
+        if self._chunks:
+            self._requests.add(self)
 
-        outcome = self._outcome.get()
-        if isinstance(outcome, Exception):
-            raise outcome
+            outcome = self._outcome.get()
+            if isinstance(outcome, Exception):
+                raise outcome
 
     def _update(self, status):
         try:
