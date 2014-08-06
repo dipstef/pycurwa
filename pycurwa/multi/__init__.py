@@ -22,6 +22,9 @@ class PyCurwaMulti(PyCurwa):
         return request.response
 
     def close(self):
+        self._close()
+
+    def _close(self):
         self._requests.stop()
 
 
@@ -35,6 +38,9 @@ class CurlMultiRequest(CurlRequestBase):
     def update(self, outcome):
         self._outcome.put(outcome)
 
+    def close(self):
+        self.response.close()
+
 
 class CurlMultiResponse(CurlBodyResponse):
 
@@ -42,16 +48,32 @@ class CurlMultiResponse(CurlBodyResponse):
         super(CurlMultiResponse, self).__init__(request, cookies, bucket)
         self._outcome = outcome
         self._completed = Event()
+        self._headers = None
 
     def read(self):
+        self._wait_completed()
+        return self._read()
+
+    def get_status_code(self):
+        self._wait_completed()
+        return super(CurlMultiResponse, self).get_status_code()
+
+    @property
+    def headers(self):
+        self._wait_completed()
+        return self._headers
+
+    @headers.setter
+    def headers(self, value):
+        self._headers = value
+
+    def _wait_completed(self):
         if not self._completed.is_set():
             outcome = self._outcome.get()
             self._completed.set()
 
             if isinstance(outcome, BaseException):
                 raise outcome
-
-        return self._read()
 
 
 class CurlMultiRequests(LimitedRequests):
@@ -76,13 +98,11 @@ class CurlMultiRequests(LimitedRequests):
             if status:
                 self._send_updates(status)
 
-    def _terminate(self):
-        self._closed.set()
+    def _close(self):
+        super(CurlMultiRequests, self)._close()
         #unblocks the queue
         self._updates.put(None)
         self._update_thread.join()
-
-        super(CurlMultiRequests, self)._terminate()
 
     def stop(self):
         self._terminate()
@@ -90,9 +110,9 @@ class CurlMultiRequests(LimitedRequests):
 
     def _send_updates(self, status):
         for request in status.completed:
-            request.update(status.check)
             self.close(request)
+            request.update(status.check)
 
         for request in status.failed:
-            request.update(request.error)
             self.close(request)
+            request.update(request.error)
