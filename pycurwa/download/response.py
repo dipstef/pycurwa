@@ -37,8 +37,11 @@ class CurlDownloadResponse(CurlResponse):
             self.received = self._fp.tell() or os.path.getsize(self.path)
 
     def close(self):
-        self._flush()
-        self._fp.close()
+        try:
+            self._flush()
+            self._fp.close()
+        except:
+            raise
 
     def _flush(self):
         self._fp.flush()
