@@ -5,7 +5,10 @@ from httpy.connection.error import ConnectionRefused, UnresolvableHost, SocketEr
 from httpy.error import HttpServerSocketError, HttpError, InvalidRangeRequest
 
 
-class PyCurlError(pycurl.error):
+CurlError = pycurl.error
+
+
+class PyCurlError(CurlError):
 
     def __init__(self, errno, message, *args, **kwargs):
         super(PyCurlError, self).__init__(errno, message, *args, **kwargs)
@@ -53,10 +56,9 @@ def _curl_error(errno, message):
     return PyCurlError(errno, message)
 
 
-class CurlError(PyCurlError):
+class HttpCurlError(PyCurlError):
 
-    def __new__(cls, errno, message):
-        request = HttpRequest('GET', '')
+    def __new__(cls, request, errno, message):
         error_mapping = _by_errno.get(errno)
 
         if error_mapping:
