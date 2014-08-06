@@ -2,7 +2,7 @@ from collections import OrderedDict
 from time import time
 
 from . import CurlMulti, CurlHandlesStatus
-from .error import CurlWriteError, CurlError, MissingHandle
+from .error import CurlWriteError, HttpCurlError, MissingHandle
 
 
 class Requests(object):
@@ -51,12 +51,14 @@ class Requests(object):
                 self._curl.execute()
                 status = self.get_status()
 
-                if status:
-                    yield status
+                yield status
 
-                self._curl.select(timeout=1)
+                self._select(timeout=1)
         finally:
             self._terminate()
+
+    def _select(self, timeout=1):
+        self._curl.select(timeout)
 
     def _terminate(self):
         self._curl.close()
@@ -134,7 +136,7 @@ class FailedHandle(object):
 
 class CurlFailed(FailedHandle):
     def __init__(self, request, errno, msg):
-        super(CurlFailed, self).__init__(request, CurlError(errno, msg))
+        super(CurlFailed, self).__init__(request, HttpCurlError(request, errno, msg))
 
     def is_write_error(self):
         return isinstance(self.error, CurlWriteError)
