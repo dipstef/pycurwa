@@ -14,17 +14,17 @@ def _urllib_request(request):
     return urllib2.Request(request.url, headers=request.headers)
 
 
-def write_cookies(cookie_jar, response):
-    cookie_jar.extract_cookies(UrllibResponse(response), _urllib_request(response.request))
+def write_cookies(cookie_jar, response_headers, request):
+    cookie_jar.extract_cookies(UrllibResponse(response_headers), _urllib_request(request))
 
 
 class UrllibResponse(object):
 
-    def __init__(self, response):
-        self.response = response
+    def __init__(self, headers):
+        self._headers = headers
 
     def info(self):
         return self
 
     def getheaders(self, name):
-        return self.response.headers.get_list(name)
+        return self._headers.get_list(name)
