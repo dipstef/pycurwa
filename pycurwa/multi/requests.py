@@ -1,12 +1,13 @@
 from Queue import Queue
+from abc import abstractmethod
 from threading import Event, Semaphore, Thread
 
 from .curl import CurlMulti
-from ..curl.requests import RequestRefresh
+from ..curl.requests import RequestsRefresh
 from ..curl.error import CurlError
 
 
-class RequestsProcess(RequestRefresh):
+class RequestsProcess(RequestsRefresh):
 
     def __init__(self, refresh=0.5, curl=None):
         self._closed = Event()
@@ -94,30 +95,18 @@ class LimitedRequests(RequestsProcess):
         self._handles_thread.join()
 
 
-class RequestsUpdates(object):
+class RequestsStatuses(object):
     def __init__(self, requests):
         self._requests = requests
         self._updates = Queue()
 
-        self._perform_thread = Thread(target=self.perform)
-        self._perform_thread.start()
-
-        self._update_thread = Thread(target=self._process_updates)
-        self._update_thread.start()
-
-    def add(self, request):
-        self._requests.add(request)
-
     def perform(self):
-        try:
-            for status in self._requests.iterate_statuses():
-                if self._is_status_update(status):
-                    self._updates.put(status)
-        finally:
-            self._close()
+        for status in self._requests.iterate_statuses():
+            if self._is_status_update(status):
+                self._updates.put(status)
 
     def _is_status_update(self, status):
-        return status.completed or status.failed
+        return True
 
     def iterate_statuses(self):
         while not self._requests.is_closed():
@@ -125,25 +114,32 @@ class RequestsUpdates(object):
             if status:
                 yield status
 
+    def stop(self):
+        self._requests.stop()
+        #unblocks the queue
+        self._updates.put(None)
+
+
+class RequestsUpdates(RequestsStatuses):
+
+    def __init__(self, requests):
+        super(RequestsUpdates, self).__init__(requests)
+
+        self._perform_thread = Thread(target=self.perform)
+        self._perform_thread.start()
+
+        self._update_thread = Thread(target=self._process_updates)
+        self._update_thread.start()
+
     def _process_updates(self):
         for status in self.iterate_statuses():
             self._send_updates(status)
 
-    def _close(self):
-        self._requests.stop()
-        #unblocks the queue
-        self._updates.put(None)
-        self._update_thread.join()
+    @abstractmethod
+    def _send_updates(self, status):
+        raise NotImplementedError
 
     def stop(self):
-        self._close()
+        super(RequestsUpdates, self).stop()
         self._perform_thread.join()
-
-    def _send_updates(self, status):
-        for request in status.completed:
-            self._requests.close(request)
-            request.update(status.check)
-
-        for request in status.failed:
-            self._requests.close(request)
-            request.update(request.error)
+        self._update_thread.join()
