@@ -1,33 +1,33 @@
 from threading import Lock
-from ..curl import CurlMulti
+from .. import curl
 
 
-class CurlMultiThread(CurlMulti):
+class CurlMulti(curl.CurlMulti):
 
     def __init__(self):
         self._lock = Lock()
-        super(CurlMultiThread, self).__init__()
+        super(CurlMulti, self).__init__()
 
-    def add_handle(self, curl):
+    def add_handle(self, handle):
         with self._lock:
-            super(CurlMultiThread, self).add_handle(curl)
+            super(CurlMulti, self).add_handle(handle)
 
-    def remove_handle(self, curl):
+    def remove_handle(self, handle):
         with self._lock:
-            super(CurlMultiThread, self).remove_handle(curl)
+            super(CurlMulti, self).remove_handle(handle)
 
     def execute(self):
         with self._lock:
-            super(CurlMultiThread, self).execute()
+            super(CurlMulti, self).execute()
 
     def get_status(self):
         with self._lock:
-            return super(CurlMultiThread, self).get_status()
+            return super(CurlMulti, self).get_status()
 
     def select(self, timeout=None):
         with self._lock:
-            return super(CurlMultiThread, self).select(timeout)
+            return super(CurlMulti, self).select(timeout)
 
     def close(self):
         with self._lock:
-            return super(CurlMultiThread, self).close()
+            return super(CurlMulti, self).close()
