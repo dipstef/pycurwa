@@ -3,7 +3,7 @@ from threading import Event, Semaphore, Thread
 
 from .curl import CurlMulti
 from ..curl.requests import RequestRefresh
-from pycurwa.curl import CurlError
+from ..curl.error import CurlError
 
 
 class RequestsProcess(RequestRefresh):
