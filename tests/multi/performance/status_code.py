@@ -1,20 +1,11 @@
-from pycurwa.multi import PyCurwaMulti
+from tests.multi.performance import request_times
 
 
 def main():
-    pycurwa = PyCurwaMulti()
-
-    responses = []
-    try:
-        for i in range(1, 100):
-            print i
-            response = pycurwa.head('http://diskstation.local:5000')
-            responses.append(response)
-
+    with request_times('HEAD', 'http://diskstation.local:5000', times=10000) as responses:
         for response in responses:
             print response.get_status_code()
-    finally:
-        pycurwa.close()
+
 
 if __name__ == '__main__':
     main()
