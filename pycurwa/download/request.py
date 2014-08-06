@@ -13,10 +13,6 @@ class HttpDownloadBase(CurlRequest):
     def get_speed(self):
         return self._curl.get_speed_download()
 
-    def close(self):
-        self._response.close()
-        super(HttpDownloadBase, self).close()
-
     @property
     def received(self):
         return self._response.received
