@@ -2,7 +2,7 @@ from contextlib import closing
 import pycurl
 import sys
 
-from .error import CurlError
+from .error import PyCurlError
 from .options import SetOptions, GetOptions
 
 
@@ -21,7 +21,12 @@ class ClosingCurl(closing, SetOptions, GetOptions):
 
     def __init__(self, curl_class):
         self.curl = curl_class()
+        self.closed = False
         super(ClosingCurl, self).__init__(self)
+
+    def close(self):
+        self.curl.close()
+        self.closed = True
 
     def __eq__(self, other):
         return other == self.curl
@@ -59,9 +64,6 @@ class CurlMulti(ClosingCurl):
         remaining, completed, failed = self.curl.info_read()
         return CurlMultiStatus(completed, failed, remaining)
 
-    def close(self):
-        self.curl.close()
-
 
 class CurlHandlesStatus(object):
 
@@ -87,4 +89,4 @@ class Curl(ClosingCurl):
         try:
             self.curl.perform()
         except pycurl.error, e:
-            raise CurlError(*e.args)
+            raise PyCurlError(*e.args)
