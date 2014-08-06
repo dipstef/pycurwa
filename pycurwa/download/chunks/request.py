@@ -24,10 +24,10 @@ class HttpChunk(HttpDownloadRange):
         return HttpChunkDownload(self, self._cookies, self._bucket)
 
     def __str__(self):
-        if self._response.is_closed_range():
-            return '<HTTPChunk id=%d, size=%d, arrived=%d>' % (self.id, self._response.range.size, self.received)
+        if self.range.end:
+            return '<HTTPChunk id=%d, size=%d, arrived=%d>' % (self.id, self.range.size, self._response.received)
         else:
-            return '<HTTPChunk id=%d, arrived=%d>' % (self.id, self.received)
+            return '<HTTPChunk id=%d, arrived=%d>' % (self.id, self._response.received)
 
 
 class HttpChunkDownload(CurlRangeDownload):
