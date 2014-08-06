@@ -4,7 +4,7 @@ from threading import Event
 from httpy.client import cookie_jar
 
 from pycurwa import PyCurwa
-from pycurwa.multi.requests import LimitedRequests, RequestsProcess, RequestsUpdates
+from pycurwa.multi.requests import LimitedRequests, RequestsProcess, RequestsUpdates, RequestsStatuses
 from pycurwa.request import CurlRequestBase
 from pycurwa.response import CurlBodyResponse
 
@@ -13,7 +13,8 @@ class PyCurwaMulti(PyCurwa):
 
     def __init__(self, max_connections=20, cookies=cookie_jar, bucket=None, timeout=30):
         super(PyCurwaMulti, self).__init__(cookies, bucket, timeout)
-        self._requests = RequestsUpdates(LimitedRequests(max_connections))
+        self._requests = LimitedRequests(max_connections)
+        self._updates = CurlUpdates(self._requests)
 
     def execute(self, request, **kwargs):
         request = CurlMultiRequest(request, self._cookies, self._bucket)
@@ -25,7 +26,25 @@ class PyCurwaMulti(PyCurwa):
         self._close()
 
     def _close(self):
-        self._requests.stop()
+        self._updates.stop()
+
+
+class CurlUpdates(RequestsUpdates):
+
+    def __init__(self, requests):
+        super(CurlUpdates, self).__init__(requests)
+
+    def _send_updates(self, status):
+        for request in status.completed:
+            self._requests.close(request)
+            request.update(status.check)
+
+        for request in status.failed:
+            self._requests.close(request)
+            request.update(request.error)
+
+    def _is_status_update(self, status):
+        return status.completed or status.failed
 
 
 class CurlMultiRequest(CurlRequestBase):
