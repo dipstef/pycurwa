@@ -22,6 +22,8 @@ class CurlResponseBase(object):
         self._date = datetime.utcnow()
         self._cookies = cookies
 
+        self._status_code = None
+
     def _write_header(self, buf):
         self._header_str += buf
 
@@ -29,20 +31,28 @@ class CurlResponseBase(object):
             self._parse_http_header()
 
     def _parse_http_header(self):
-        headers = header_string_to_dict(self._header_str)
+        headers = self.__headers__(header_string_to_dict(self._header_str))
 
-        self.headers = self.__headers__(headers)
+        self.headers = headers
 
         self._date = date_header(headers) or datetime.utcnow()
 
         if self._cookies is not None:
-            write_cookies(self._cookies, self)
+            write_cookies(self._cookies, headers, self.request)
 
         return headers
 
     def get_status_code(self):
-        code = self._curl.get_status_code()
-        return code
+        if not self._status_code:
+            self._set_status_code()
+        return self._status_code
+
+    def _set_status_code(self):
+        self._status_code = self._curl.get_status_code()
+
+    def close(self):
+        self._set_status_code()
+        self._curl.close()
 
 
 class CurlResponseStatus(CurlResponseBase, ResponseStatus):
@@ -110,4 +120,4 @@ class CurlBodyResponse(CurlResponse):
 
     def close(self):
         self._bytes.close()
-        self._curl.close()
+        super(CurlBodyResponse, self).close()
