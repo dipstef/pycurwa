@@ -1,7 +1,7 @@
 from Queue import Queue
 from threading import Event
-from pycurwa.request import CurlRequestBase
-from pycurwa.response import CurlBodyResponse
+from ..request import CurlRequestBase
+from ..response import CurlBodyResponse
 
 
 class CurlMultiRequest(CurlRequestBase):

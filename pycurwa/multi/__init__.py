@@ -1,6 +1,6 @@
 from httpy.client import cookie_jar
 
-from pycurwa import PyCurwa
+from .. import PyCurwa
 from .request import CurlMultiRequest
 from .requests import Requests, RequestsProcess, RequestsUpdates, RequestsStatuses
 

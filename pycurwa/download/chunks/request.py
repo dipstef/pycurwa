@@ -1,5 +1,5 @@
-from pycurwa.download.response import CurlRangeDownload
 from ..request import HttpDownloadRange
+from ..response import CurlRangeDownload
 
 
 class HttpChunk(HttpDownloadRange):
@@ -24,10 +24,8 @@ class HttpChunk(HttpDownloadRange):
         return HttpChunkDownload(self, self._cookies, self._bucket)
 
     def __str__(self):
-        if self.range.end:
-            return '<HTTPChunk id=%d, size=%d, arrived=%d>' % (self.id, self.range.size, self._response.received)
-        else:
-            return '<HTTPChunk id=%d, arrived=%d>' % (self.id, self._response.received)
+        size = '' if not self._chunk.range.end else ' size=%d, ' % self.range.size
+        return '<%s id=%d,%s arrived=%d>' % (self.__class__.__name__, self.id, size, self._response.received)
 
 
 class HttpChunkDownload(CurlRangeDownload):
