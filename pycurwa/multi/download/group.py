@@ -1,5 +1,5 @@
 from Queue import Queue
-from pycurwa.multi.download.requests import DownloadRequests
+from ..download.requests import DownloadRequests
 
 
 class DownloadGroup(DownloadRequests):

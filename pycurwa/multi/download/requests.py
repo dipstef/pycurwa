@@ -1,8 +1,31 @@
 from collections import OrderedDict
 from itertools import groupby
 
-from ...curl.requests import RequestsStatus, MultiRequests
+from ...curl.requests import RequestsStatus
 from ..requests import Requests, RequestsUpdates
+
+
+class MultiRequests(object):
+
+    def __init__(self, requests):
+        self._requests = requests
+        self._handles_requests = OrderedDict()
+
+    def add(self, requests):
+        for request in requests:
+            self._requests.add(request)
+            self._handles_requests[request.handle] = requests
+
+    def close(self, requests):
+        for request in requests:
+            self._requests.close(request)
+            del self._handles_requests[request.handle]
+
+    def iterate_statuses(self):
+        return self._requests.iterate_statuses()
+
+    def stop(self):
+        self._requests.stop()
 
 
 class DownloadMultiRequests(MultiRequests):
@@ -17,8 +40,8 @@ class DownloadMultiRequests(MultiRequests):
         if not requests in self._request_groups:
             self._request_groups.append(requests)
 
-    def remove(self, requests):
-        super(DownloadMultiRequests, self).remove(requests)
+    def close(self, requests):
+        super(DownloadMultiRequests, self).close(requests)
         self._request_groups.remove(requests)
 
     def update(self, status):
@@ -46,9 +69,6 @@ class DownloadRequests(RequestsUpdates):
     def add(self, requests):
         self._multi.add(requests)
 
-    def remove(self, requests):
-        self._multi.remove(requests)
-
     def _is_status_update(self, status):
         #always send updates
         return True
@@ -56,5 +76,5 @@ class DownloadRequests(RequestsUpdates):
     def _send_updates(self, status):
         self._multi.update(status)
 
-    def close(self):
-        self.stop()
+    def close(self, requests):
+        self._multi.close(requests)

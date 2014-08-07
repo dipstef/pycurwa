@@ -2,7 +2,7 @@ from collections import OrderedDict
 from time import time
 
 from . import CurlMulti, CurlHandlesStatus
-from .error import CurlWriteError, HttpCurlError, MissingHandle
+from .error import CurlWriteError, HttpCurlError, MissingHandle, CurlError
 
 
 class Requests(object):
@@ -15,13 +15,14 @@ class Requests(object):
         self._curl.add_handle(request.handle)
         self._requests[request.handle] = request
 
-    def remove(self, request):
-        self._curl.remove_handle(request.handle)
-        del self._requests[request.handle]
-
     def close(self, request):
-        self.remove(request)
-        request.close()
+        try:
+            self._curl.remove_handle(request.handle)
+            del self._requests[request.handle]
+            request.close()
+        except CurlError:
+            #already removed
+            pass
 
     def _get_request(self, handle):
         request = self._requests.get(handle)
@@ -146,25 +147,3 @@ class RequestsDict(OrderedDict):
 
     def __init__(self, requests=()):
         super(RequestsDict, self).__init__(((request.handle, request) for request in requests))
-
-
-class MultiRequests(object):
-
-    def __init__(self, requests=None):
-        self._requests = requests if requests is not None else Requests()
-        self._handles_requests = OrderedDict()
-
-    def add(self, requests):
-        for request in requests:
-            self._requests.add(request)
-            self._handles_requests[request.handle] = requests
-
-    def remove(self, requests):
-        for request in requests:
-            self._requests.remove(request)
-
-    def iterate_statuses(self):
-        return self._requests.iterate_statuses()
-
-    def close(self):
-        self._requests.stop()

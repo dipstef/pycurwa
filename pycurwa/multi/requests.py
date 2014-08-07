@@ -22,8 +22,8 @@ class RequestsProcess(RequestsRefresh):
             super(RequestsProcess, self).add(request)
         self._on_going_requests.set()
 
-    def remove(self, request):
-        super(RequestsProcess, self).remove(request)
+    def close(self, request):
+        super(RequestsProcess, self).close(request)
         with self._lock:
             if not self._requests:
                 self._on_going_requests.clear()

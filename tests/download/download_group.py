@@ -16,8 +16,8 @@ def main():
     requests = HttpDownloadRequests(bucket=bucket)
 
     with DownloadGroup() as group:
-        group.add(requests.get('http://download.thinkbroadband.com/5MB.zip', path=path, chunks=8, resume=True))
-        group.add(requests.get('http://download.thinkbroadband.com/10MB.zip', path=path, chunks=8, resume=True))
+        group.add(requests.get('http://download.thinkbroadband.com/5MB.zip', path=path, chunks=4, resume=True))
+        #group.add(requests.get('http://download.thinkbroadband.com/10MB.zip', path=path, chunks=4, resume=True))
 
         group.perform()
 
