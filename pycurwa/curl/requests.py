@@ -93,9 +93,6 @@ class RequestsRefresh(Requests):
 
         return status
 
-    def __getattr__(self, item):
-        return getattr(self._requests, item)
-
 
 class RequestsStatus(CurlHandlesStatus):
     def __init__(self, completed, failed, status_time=None):

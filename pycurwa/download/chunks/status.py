@@ -42,7 +42,8 @@ class ChunkStatus(OrderedDict):
 
 class DownloadStats(object):
 
-    def __init__(self, size, refresh_rate=1):
+    def __init__(self, path, size, refresh_rate=1):
+        self.path = path
         self.size = size
 
         self._last_check = 0

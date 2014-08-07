@@ -124,6 +124,8 @@ class RequestsStatuses(object):
         while not self._requests.is_closed():
             status = self._updates.get()
             if status:
+                for request in status.completed + status.failed:
+                    self._requests.close(request)
                 yield status
 
     def stop(self):
@@ -160,23 +162,7 @@ class RequestsUpdates(RequestsStatuses):
         self._update_thread.join()
 
 
-class RequestProcessed(RequestsStatuses):
-
-    def __init__(self, max_connections=None):
-        super(RequestProcessed, self).__init__(Requests(max_connections))
-        self._closed = Event()
-
-    def add(self, request):
-        self._requests.add(request)
-
-    def iterate_statuses(self):
-        for status in super(RequestProcessed, self).iterate_statuses():
-            for request in status.completed + status.failed:
-                self._requests.close(request)
-            yield status
-
-
-class ProcessRequests(RequestProcessed):
+class ProcessRequests(RequestsStatuses):
 
     def __init__(self, requests, max_connections=None):
         super(ProcessRequests, self).__init__(max_connections)
@@ -187,10 +173,11 @@ class ProcessRequests(RequestProcessed):
 
     def _add_requests(self, requests):
         for request in requests:
-            self.add(request)
+            self._requests.add(request)
         self._added.set()
 
     def iterate_statuses(self):
         status_iterator = super(ProcessRequests, self).iterate_statuses()
+
         while self._requests or not self._added.is_set():
             yield status_iterator.next()

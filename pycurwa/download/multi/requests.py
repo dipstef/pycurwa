@@ -21,11 +21,7 @@ class DownloadMultiRequests(MultiRequests):
         super(DownloadMultiRequests, self).remove(requests)
         self._request_groups.remove(requests)
 
-    def perform(self):
-        for status in self.iterate_statuses():
-            self._send_updates(status)
-
-    def _send_updates(self, status):
+    def update(self, status):
         for request, request_status in self._group_by_request(status):
             request.update(request_status)
 
@@ -60,7 +56,7 @@ class DownloadRequests(RequestsUpdates):
         return True
 
     def _send_updates(self, status):
-        self._multi._send_updates(status)
+        self._multi.update(status)
 
     def close(self):
         self.stop()

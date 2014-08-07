@@ -6,7 +6,7 @@ from .curl import Curl, PyCurlError
 
 from .curl.request import curl_request
 from .cookies import get_cookie_string
-from pycurwa.curl.error import HttpCurlError
+from .curl.error import HttpCurlError
 from .response import CurlResponseBase, CurlBodyResponse
 
 

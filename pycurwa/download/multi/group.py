@@ -1,0 +1,2 @@
+class DownloadGroup(object):
+    pass

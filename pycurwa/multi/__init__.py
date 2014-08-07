@@ -32,9 +32,7 @@ class CurlUpdates(RequestsUpdates):
 
     def _send_updates(self, status):
         for request in status.completed:
-            self._requests.close(request)
             request.update(status.check)
 
         for request in status.failed:
-            self._requests.close(request)
             request.update(request.error)

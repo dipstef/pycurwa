@@ -4,7 +4,7 @@ from httpy.client import cookie_jar
 
 from .requests import DownloadRequests
 from ..requests import HttpDownloadRequest, HttpDownloadRequests
-from ..chunks import HttpChunksDownload
+from ..chunks.download import HttpChunks
 
 
 class MultiDownloadsRequests(HttpDownloadRequests):
@@ -36,14 +36,14 @@ class ChunksThreadRequest(HttpDownloadRequest):
         self._requests = requests
         super(ChunksThreadRequest, self).__init__(request, path, chunks, resume, cookies, bucket)
 
-    def _create_request(self, request, chunks_file):
-        return ChunksThreadDownload(self._requests, request, chunks_file, self._cookies, self._bucket)
+    def _create_request(self, chunks_file):
+        return ChunksThreadDownload(self._requests, chunks_file, self._cookies, self._bucket)
 
 
-class ChunksThreadDownload(HttpChunksDownload):
+class ChunksThreadDownload(HttpChunks):
 
-    def __init__(self, requests, request, chunks_file, cookies=None, bucket=None):
-        super(ChunksThreadDownload, self).__init__(request, chunks_file, cookies, bucket)
+    def __init__(self, request, chunks_file, cookies=None, bucket=None):
+        super(ChunksThreadDownload, self).__init__(chunks_file, cookies, bucket)
         self._requests = requests
         self._outcome = Queue(1)
 

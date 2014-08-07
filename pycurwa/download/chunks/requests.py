@@ -3,7 +3,6 @@ from collections import OrderedDict
 from .status import HttpChunksStatus, DownloadStats
 from ..error import FailedChunks
 from ..files import ChunksDict
-from ...curl.requests import MultiRequests, RequestsRefresh
 from ...error import DownloadedContentMismatch, Abort
 
 
@@ -17,7 +16,8 @@ class ChunkRequests(object):
         self._completed_size = sum((chunk.get_size() for chunk in chunks if chunk.is_completed()))
 
     def update(self, status):
-        self._update(HttpChunksStatus(status, self.chunks_received))
+        status = HttpChunksStatus(status, self.chunks_received)
+        self._update(status)
 
     def _update(self, status):
         if status.failed:
@@ -25,7 +25,7 @@ class ChunkRequests(object):
 
         for chunk in status.completed.values():
             if not chunk.is_completed():
-                raise DownloadedContentMismatch(chunk.path, chunk.received, chunk.size)
+                raise DownloadedContentMismatch(self._request, chunk.path, chunk.received, chunk.size)
 
     @property
     def chunks(self):
@@ -85,11 +85,8 @@ class ChunksDownload(ChunksStatuses):
 
     def __init__(self, request, downloads):
         super(ChunksDownload, self).__init__(request, downloads)
-        self.stats = DownloadStats(self.size)
+        self.stats = DownloadStats(request.path, self.size)
         self._abort = False
-
-    def perform(self):
-        raise NotImplementedError
 
     def _update(self, status):
         if self._abort:
@@ -97,18 +94,3 @@ class ChunksDownload(ChunksStatuses):
 
         super(ChunksDownload, self)._update(status)
         self.stats.update_progress(status)
-
-    def close(self):
-        for chunk in self.chunks:
-            chunk.close()
-
-
-class MultiRefreshChunks(MultiRequests):
-
-    def __init__(self, downloads, refresh=0.5):
-        super(MultiRefreshChunks, self).__init__(RequestsRefresh(refresh))
-        self._downloads = downloads
-        self.add(downloads)
-
-    def _has_active_requests(self):
-        return not self._downloads.is_done()
