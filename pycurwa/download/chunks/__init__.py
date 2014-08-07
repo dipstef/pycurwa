@@ -1,4 +1,3 @@
-from abc import abstractmethod
 import time
 
 from httpy.error import InvalidRangeRequest
@@ -9,7 +8,7 @@ from .download import HttpChunks
 from .request import HttpChunk
 from ..error import FailedChunks
 from ..files.download import OneChunk
-from ...curl.requests import RequestsRefresh
+from ...multi.requests import OneSessionRequests
 
 
 class ChunksFileDownload(object):
@@ -28,16 +27,15 @@ class ChunksFileDownload(object):
                 self._chunks_file.remove()
             raise
 
-    @abstractmethod
     def _download(self):
-        raise not NotImplementedError
+        return self._chunks.perform()
 
     def _create_downloads(self, chunks_file):
         self._chunks_file = chunks_file
-        self._chunks = self._chunks_file_downloads(chunks_file)
+        self._chunks = self._create_http_chunks(chunks_file)
 
-    def _chunks_file_downloads(self, chunks_file):
-        return HttpChunks(chunks_file, self._cookies, self._bucket)
+    def _create_http_chunks(self, chunks_file):
+        return DownloadChunks(chunks_file, self._cookies, self._bucket)
 
 
 class HttpChunksDownload(ChunksFileDownload):
@@ -50,7 +48,7 @@ class HttpChunksDownload(ChunksFileDownload):
 
     def _download(self):
         try:
-            return self._download_chunks()
+            return super(HttpChunksDownload, self)._download()
         except FailedChunks, e:
             if len(self._chunks_file) == 1:
                 raise
@@ -60,11 +58,7 @@ class HttpChunksDownload(ChunksFileDownload):
 
             self._revert_to_one_chunk()
 
-            return self._download_chunks()
-
-    def _download_chunks(self):
-        self._download_requests()
-        return self._chunks.stats
+            return super(HttpChunksDownload, self)._download()
 
     def _revert_to_one_chunk(self):
         print_err('Download chunks failed, fallback to single connection')
@@ -77,10 +71,6 @@ class HttpChunksDownload(ChunksFileDownload):
             self._chunks_file.remove(chunk)
 
         return OneChunk(self._chunks_file.request, self._chunks_file.size, resume=self._chunks_file.resume)
-
-    @abstractmethod
-    def _download_requests(self):
-        raise NotImplementedError
 
 
 class ChunksDownloads(HttpChunksDownload):
@@ -101,30 +91,13 @@ class ChunksDownloads(HttpChunksDownload):
         self._create_downloads(self._chunks_file)
         return super(ChunksDownloads, self).perform()
 
-    @abstractmethod
-    def _download_requests(self):
-        raise NotImplementedError
 
+class DownloadChunks(HttpChunks):
 
-class DownloadChunks(ChunksDownloads):
-
-    def _download_requests(self):
-        curl_requests = OneSessionRequests(self._chunks, refresh=0.5)
+    def perform(self):
+        curl_requests = OneSessionRequests(self, refresh=0.5)
 
         for status in curl_requests.iterate_statuses():
-            self._chunks.update(status)
+            self.update(status)
 
-
-class OneSessionRequests(RequestsRefresh):
-    def __init__(self, requests, refresh=0.5, curl=None):
-        super(OneSessionRequests, self).__init__(refresh, curl)
-
-        for request in requests:
-            self.add(request)
-
-    def iterate_statuses(self):
-        for status in super(OneSessionRequests, self).iterate_statuses():
-            for request in status.completed + status.failed:
-                self.close(request)
-
-            yield status
+        return self.stats

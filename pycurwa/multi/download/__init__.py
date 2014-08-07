@@ -3,8 +3,8 @@ from Queue import Queue
 from httpy.client import cookie_jar
 
 from .requests import DownloadRequests
-from ..requests import HttpDownloadRequest, HttpDownloadRequests
-from ..chunks.download import HttpChunks
+from ...download.chunks import HttpChunks, ChunksDownloads
+from ...download.requests import HttpDownloadRequests, HttpDownloadRequest
 
 
 class MultiDownloadsRequests(HttpDownloadRequests):
@@ -37,35 +37,43 @@ class ChunksThreadRequest(HttpDownloadRequest):
         super(ChunksThreadRequest, self).__init__(request, path, chunks, resume, cookies, bucket)
 
     def _create_request(self, chunks_file):
-        return ChunksThreadDownload(self._requests, chunks_file, self._cookies, self._bucket)
+        return RequestsChunksDownload(self._requests, chunks_file, self._cookies, self._bucket)
 
 
-class ChunksThreadDownload(HttpChunks):
+class RequestsChunksDownload(ChunksDownloads):
 
-    def __init__(self, request, chunks_file, cookies=None, bucket=None):
-        super(ChunksThreadDownload, self).__init__(chunks_file, cookies, bucket)
+    def __init__(self, requests, chunks_file, cookies=None, bucket=None):
         self._requests = requests
+        super(RequestsChunksDownload, self).__init__(chunks_file, cookies, bucket)
+
+    def _create_http_chunks(self, chunks_file):
+        chunks = ChunksCompletion(chunks_file, self._cookies, self._bucket)
+        #will start downloading before the perform method has been invoked
+        self._requests.add(chunks)
+        return chunks
+
+
+class ChunksCompletion(HttpChunks):
+
+    def __init__(self, chunks_file, cookies=None, bucket=None):
+        super(ChunksCompletion, self).__init__(chunks_file, cookies, bucket)
         self._outcome = Queue(1)
-
-    def _download_requests(self):
-        if self._chunks:
-            self._requests.add(self)
-
-            outcome = self._outcome.get()
-            if isinstance(outcome, Exception):
-                raise outcome
 
     def _update(self, status):
         try:
-            return super(ChunksThreadDownload, self)._update(status)
+            return super(ChunksCompletion, self)._update(status)
         except BaseException, e:
             self._outcome.put(e)
 
     def _done_downloading(self, status):
-        status = super(ChunksThreadDownload, self)._done_downloading(status)
+        status = super(ChunksCompletion, self)._done_downloading(status)
 
         self._outcome.put(status)
 
-    def close(self):
-        self._requests.remove(self)
-        super(ChunksThreadDownload, self).close()
+    def perform(self):
+        if self._chunks:
+            outcome = self._outcome.get()
+            if isinstance(outcome, Exception):
+                raise outcome
+
+        return self.stats

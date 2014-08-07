@@ -1,6 +1,7 @@
 import os
+
 from pycurwa.bucket import Bucket
-from pycurwa.download.multi import MultiDownloadsRequests
+from pycurwa.multi.download import MultiDownloadsRequests
 
 
 def _request(downloads, url, chunks=1):

@@ -1,6 +1,7 @@
 from httpy.client import HttpClient, HttpyRequest, cookie_jar
 
-from . import DownloadChunks, get_chunks_file
+from .chunks import ChunksDownloads
+from .chunks.files import get_chunks_file
 
 
 class DownloadRequest(HttpyRequest):
@@ -28,7 +29,7 @@ class HttpDownloadRequest(DownloadRequest):
         return request.perform()
 
     def _create_request(self, chunks_file):
-        return DownloadChunks(chunks_file, cookies=self._cookies, bucket=self._bucket)
+        return ChunksDownloads(chunks_file, cookies=self._cookies, bucket=self._bucket)
 
 
 class HttpDownloadRequests(HttpClient):
