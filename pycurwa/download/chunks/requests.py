@@ -77,9 +77,6 @@ class ChunksStatuses(ChunkRequests):
         self.completed.update(status.completed)
         self.failed.update(status.failed)
 
-    def is_done(self):
-        return len(self.completed) >= len(self._chunks) or bool(self.failed)
-
 
 class ChunksDownload(ChunksStatuses):
 

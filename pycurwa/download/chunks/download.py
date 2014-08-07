@@ -1,6 +1,7 @@
 from .request import HttpChunk
 from .requests import ChunksDownload
 from ..error import ChunksDownloadMismatch
+from ...curl.error import CurlError
 
 
 class HttpChunks(ChunksDownload):
@@ -16,7 +17,7 @@ class HttpChunks(ChunksDownload):
     def _update(self, status):
         super(HttpChunks, self)._update(status)
 
-        if self.is_done():
+        if self._is_done():
             self._done_downloading(status)
 
     def _done_downloading(self, status):
@@ -29,3 +30,23 @@ class HttpChunks(ChunksDownload):
             raise ChunksDownloadMismatch(self._request, self)
 
         self._chunks_file.copy_chunks()
+
+    def _is_done(self):
+        return len(self.completed) >= len(self._chunks) or bool(self.failed)
+
+
+class HttpChunksRequests(HttpChunks):
+    def __init__(self, requests, chunks_file, cookies=None, bucket=None):
+        super(HttpChunksRequests, self).__init__(chunks_file, cookies, bucket)
+        self._requests = requests
+
+    def submit(self):
+        for chunk in self.chunks:
+            self._requests.add(chunk)
+
+    def close(self):
+        for chunk in self.chunks:
+            try:
+                self._requests.close(chunk)
+            except CurlError:
+                pass

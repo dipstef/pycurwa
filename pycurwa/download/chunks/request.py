@@ -24,7 +24,7 @@ class HttpChunk(HttpDownloadRange):
         return HttpChunkDownload(self, self._cookies, self._bucket)
 
     def __str__(self):
-        size = '' if not self._chunk.range.end else ' size=%d, ' % self.range.size
+        size = '' if not self._chunk.range.end else ' size=%d, ' % self._chunk.range.size
         return '<%s id=%d,%s arrived=%d>' % (self.__class__.__name__, self.id, size, self._response.received)
 
 

@@ -184,18 +184,3 @@ class ProcessRequests(RequestsStatuses):
 
         while self._requests or not self._added.is_set():
             yield status_iterator.next()
-
-
-class OneSessionRequests(RequestsRefresh):
-    def __init__(self, requests, refresh=0.5, curl=None):
-        super(OneSessionRequests, self).__init__(refresh, curl)
-
-        for request in requests:
-            self.add(request)
-
-    def iterate_statuses(self):
-        for status in super(OneSessionRequests, self).iterate_statuses():
-            for request in status.completed + status.failed:
-                self.close(request)
-
-            yield status
