@@ -1,8 +1,8 @@
 import os
 
-from ..files.download import ExistingDownload, NewDownload
+from .download import ExistingDownload, NewDownload
+from .util import save_join
 from ..request import DownloadHeadersRequest
-from ..files.util import save_join
 
 
 def get_chunks_file(request, cookies=None):

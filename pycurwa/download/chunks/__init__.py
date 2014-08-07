@@ -4,7 +4,6 @@ from httpy.error import InvalidRangeRequest
 
 from procol.console import print_err
 
-from .files import get_chunks_file
 from .download import HttpChunks, HttpChunksRequests
 from .request import HttpChunk
 from ..error import FailedChunks
