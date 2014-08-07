@@ -19,7 +19,6 @@ def main():
 
     bucket = None
 
-    print 'starting'
     downloads = MultiDownloadsRequests(bucket=bucket)
 
     try:

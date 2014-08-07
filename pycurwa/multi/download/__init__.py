@@ -4,7 +4,7 @@ from httpy.client import cookie_jar
 
 from .requests import DownloadRequests
 from ...download.chunks import HttpChunks, ChunksDownloads
-from ...download.requests import HttpDownloadRequests, HttpDownloadRequest
+from ...download.requests import HttpDownloadRequests
 
 
 class MultiDownloadsRequests(HttpDownloadRequests):
@@ -13,8 +13,8 @@ class MultiDownloadsRequests(HttpDownloadRequests):
         self._requests = DownloadRequests()
         super(MultiDownloadsRequests, self).__init__(cookies, bucket, timeout)
 
-    def _get_request(self, request, path, chunks, resume):
-        return ChunksThreadRequest(self._requests, request, path, chunks, resume, self._bucket)
+    def _create_request(self, chunks_file):
+        return RequestsChunksDownload(self._requests, chunks_file, self._cookies, self._bucket)
 
     def close(self):
         self._requests.close()
@@ -25,19 +25,6 @@ class MultiDownloads(MultiDownloadsRequests):
     def execute(self, request, path, chunks=1, resume=False):
         download = super(MultiDownloads, self).execute(request, path, chunks, resume)
         return download.perform()
-
-    def close(self):
-        self._requests.close()
-
-
-class ChunksThreadRequest(HttpDownloadRequest):
-
-    def __init__(self, requests, request, path, chunks=1, resume=False, cookies=None, bucket=None):
-        self._requests = requests
-        super(ChunksThreadRequest, self).__init__(request, path, chunks, resume, cookies, bucket)
-
-    def _create_request(self, chunks_file):
-        return RequestsChunksDownload(self._requests, chunks_file, self._cookies, self._bucket)
 
 
 class RequestsChunksDownload(ChunksDownloads):

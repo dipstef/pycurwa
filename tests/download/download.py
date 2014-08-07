@@ -15,10 +15,9 @@ def main():
 
     bucket = None
 
-    print 'starting'
-    d = HttpDownload(bucket=bucket)
+    download_client = HttpDownload(bucket=bucket)
 
-    stats = d.get(url, path=path, chunks=8, resume=True)
+    stats = download_client.get(url, path=path, chunks=8, resume=True)
 
     print stats.speed
 

@@ -40,10 +40,8 @@ class DownloadMultiRequests(MultiRequests):
 class DownloadRequests(RequestsUpdates):
 
     def __init__(self, max_connections=10, refresh=0.5):
-        requests = Requests(max_connections, refresh=refresh)
-        super(DownloadRequests, self).__init__(requests)
-
-        self._multi = DownloadMultiRequests(requests)
+        super(DownloadRequests, self).__init__(Requests(max_connections, refresh=refresh))
+        self._multi = DownloadMultiRequests(self._requests)
 
     def add(self, requests):
         self._multi.add(requests)

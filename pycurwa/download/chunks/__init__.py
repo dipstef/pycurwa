@@ -37,6 +37,9 @@ class ChunksFileDownload(object):
     def _create_http_chunks(self, chunks_file):
         return DownloadChunks(chunks_file, self._cookies, self._bucket)
 
+    def __iter__(self):
+        return iter(self._chunks)
+
 
 class HttpChunksDownload(ChunksFileDownload):
 

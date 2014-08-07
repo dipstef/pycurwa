@@ -14,24 +14,6 @@ class DownloadRequest(HttpyRequest):
         self.resume = resume
 
 
-class HttpDownloadRequest(DownloadRequest):
-
-    def __init__(self, request, path, chunks=1, resume=False, cookies=None, bucket=None):
-        super(HttpDownloadRequest, self).__init__(request, path, chunks, resume)
-        self._cookies = cookies
-        self._bucket = bucket
-
-    def perform(self):
-        chunks_file = get_chunks_file(self, cookies=self._cookies)
-
-        request = self._create_request(chunks_file)
-
-        return request.perform()
-
-    def _create_request(self, chunks_file):
-        return ChunksDownloads(chunks_file, cookies=self._cookies, bucket=self._bucket)
-
-
 class HttpDownloadRequests(HttpClient):
 
     def __init__(self, cookies=cookie_jar, bucket=None, timeout=30):
@@ -40,7 +22,10 @@ class HttpDownloadRequests(HttpClient):
         self._bucket = bucket
 
     def execute(self, request, path, chunks=1, resume=False):
-        return self._get_request(request, path, chunks, resume)
+        request = DownloadRequest(request, path, chunks, resume)
 
-    def _get_request(self, request, path, chunks, resume):
-        return HttpDownloadRequest(request, path, chunks, resume, self._cookies, self._bucket)
+        chunks_file = get_chunks_file(request, cookies=self._cookies)
+        return self._create_request(chunks_file)
+
+    def _create_request(self, chunks_file):
+        return ChunksDownloads(chunks_file, cookies=self._cookies, bucket=self._bucket)
