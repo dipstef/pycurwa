@@ -86,6 +86,7 @@ class RequestsRefresh(Requests):
 
     def get_status(self):
         now = time()
+
         if now - self._last_update >= self._refresh_rate:
             status = super(RequestsRefresh, self).get_status()
             self._last_update = now

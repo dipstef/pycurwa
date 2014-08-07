@@ -40,11 +40,10 @@ class RequestsChunksDownload(ChunksDownloads):
         return ChunksCompletion(self._requests, chunks_file, self._cookies, self._bucket)
 
 
-class ChunksCompletion(HttpChunks):
+class ChunksMultiRequests(HttpChunks):
 
     def __init__(self, requests, chunks_file, cookies=None, bucket=None):
-        super(ChunksCompletion, self).__init__(chunks_file, cookies, bucket)
-        self._outcome = Queue(1)
+        super(ChunksMultiRequests, self).__init__(chunks_file, cookies, bucket)
         self._requests = requests
         #starts downloads right away
         self.submit()
@@ -54,6 +53,13 @@ class ChunksCompletion(HttpChunks):
 
     def close(self):
         self._requests.close(self)
+
+
+class ChunksCompletion(ChunksMultiRequests):
+
+    def __init__(self, requests, chunks_file, cookies=None, bucket=None):
+        self._outcome = Queue(1)
+        super(ChunksCompletion, self).__init__(requests, chunks_file, cookies, bucket)
 
     def _update(self, status):
         try:

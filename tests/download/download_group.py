@@ -1,6 +1,5 @@
 from pycurwa.bucket import Bucket
-from pycurwa.download import  HttpDownloadRequests
-from pycurwa.multi.download.group import DownloadGroup
+from pycurwa.multi.download.group import DownloadGroup, GroupRequests
 
 
 def main():
@@ -13,13 +12,17 @@ def main():
 
     bucket = None
 
-    requests = HttpDownloadRequests(bucket=bucket)
+    #requests = HttpDownloadRequests(bucket=bucket)
 
     with DownloadGroup() as group:
-        group.add(requests.get('http://download.thinkbroadband.com/5MB.zip', path=path, chunks=4, resume=True))
-        #group.add(requests.get('http://download.thinkbroadband.com/10MB.zip', path=path, chunks=4, resume=True))
+        requests = GroupRequests(group, bucket=bucket)
 
-        group.perform()
+        requests.get('http://download.thinkbroadband.com/5MB.zip', path=path, chunks=4, resume=True)
+        requests.get('http://download.thinkbroadband.com/10MB.zip', path=path, chunks=4, resume=True)
+
+        for status in group:
+            for download in status.completed:
+                print download.request, download.stats.speed
 
 if __name__ == "__main__":
     main()

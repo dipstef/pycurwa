@@ -44,20 +44,38 @@ class DownloadMultiRequests(MultiRequests):
         super(DownloadMultiRequests, self).close(requests)
         self._request_groups.remove(requests)
 
-    def update(self, status):
-        for request, request_status in self._group_by_request(status):
-            request.update(request_status)
-
-    def _group_by_request(self, status):
-        statuses = OrderedDict(((requests, RequestsStatus([], [], status.check)) for requests in self._request_groups))
+    def get_status(self, status):
+        requests_status = RequestGroupStatus(self._request_groups, status)
 
         for group, completed in groupby(status.completed, key=lambda r: self._handles_requests[r.handle]):
-            statuses[group] = RequestsStatus(list(completed), [], status.check)
+            requests_status.add_completed(group, list(completed))
 
         for group, failed in groupby(status.failed, key=lambda r: self._handles_requests[r.handle]):
-            statuses[group] = RequestsStatus(statuses.get(group).completed, list(failed), status.check)
+            requests_status.add_failed(group, list(failed))
 
-        return statuses.iteritems()
+        return requests_status
+
+
+class RequestGroupStatus(RequestsStatus):
+
+    def __init__(self, requests, status):
+        super(RequestGroupStatus, self).__init__([], [], status.check)
+        self._status = status
+        self._statuses = OrderedDict(((requests, RequestsStatus([], [], status.check)) for requests in requests))
+
+    def add_completed(self, requests, completed):
+        self._statuses[requests] = RequestsStatus(completed, [], self.check)
+        self.completed.append(requests)
+
+    def add_failed(self, requests, failed):
+        self._statuses[requests] = RequestsStatus(self._get_completed(requests), failed, self.check)
+        self.failed = failed
+
+    def _get_completed(self, requests):
+        return self._statuses.get(requests).completed
+
+    def __iter__(self):
+        return self._statuses.iteritems()
 
 
 class DownloadRequests(RequestsUpdates):
@@ -74,7 +92,13 @@ class DownloadRequests(RequestsUpdates):
         return True
 
     def _send_updates(self, status):
-        self._multi.update(status)
+        requests_status = self._multi.get_status(status)
+
+        self._update_requests(requests_status)
+
+    def _update_requests(self, requests_status):
+        for request, status in requests_status:
+            request.update(status)
 
     def close(self, requests):
         self._multi.close(requests)

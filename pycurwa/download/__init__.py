@@ -1,6 +1,6 @@
 from httpy.client import HttpClient, cookie_jar, HttpyRequest
-from .chunks import DownloadChunks, get_chunks_file
-from pycurwa.download import get_chunks_file, DownloadChunks
+from .chunks import DownloadChunks
+from .files.chunks import get_chunks_file
 
 
 class HttpDownloadRequests(HttpClient):

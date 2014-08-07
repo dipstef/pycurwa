@@ -68,6 +68,7 @@ class LimitedRequests(RequestsProcess):
 
     def add(self, request):
         self._handles_add.put(request)
+        self._on_going_requests.set()
 
     def _add_handles(self):
         while not self._closed.is_set():
@@ -79,7 +80,6 @@ class LimitedRequests(RequestsProcess):
 
     def _add_request(self, request):
         super(LimitedRequests, self).add(request)
-        self._on_going_requests.set()
 
     def get_status(self):
         status = super(LimitedRequests, self).get_status()
@@ -97,6 +97,9 @@ class LimitedRequests(RequestsProcess):
         #unblocks the queue
         self._handles_add.put(None)
         self._handles_thread.join()
+
+    def __nonzero__(self):
+        return self._on_going_requests.is_set()
 
 
 class Requests(RequestsRefresh):
