@@ -1,6 +1,8 @@
 from httpy.client import HttpClient, cookie_jar, HttpyRequest
-from .chunks import DownloadChunks
+
+from .chunks import ChunksDownloads
 from .files.chunks import get_chunks_file
+from ..curl.requests import RequestsRefresh
 
 
 class HttpDownloadRequests(HttpClient):
@@ -35,3 +37,16 @@ class HttpDownload(HttpDownloadRequests):
     def execute(self, request, path, chunks=1, resume=False):
         download = super(HttpDownload, self).execute(request, path, chunks, resume)
         return download.perform()
+
+
+class DownloadChunks(ChunksDownloads):
+
+    def __init__(self, chunks_file, cookies=None, bucket=None):
+        super(DownloadChunks, self).__init__(RequestsRefresh(refresh=0.5), chunks_file, cookies, bucket)
+
+    def _wait_termination(self):
+        for status in self._requests.iterate_statuses():
+            for chunk in status.completed:
+                self._requests.close(chunk)
+
+            self.update(status)

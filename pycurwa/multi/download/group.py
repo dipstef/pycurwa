@@ -2,10 +2,10 @@ from Queue import Queue
 
 from httpy.client import cookie_jar
 
+from . import ChunksMultiRequests
 from ..download.requests import DownloadRequests
-from pycurwa.curl.requests import RequestsStatus
-from pycurwa.download import HttpDownloadRequests
-from pycurwa.multi.download import ChunksMultiRequests
+from ...download import HttpDownloadRequests
+from ...curl.requests import RequestsStatus
 
 
 class GroupRequests(HttpDownloadRequests):
@@ -27,7 +27,7 @@ class DownloadGroup(DownloadRequests):
         super(DownloadGroup, self).__init__(max_connections, refresh)
         self._outcome = Queue(1)
 
-    def __iter__(self):
+    def iterate_finished(self):
         while self._requests:
             status = self._outcome.get()
             yield status

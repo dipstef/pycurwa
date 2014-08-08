@@ -2,6 +2,7 @@ from collections import OrderedDict
 from itertools import groupby
 
 from ...curl.requests import RequestsStatus
+from ...error import FailedStatus
 from ..requests import Requests, RequestsUpdates
 
 
@@ -69,7 +70,7 @@ class RequestGroupStatus(RequestsStatus):
 
     def add_failed(self, requests, failed):
         self._statuses[requests] = RequestsStatus(self._get_completed(requests), failed, self.check)
-        self.failed = failed
+        self.failed.append(requests)
 
     def _get_completed(self, requests):
         return self._statuses.get(requests).completed
@@ -97,8 +98,12 @@ class DownloadRequests(RequestsUpdates):
         self._update_requests(requests_status)
 
     def _update_requests(self, requests_status):
-        for request, status in requests_status:
-            request.update(status)
+        for requests, status in requests_status:
+            try:
+                requests.update(status)
+            except FailedStatus:
+                if not requests in requests_status.failed:
+                    requests_status.failed.append(requests)
 
     def close(self, requests):
         self._multi.close(requests)

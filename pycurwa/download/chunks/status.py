@@ -83,7 +83,6 @@ class DownloadStats(object):
         current_speeds = reduce(operator.add, last, self._last_speeds) / (1 + len(last))
         return current_speeds
 
-
     @property
     def received(self):
         return self._last_received.sum()
@@ -91,6 +90,9 @@ class DownloadStats(object):
     @property
     def percent(self):
         return (self.received * 100) / self.size
+
+    def __str__(self):
+        return '%s:, size: %d, speed: %d' % (self.path, self.size, self.speed)
 
 
 class HttpChunksStatus(RequestsStatus):

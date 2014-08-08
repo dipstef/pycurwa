@@ -2,10 +2,11 @@ from Queue import Queue
 
 from httpy.client import cookie_jar
 from procol.console import print_err_trace
+
 from .requests import DownloadRequests
 
 from ...download import HttpDownloadRequests
-from ...download.chunks import ChunksDownloads, HttpChunks
+from ...download.chunks import ChunksDownloads
 
 
 class MultiDownloadsRequests(HttpDownloadRequests):
@@ -28,55 +29,40 @@ class MultiDownloads(MultiDownloadsRequests):
         return download.perform()
 
 
-class RequestsChunksDownload(ChunksDownloads):
+class ChunksMultiRequests(ChunksDownloads):
 
     def __init__(self, requests, chunks_file, cookies=None, bucket=None):
-        super(RequestsChunksDownload, self).__init__(requests, chunks_file, cookies, bucket)
-
-    def perform(self):
-        return self._chunks.perform()
-
-    def _create_http_chunks(self, chunks_file):
-        return ChunksCompletion(self._requests, chunks_file, self._cookies, self._bucket)
-
-
-class ChunksMultiRequests(HttpChunks):
-
-    def __init__(self, requests, chunks_file, cookies=None, bucket=None):
-        super(ChunksMultiRequests, self).__init__(chunks_file, cookies, bucket)
+        super(ChunksMultiRequests, self).__init__(requests, chunks_file, cookies, bucket)
         self._requests = requests
         #starts downloads right away
-        self.submit()
+        self._submit()
 
-    def submit(self):
+    def _submit(self):
         self._requests.add(self)
 
     def close(self):
         self._requests.close(self)
 
 
-class ChunksCompletion(ChunksMultiRequests):
+class RequestsChunksDownload(ChunksMultiRequests):
 
     def __init__(self, requests, chunks_file, cookies=None, bucket=None):
         self._outcome = Queue(1)
-        super(ChunksCompletion, self).__init__(requests, chunks_file, cookies, bucket)
+        super(RequestsChunksDownload, self).__init__(requests, chunks_file, cookies, bucket)
 
-    def _update(self, status):
-        try:
-            return super(ChunksCompletion, self)._update(status)
-        except BaseException, e:
-            print_err_trace()
-            self._outcome.put(e)
-
-    def _done_downloading(self, status):
-        status = super(ChunksCompletion, self)._done_downloading(status)
-
-        self._outcome.put(status)
-
-    def perform(self):
+    def _wait_termination(self):
         if self._chunks:
             outcome = self._outcome.get()
             if isinstance(outcome, Exception):
                 raise outcome
 
-        return self.stats
+    def _update(self, status):
+        try:
+            return super(RequestsChunksDownload, self)._update(status)
+        except BaseException, e:
+            print_err_trace()
+            self._outcome.put(e)
+
+    def _done_downloading(self, status):
+        status = super(RequestsChunksDownload, self)._done_downloading(status)
+        self._outcome.put(status)

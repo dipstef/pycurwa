@@ -23,7 +23,7 @@ def main():
 
     try:
         #request1 = _request(downloads, 'http://download.thinkbroadband.com/10MB.zip')
-        request2 = _request(downloads, 'http://download.thinkbroadband.com/5MB.zip', chunks=5)
+        request2 = _request(downloads, 'http://download.thinkbroadband.com/5MB.zip', chunks=4)
 
         #stats1 = request1.perform()
         #print stats1.speed
