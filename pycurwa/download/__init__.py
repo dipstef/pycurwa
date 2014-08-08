@@ -45,6 +45,8 @@ class DownloadChunks(ChunksDownloads):
         super(DownloadChunks, self).__init__(RequestsRefresh(refresh=0.5), chunks_file, cookies, bucket)
 
     def _wait_termination(self):
+        self.submit()
+
         for status in self._requests.iterate_statuses():
             for chunk in status.completed:
                 self._requests.close(chunk)

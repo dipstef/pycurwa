@@ -39,9 +39,9 @@ class HttpChunksDownload(ChunksFileDownload):
     def __init__(self, requests, chunks_file, cookies=None, bucket=None):
         super(HttpChunksDownload, self).__init__(requests, chunks_file, cookies, bucket)
 
-    def update(self, status):
+    def _update(self, status):
         try:
-            return super(HttpChunksDownload, self).update(status)
+            return super(HttpChunksDownload, self)._update(status)
         except FailedChunks, e:
             if len(self._chunks_file) == 1:
                 raise
@@ -76,9 +76,9 @@ class ChunksDownloads(HttpChunksDownload):
     def __init__(self, requests, chunks_file, cookies=None, bucket=None):
         super(ChunksDownloads, self).__init__(requests, chunks_file, cookies, bucket)
 
-    def update(self, status):
+    def _update(self, status):
         try:
-            super(ChunksDownloads, self).update(status)
+            super(ChunksDownloads, self)._update(status)
         except InvalidRangeRequest:
             if self._chunks_file.resume:
                 return self._no_resume_download()
@@ -89,7 +89,6 @@ class ChunksDownloads(HttpChunksDownload):
         self._retry_chunks(self._chunks_file)
 
     def perform(self):
-        self._submit()
         self._wait_termination()
         return self.stats
 

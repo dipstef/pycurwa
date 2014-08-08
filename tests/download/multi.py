@@ -19,11 +19,11 @@ def main():
 
     bucket = None
 
-    downloads = MultiDownloadsRequests(bucket=bucket)
+    downloads = MultiDownloadsRequests(bucket=bucket, max_connections=8)
 
     try:
         #request1 = _request(downloads, 'http://download.thinkbroadband.com/10MB.zip')
-        request2 = _request(downloads, 'http://download.thinkbroadband.com/5MB.zip', chunks=4)
+        request2 = _request(downloads, 'http://download.thinkbroadband.com/5MB.zip', chunks=20)
 
         #stats1 = request1.perform()
         #print stats1.speed

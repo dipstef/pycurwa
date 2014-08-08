@@ -15,21 +15,21 @@ class HttpChunks(ChunksDownload):
         if not downloads and chunks_file.chunks:
             self._verify_completed()
 
-    def _update(self, status):
+    def update(self, status):
         try:
-            super(HttpChunks, self)._update(status)
+            super(HttpChunks, self).update(status)
 
             if self._is_done():
                 self._done_downloading(status)
-        except BaseException:
+        except BaseException, e:
             self.close()
             raise
 
     def _done_downloading(self, status):
         try:
+            self.close()
             self._verify_completed()
             self._completed = True
-            self.close()
         except BaseException:
             raise
 

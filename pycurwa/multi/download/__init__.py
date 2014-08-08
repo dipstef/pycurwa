@@ -11,9 +11,9 @@ from ...download.chunks import ChunksDownloads
 
 class MultiDownloadsRequests(HttpDownloadRequests):
 
-    def __init__(self, cookies=cookie_jar, bucket=None, timeout=30):
+    def __init__(self, cookies=cookie_jar, bucket=None, max_connections=10, timeout=30):
         super(MultiDownloadsRequests, self).__init__(cookies, bucket, timeout)
-        self._requests = DownloadRequests()
+        self._requests = DownloadRequests(max_connections)
 
     def _create_request(self, chunks_file):
         return RequestsChunksDownload(self._requests, chunks_file, self._cookies, self._bucket)

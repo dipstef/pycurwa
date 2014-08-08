@@ -1,8 +1,8 @@
 from collections import OrderedDict
 from itertools import groupby
+from httpy.error import HttpError
 
 from ...curl.requests import RequestsStatus
-from ...error import FailedStatus
 from ..requests import Requests, RequestsUpdates
 
 
@@ -20,6 +20,7 @@ class MultiRequests(object):
     def close(self, requests):
         for request in requests:
             self._requests.close(request)
+            #if request.handle in self._handles_requests:
             del self._handles_requests[request.handle]
 
     def iterate_statuses(self):
@@ -43,6 +44,7 @@ class DownloadMultiRequests(MultiRequests):
 
     def close(self, requests):
         super(DownloadMultiRequests, self).close(requests)
+        #if requests in self._request_groups:
         self._request_groups.remove(requests)
 
     def get_status(self, status):
@@ -101,7 +103,7 @@ class DownloadRequests(RequestsUpdates):
         for requests, status in requests_status:
             try:
                 requests.update(status)
-            except FailedStatus:
+            except HttpError, e:
                 if not requests in requests_status.failed:
                     requests_status.failed.append(requests)
 

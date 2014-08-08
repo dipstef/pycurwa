@@ -13,10 +13,10 @@ def main():
 
     bucket = None
 
-    with DownloadGroup(max_connections=40) as group:
+    with DownloadGroup(max_connections=10) as group:
         requests = GroupRequests(group, bucket=bucket)
 
-        requests.get('http://download.thinkbroadband.com/5MB.zip', path=path, chunks=4, resume=True)
+        requests.get('http://download.thinkbroadband.com/5MB.zip', path=path, chunks=20, resume=True)
         #requests.get('http://download.thinkbroadband.com/10MB.zip', path=path, chunks=20, resume=True)
 
         for status in group.iterate_finished():

@@ -12,9 +12,12 @@ class Requests(object):
         self._requests = RequestsDict()
 
     def add(self, request):
+        self._add_curl_handle(request)
+        self._requests[request.handle] = request
+
+    def _add_curl_handle(self, request):
         try:
             self._curl.add_handle(request.handle)
-            self._requests[request.handle] = request
         except CurlError:
             #already added
             pass

@@ -23,8 +23,8 @@ class RequestsProcess(RequestsRefresh):
         self._on_going_requests.set()
 
     def close(self, request):
-        super(RequestsProcess, self).close(request)
         with self._lock:
+            super(RequestsProcess, self).close(request)
             if not self._requests:
                 self._on_going_requests.clear()
 
@@ -67,19 +67,26 @@ class LimitedRequests(RequestsProcess):
         self._handles_thread.start()
 
     def add(self, request):
+        with self._lock:
+            #mark as inserted
+            self._requests[request.handle] = request
+            self._on_going_requests.set()
         self._handles_add.put(request)
-        self._on_going_requests.set()
 
     def _add_handles(self):
         while not self._closed.is_set():
             request = self._handles_add.get()
+            #check handles removed before they are added
             if request:
                 self._handles_count.acquire()
                 if not self._closed.is_set():
                     self._add_request(request)
 
     def _add_request(self, request):
-        super(LimitedRequests, self).add(request)
+        with self._lock:
+            #has not been removed meanwhile(in case of failed chunks)
+            if request.handle in self._requests:
+                self._add_curl_handle(request)
 
     def get_status(self):
         status = super(LimitedRequests, self).get_status()
