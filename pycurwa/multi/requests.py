@@ -190,7 +190,7 @@ class ProcessRequests(RequestsStatuses):
         self._added.set()
 
     def iterate_statuses(self):
-        status_iterator = self._requests.iterate_statuses()
+        status_iterator = super(ProcessRequests, self).iterate_statuses()
 
         while self._requests or not self._added.is_set():
             yield status_iterator.next()

@@ -13,7 +13,7 @@ class Request(CurlRequest):
 def main():
     request = HttpyRequest('GET', 'http://diskstation:5000')
 
-    requests = (Request(request, i+1) for i in range(0, 100000))
+    requests = (Request(request, i+1) for i in range(0, 10000))
 
     with ProcessRequests(requests, max_connections=None) as requests:
         for status in requests.iterate_statuses():
