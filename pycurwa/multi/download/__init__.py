@@ -22,13 +22,6 @@ class MultiDownloadsRequests(HttpDownloadRequests):
         self._requests.stop()
 
 
-class MultiDownloads(MultiDownloadsRequests):
-
-    def execute(self, request, path, chunks=1, resume=False):
-        download = super(MultiDownloads, self).execute(request, path, chunks, resume)
-        return download.perform()
-
-
 class ChunksMultiRequests(ChunksDownloads):
 
     def __init__(self, requests, chunks_file, cookies=None, bucket=None):

@@ -3,9 +3,10 @@ from Queue import Queue
 from httpy.client import cookie_jar
 
 from . import ChunksMultiRequests
-from ..download.requests import DownloadRequests
+from ..download.requests import DownloadRequests, RequestGroups
 from ...download import HttpDownloadRequests
 from ...curl.requests import RequestsStatus
+from pycurwa.error import FailedStatus
 
 
 class GroupRequests(HttpDownloadRequests):
@@ -33,9 +34,53 @@ class DownloadGroup(DownloadRequests):
             yield status
 
     def _update_requests(self, requests_status):
-        super(DownloadGroup, self)._update_requests(requests_status)
+        completed, failed = [], []
 
-        completed = [group for group in requests_status.completed if len(group.completed) == len(group.chunks)]
-        if completed or requests_status.failed:
-            status = RequestsStatus(completed, requests_status.failed, requests_status.check)
-            self._outcome.put(status)
+        for requests, status in requests_status:
+            try:
+                requests.update(status)
+                if status.completed and len(requests.chunks) == len(requests.completed):
+                    completed.append(requests)
+            except FailedStatus:
+                failed.append(requests)
+
+        if completed or failed:
+            self._outcome.put(RequestsStatus(completed, failed, requests_status.check))
+
+
+class ChunksDownloadGroup(object):
+
+    def __init__(self, requests):
+        self._requests = RequestGroups()
+        self._requests.add(requests)
+        self._outcome = Queue(1)
+
+    def submit(self, requests):
+        pass
+
+    def iterate_finished(self):
+        while self._requests:
+            status = self._outcome.get()
+            yield status
+
+    def update(self, status):
+        requests_status = self._requests.get_status(status)
+
+        completed, failed = [], []
+
+        for requests, status in requests_status:
+            try:
+                requests.update(status)
+                if status.completed and len(requests.chunks) == len(requests.completed):
+                    completed.append(requests)
+            except FailedStatus:
+                failed.append(requests)
+
+        if completed or failed:
+            self._outcome.put(RequestsStatus(completed, failed, requests_status.check))
+
+    def close(self):
+        pass
+
+    def __iter__(self):
+        return (request for requests in self._requests for request in requests)

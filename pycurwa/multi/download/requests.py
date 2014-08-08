@@ -6,45 +6,55 @@ from ...curl.requests import RequestsStatus
 from ..requests import Requests, RequestsUpdates
 
 
-class MultiRequests(object):
+class RequestGroupStatus(object):
 
-    def __init__(self, requests):
-        self._requests = requests
+    def __init__(self, requests, status):
+        self._status = status
+        self._statuses = OrderedDict(((requests, RequestsStatus([], [], status.check)) for requests in requests))
+        self.check = status.check
+        self._completed = []
+        self._failed = []
+
+    def add_completed(self, requests, completed):
+        self._statuses[requests] = RequestsStatus(completed, [], self.check)
+        self._completed.append(requests)
+
+    def add_failed(self, requests, failed):
+        self._statuses[requests] = RequestsStatus(self._get_completed(requests), failed, self.check)
+        self._failed.append(requests)
+
+    def _get_completed(self, requests):
+        return self._statuses.get(requests).completed
+
+    @property
+    def completed(self):
+        return OrderedDict(((requests, self._statuses[requests]) for requests in self._completed))
+
+    @property
+    def failed(self):
+        return OrderedDict(((requests, self._statuses[requests]) for requests in self._failed))
+
+    def __iter__(self):
+        return self._statuses.iteritems()
+
+
+class RequestGroups(object):
+
+    def __init__(self):
+        super(RequestGroups, self).__init__()
         self._handles_requests = OrderedDict()
-
-    def add(self, requests):
-        for request in requests:
-            self._requests.add(request)
-            self._handles_requests[request.handle] = requests
-
-    def close(self, requests):
-        for request in requests:
-            self._requests.close(request)
-            #if request.handle in self._handles_requests:
-            del self._handles_requests[request.handle]
-
-    def iterate_statuses(self):
-        return self._requests.iterate_statuses()
-
-    def stop(self):
-        self._requests.stop()
-
-
-class DownloadMultiRequests(MultiRequests):
-
-    def __init__(self, requests):
-        super(DownloadMultiRequests, self).__init__(requests)
         self._request_groups = []
 
     def add(self, requests):
-        super(DownloadMultiRequests, self).add(requests)
+        for request in requests:
+            self._handles_requests[request.handle] = requests
 
         if not requests in self._request_groups:
             self._request_groups.append(requests)
 
     def close(self, requests):
-        super(DownloadMultiRequests, self).close(requests)
-        #if requests in self._request_groups:
+        for request in requests:
+            del self._handles_requests[request.handle]
         self._request_groups.remove(requests)
 
     def get_status(self, status):
@@ -58,36 +68,22 @@ class DownloadMultiRequests(MultiRequests):
 
         return requests_status
 
-
-class RequestGroupStatus(RequestsStatus):
-
-    def __init__(self, requests, status):
-        super(RequestGroupStatus, self).__init__([], [], status.check)
-        self._status = status
-        self._statuses = OrderedDict(((requests, RequestsStatus([], [], status.check)) for requests in requests))
-
-    def add_completed(self, requests, completed):
-        self._statuses[requests] = RequestsStatus(completed, [], self.check)
-        self.completed.append(requests)
-
-    def add_failed(self, requests, failed):
-        self._statuses[requests] = RequestsStatus(self._get_completed(requests), failed, self.check)
-        self.failed.append(requests)
-
-    def _get_completed(self, requests):
-        return self._statuses.get(requests).completed
-
     def __iter__(self):
-        return self._statuses.iteritems()
+        return iter(self._request_groups)
+
+    def __len__(self):
+        return len(self._request_groups)
 
 
 class DownloadRequests(RequestsUpdates):
 
     def __init__(self, max_connections=10, refresh=0.5):
         super(DownloadRequests, self).__init__(Requests(max_connections, refresh=refresh))
-        self._multi = DownloadMultiRequests(self._requests)
+        self._multi = RequestGroups()
 
     def add(self, requests):
+        for request in requests:
+            self._requests.add(request)
         self._multi.add(requests)
 
     def _is_status_update(self, status):
@@ -101,11 +97,9 @@ class DownloadRequests(RequestsUpdates):
 
     def _update_requests(self, requests_status):
         for requests, status in requests_status:
-            try:
-                requests.update(status)
-            except HttpError, e:
-                if not requests in requests_status.failed:
-                    requests_status.failed.append(requests)
+            requests.update(status)
 
     def close(self, requests):
+        for request in requests:
+            self._requests.close(request)
         self._multi.close(requests)
