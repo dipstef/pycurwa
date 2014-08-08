@@ -1,6 +1,7 @@
 from procol.console import print_err
+
 from pycurwa.bucket import Bucket
-from pycurwa.multi.download.group import DownloadGroup, GroupRequests
+from pycurwa.multi.download import MultiDownloadsRequests
 
 
 def main():
@@ -13,11 +14,13 @@ def main():
 
     bucket = None
 
-    with DownloadGroup(max_connections=10) as group:
-        requests = GroupRequests(group, bucket=bucket)
+    with MultiDownloadsRequests(max_connections=10) as requests:
+        requests = requests.create_group()
 
-        requests.get('http://download.thinkbroadband.com/5MB.zip', path=path, chunks=20, resume=True)
+        requests.get('http://download.thinkbroadband.com/5MB.zip', path=path, chunks=4, resume=True)
         #requests.get('http://download.thinkbroadband.com/10MB.zip', path=path, chunks=20, resume=True)
+
+        group = requests.submit()
 
         for status in group.iterate_finished():
             for download in status.completed:

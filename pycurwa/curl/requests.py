@@ -77,6 +77,9 @@ class Requests(object):
     def _has_requests(self):
         return bool(self._requests)
 
+    def __contains__(self, handle):
+        return handle in self._requests
+
     def __len__(self):
         return len(self._requests)
 

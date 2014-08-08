@@ -3,10 +3,9 @@ from Queue import Queue
 from httpy.client import cookie_jar
 from procol.console import print_err_trace
 
-from .requests import DownloadRequests
-
+from .requests import DownloadRequests, ChunksMultiRequests
 from ...download import HttpDownloadRequests
-from ...download.chunks import ChunksDownloads
+from .group import GroupRequests
 
 
 class MultiDownloadsRequests(HttpDownloadRequests):
@@ -18,23 +17,14 @@ class MultiDownloadsRequests(HttpDownloadRequests):
     def _create_request(self, chunks_file):
         return RequestsChunksDownload(self._requests, chunks_file, self._cookies, self._bucket)
 
+    def create_group(self):
+        return GroupRequests(self._requests, self._cookies, self._bucket)
+
     def close(self):
+        self._close()
+
+    def _close(self):
         self._requests.stop()
-
-
-class ChunksMultiRequests(ChunksDownloads):
-
-    def __init__(self, requests, chunks_file, cookies=None, bucket=None):
-        super(ChunksMultiRequests, self).__init__(chunks_file, cookies, bucket)
-        self._requests = requests
-        #starts downloads right away
-        self._submit()
-
-    def _submit(self):
-        self._requests.add(self)
-
-    def close(self):
-        self._requests.close(self)
 
 
 class RequestsChunksDownload(ChunksMultiRequests):
@@ -42,6 +32,8 @@ class RequestsChunksDownload(ChunksMultiRequests):
     def __init__(self, requests, chunks_file, cookies=None, bucket=None):
         self._outcome = Queue(1)
         super(RequestsChunksDownload, self).__init__(requests, chunks_file, cookies, bucket)
+        #starts downloads right away
+        self._submit()
 
     def perform(self):
         if self._chunks:

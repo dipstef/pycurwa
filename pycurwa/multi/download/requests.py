@@ -1,9 +1,9 @@
 from collections import OrderedDict
 from itertools import groupby
-from httpy.error import HttpError
 
 from ...curl.requests import RequestsStatus
 from ..requests import Requests, RequestsUpdates
+from ...download import ChunksDownloads
 
 
 class RequestGroupStatus(object):
@@ -43,37 +43,56 @@ class RequestGroups(object):
     def __init__(self):
         super(RequestGroups, self).__init__()
         self._handles_requests = OrderedDict()
-        self._request_groups = []
+        self._requests_handles = OrderedDict()
 
     def add(self, requests):
+        handles = self._get_requests_handles(requests)
+
         for request in requests:
             self._handles_requests[request.handle] = requests
+            handles.add(request.handle)
 
-        if not requests in self._request_groups:
-            self._request_groups.append(requests)
+    def _get_requests_handles(self, requests):
+        requests_handles = self._requests_handles.get(requests)
+        if not requests_handles:
+            requests_handles = set()
+            self._requests_handles[requests] = requests_handles
+
+        return requests_handles
 
     def close(self, requests):
         for request in requests:
+            group = self._handles_requests[request.handle]
             del self._handles_requests[request.handle]
 
-        self._request_groups.remove(requests)
+            handles = self._requests_handles[group]
+            handles.remove(request.handle)
+
+            if not handles:
+                del self._requests_handles[group]
 
     def get_status(self, status):
-        requests_status = RequestGroupStatus(self._request_groups, status)
+        requests_status = RequestGroupStatus(self._requests_handles, status)
 
-        for group, completed in groupby(status.completed, key=lambda r: self._handles_requests[r.handle]):
-            requests_status.add_completed(group, list(completed))
+        for group, completed in self._group_by_requests(status.completed):
+            requests_status.add_completed(group, completed)
 
-        for group, failed in groupby(status.failed, key=lambda r: self._handles_requests[r.handle]):
-            requests_status.add_failed(group, list(failed))
+        for group, failed in self._group_by_requests(status.failed):
+            requests_status.add_failed(group, failed)
 
         return requests_status
 
+    def _group_by_requests(self, requests):
+        filtered = (request for request in requests if request.handle in self._handles_requests)
+
+        grouped = groupby(requests, key=lambda request: self._handles_requests[request.handle])
+        return ((group, list(group_requests)) for group, group_requests in grouped)
+
     def __iter__(self):
-        return iter(self._request_groups)
+        return self._requests_handles.iterkeys()
 
     def __len__(self):
-        return len(self._request_groups)
+        return len(self._requests_handles)
 
 
 class DownloadRequests(RequestsUpdates):
@@ -83,10 +102,9 @@ class DownloadRequests(RequestsUpdates):
         self._multi = RequestGroups()
 
     def add(self, requests):
+        self._multi.add(requests)
         for request in requests:
             self._requests.add(request)
-
-        self._multi.add(requests)
 
     def _is_status_update(self, status):
         #always send updates
@@ -95,13 +113,24 @@ class DownloadRequests(RequestsUpdates):
     def _send_updates(self, status):
         requests_status = self._multi.get_status(status)
 
-        self._update_requests(requests_status)
-
-    def _update_requests(self, requests_status):
         for requests, status in requests_status:
             requests.update(status)
 
     def close(self, requests):
+        self._multi.close(requests)
+
         for request in requests:
             self._requests.close(request)
-        self._multi.close(requests)
+
+
+class ChunksMultiRequests(ChunksDownloads):
+
+    def __init__(self, requests, chunks_file, cookies=None, bucket=None):
+        super(ChunksMultiRequests, self).__init__(chunks_file, cookies, bucket)
+        self._requests = requests
+
+    def _submit(self):
+        self._requests.add(self)
+
+    def close(self):
+        self._requests.close(self)

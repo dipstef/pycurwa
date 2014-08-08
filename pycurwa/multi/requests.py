@@ -30,6 +30,7 @@ class RequestsProcess(RequestsRefresh):
 
     def _has_requests(self):
         self._on_going_requests.wait()
+
         return not self.is_closed()
 
     def is_closed(self):
@@ -71,6 +72,7 @@ class LimitedRequests(RequestsProcess):
             #mark as inserted
             self._requests[request.handle] = request
             self._on_going_requests.set()
+
         self._handles_add.put(request)
 
     def _add_handles(self):

@@ -26,12 +26,9 @@ class HttpChunks(ChunksDownload):
             raise
 
     def _done_downloading(self, status):
-        try:
-            self.close()
-            self._verify_completed()
-            self._completed = True
-        except BaseException:
-            raise
+        self.close()
+        self._verify_completed()
+        self._completed = True
 
     def _verify_completed(self):
         if not self.is_completed():
