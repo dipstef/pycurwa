@@ -83,9 +83,9 @@ class RequestGroups(object):
         return requests_status
 
     def _group_by_requests(self, requests):
-        filtered = (request for request in requests if request.handle in self._handles_requests)
+        existing = (request for request in requests if request.handle in self._handles_requests)
 
-        grouped = groupby(requests, key=lambda request: self._handles_requests[request.handle])
+        grouped = groupby(existing, key=lambda request: self._handles_requests[request.handle])
         return ((group, list(group_requests)) for group, group_requests in grouped)
 
     def __iter__(self):

@@ -4,6 +4,14 @@ from pycurwa.bucket import Bucket
 from pycurwa.multi.download import MultiDownloadsRequests
 
 
+def _print_stats(group):
+    for status in group.iterate_finished():
+        for download in status.completed:
+            print download.stats
+        for download in status.failed:
+            print_err(download.stats, download.error)
+
+
 def main():
     import os
 
@@ -14,19 +22,18 @@ def main():
 
     bucket = None
 
-    with MultiDownloadsRequests(max_connections=10) as requests:
-        requests = requests.create_group()
+    requests = MultiDownloadsRequests(max_connections=10)
 
-        requests.get('http://download.thinkbroadband.com/5MB.zip', path=path, chunks=4, resume=True)
-        #requests.get('http://download.thinkbroadband.com/10MB.zip', path=path, chunks=20, resume=True)
+    try:
+        with requests.group() as group:
 
-        group = requests.submit()
+            group.get('http://download.thinkbroadband.com/5MB.zip', path=path, chunks=4, resume=True)
+            group.get('http://download.thinkbroadband.com/10MB.zip', path=path, chunks=4, resume=True)
 
-        for status in group.iterate_finished():
-            for download in status.completed:
-                print download.stats
-            for download in status.failed:
-                print_err(download.stats)
+            _print_stats(group)
+
+    finally:
+        requests.close()
 
 if __name__ == "__main__":
     main()

@@ -86,23 +86,21 @@ class LimitedRequests(RequestsProcess):
 
     def _add_request(self, request):
         with self._lock:
-            #has not been removed meanwhile(in case of failed chunks)
+            #has been removed meanwhile(in case of failed chunks)
             if request.handle in self._requests:
                 self._add_curl_handle(request)
 
-    def get_status(self):
-        status = super(LimitedRequests, self).get_status()
-
-        for _ in range(len(status.completed) + len(status.failed)):
-            self._handles_count.release()
-
-        return status
+    def _remove(self, request):
+        super(LimitedRequests, self)._remove(request)
+        self._handles_count.release()
 
     def _close(self):
         super(LimitedRequests, self)._close()
         #unblocks semaphore
+
         for i in range(len(self._requests)):
             self._handles_count.release()
+
         #unblocks the queue
         self._handles_add.put(None)
         self._handles_thread.join()

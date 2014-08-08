@@ -25,11 +25,14 @@ class Requests(object):
     def close(self, request):
         try:
             self._curl.remove_handle(request.handle)
-            del self._requests[request.handle]
-            request.close()
+            self._remove(request)
         except CurlError:
             #already removed
             pass
+
+    def _remove(self, request):
+        del self._requests[request.handle]
+        request.close()
 
     def _get_request(self, handle):
         request = self._requests.get(handle)

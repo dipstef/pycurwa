@@ -17,7 +17,7 @@ class MultiDownloadsRequests(HttpDownloadRequests):
     def _create_request(self, chunks_file):
         return RequestsChunksDownload(self._requests, chunks_file, self._cookies, self._bucket)
 
-    def create_group(self):
+    def group(self):
         return GroupRequests(self._requests, self._cookies, self._bucket)
 
     def close(self):
