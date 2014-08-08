@@ -25,7 +25,7 @@ class MultiDownloadsRequests(HttpDownloadRequests):
 class ChunksMultiRequests(ChunksDownloads):
 
     def __init__(self, requests, chunks_file, cookies=None, bucket=None):
-        super(ChunksMultiRequests, self).__init__(requests, chunks_file, cookies, bucket)
+        super(ChunksMultiRequests, self).__init__(chunks_file, cookies, bucket)
         self._requests = requests
         #starts downloads right away
         self._submit()
@@ -43,11 +43,13 @@ class RequestsChunksDownload(ChunksMultiRequests):
         self._outcome = Queue(1)
         super(RequestsChunksDownload, self).__init__(requests, chunks_file, cookies, bucket)
 
-    def _wait_termination(self):
+    def perform(self):
         if self._chunks:
             outcome = self._outcome.get()
             if isinstance(outcome, Exception):
                 raise outcome
+
+        return self.stats
 
     def _update(self, status):
         try:

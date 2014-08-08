@@ -4,7 +4,7 @@ from httpy.client import cookie_jar
 
 from . import ChunksMultiRequests
 from ..download.requests import DownloadRequests, RequestGroups
-from ...download import HttpDownloadRequests
+from ...download import HttpDownloadRequests, ChunksDownloads
 from ...curl.requests import RequestsStatus
 from pycurwa.error import FailedStatus
 
@@ -46,6 +46,12 @@ class DownloadGroup(DownloadRequests):
 
         if completed or failed:
             self._outcome.put(RequestsStatus(completed, failed, requests_status.check))
+
+
+class HttpDownloadGroup(HttpDownloadRequests):
+
+    def _create_request(self, chunks_file):
+        return ChunksDownloads()
 
 
 class ChunksDownloadGroup(object):

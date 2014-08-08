@@ -45,17 +45,3 @@ class HttpChunks(ChunksDownload):
     def close(self):
         for chunk in self.chunks:
             chunk.close()
-
-
-class HttpChunksRequests(HttpChunks):
-    def __init__(self, requests, chunks_file, cookies=None, bucket=None):
-        super(HttpChunksRequests, self).__init__(chunks_file, cookies, bucket)
-        self._requests = requests
-
-    def submit(self):
-        for chunk in self.chunks:
-            self._requests.add(chunk)
-
-    def close(self):
-        for chunk in self.chunks:
-            self._requests.close(chunk)

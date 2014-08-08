@@ -19,7 +19,7 @@ def main():
 
     bucket = None
 
-    downloads = MultiDownloadsRequests(bucket=bucket, max_connections=8)
+    downloads = MultiDownloadsRequests(bucket=bucket, max_connections=15)
 
     try:
         #request1 = _request(downloads, 'http://download.thinkbroadband.com/10MB.zip')

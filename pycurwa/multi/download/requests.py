@@ -55,6 +55,7 @@ class RequestGroups(object):
     def close(self, requests):
         for request in requests:
             del self._handles_requests[request.handle]
+
         self._request_groups.remove(requests)
 
     def get_status(self, status):
@@ -84,6 +85,7 @@ class DownloadRequests(RequestsUpdates):
     def add(self, requests):
         for request in requests:
             self._requests.add(request)
+
         self._multi.add(requests)
 
     def _is_status_update(self, status):

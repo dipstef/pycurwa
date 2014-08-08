@@ -42,13 +42,24 @@ class HttpDownload(HttpDownloadRequests):
 class DownloadChunks(ChunksDownloads):
 
     def __init__(self, chunks_file, cookies=None, bucket=None):
-        super(DownloadChunks, self).__init__(RequestsRefresh(refresh=0.5), chunks_file, cookies, bucket)
+        super(DownloadChunks, self).__init__(chunks_file, cookies, bucket)
+        self._requests = RequestsRefresh(refresh=0.5)
 
-    def _wait_termination(self):
-        self.submit()
+    def perform(self):
+        self._submit()
 
         for status in self._requests.iterate_statuses():
             for chunk in status.completed:
                 self._requests.close(chunk)
 
             self.update(status)
+
+        return self.stats
+
+    def _submit(self):
+        for request in self:
+            self._requests.add(request)
+
+    def close(self):
+        for chunk in self.chunks:
+            self._requests.close(chunk)
