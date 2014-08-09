@@ -36,7 +36,7 @@ settings.update(
     license='Apache 2.0',
     url='https://github.com/dipstef/httpy',
     classifiers=CLASSIFIERS,
-    keywords='http client curl pycurl',
+    keywords='http client curl pycurl httpy',
     packages=[],
     test_suite='tests',
     requires=['unicoder', 'httpy']
