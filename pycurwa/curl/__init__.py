@@ -1,4 +1,3 @@
-from contextlib import closing
 import pycurl
 import sys
 
@@ -17,16 +16,21 @@ else:
         from StringIO import StringIO as BytesIO
 
 
-class ClosingCurl(closing, SetOptions, GetOptions):
+class ClosingCurl(SetOptions, GetOptions):
 
     def __init__(self, curl_class):
         self.curl = curl_class()
         self.closed = False
-        super(ClosingCurl, self).__init__(self)
 
     def close(self):
         self.curl.close()
         self.closed = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
 
     def __eq__(self, other):
         return other == self.curl

@@ -30,14 +30,15 @@ CLASSIFIERS = [
 settings.update(
     name='pycurwa',
     version='0.1',
-    description='',
+    description='curl based http client',
     long_description=open('README.rst').read(),
     author='Stefano Dipierro',
     license='Apache 2.0',
     url='https://github.com/dipstef/httpy',
     classifiers=CLASSIFIERS,
-    keywords='http client curl pycurl httpy',
-    packages=[],
+    keywords='http client curl pycurl httpy requests',
+    packages=['pycurwa', 'pycurwa.curl', 'pycurwa.download', 'pycurwa.download.chunks', 'pycurwa.download.files',
+              'pycurwa.multi', 'pycurwa.multi.download'],
     test_suite='tests',
     requires=['unicoder', 'httpy']
 )

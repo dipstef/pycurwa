@@ -22,6 +22,7 @@ class CurlResponseBase(object):
         self._date = datetime.utcnow()
         self._cookies = cookies
 
+        self._response_url = None
         self._status_code = None
 
     def _write_header(self, buf):
@@ -50,7 +51,12 @@ class CurlResponseBase(object):
         if not self._status_code:
             self._status_code = self._curl.get_status_code()
 
+    def _set_response_url(self):
+        if not self._response_url:
+            self._response_url = self._curl.get_response_url()
+
     def close(self):
+        self._set_response_url()
         self._set_status_code()
         self._curl.close()
 
@@ -62,7 +68,8 @@ class CurlResponseStatus(CurlResponseBase, ResponseStatus):
 
     @property
     def url(self):
-        return self._curl.get_response_url()
+        self._set_response_url()
+        return self._response_url
 
     @property
     def status(self):
