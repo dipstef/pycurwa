@@ -33,9 +33,13 @@ class CurlMultiResponse(CurlBodyResponse):
         self._wait_completed()
         return self._read()
 
-    def get_status_code(self):
+    def _set_status_code(self):
         self._wait_completed()
-        return super(CurlMultiResponse, self).get_status_code()
+        super(CurlMultiResponse, self)._set_status_code()
+
+    def _set_response_url(self):
+        self._wait_completed()
+        super(CurlMultiResponse, self)._set_response_url()
 
     @property
     def headers(self):

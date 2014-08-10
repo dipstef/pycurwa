@@ -5,7 +5,7 @@ from .curl import BytesIO
 from .cookies import write_cookies
 
 
-class CurlResponseBase(object):
+class CurlResponseBase(ResponseStatus):
     __headers__ = HttpHeaders
 
     def __init__(self, request, cookies=None):
@@ -43,10 +43,6 @@ class CurlResponseBase(object):
 
         return headers
 
-    def get_status_code(self):
-        self._set_status_code()
-        return self._status_code
-
     def _set_status_code(self):
         if not self._status_code:
             self._status_code = self._curl.get_status_code()
@@ -60,12 +56,6 @@ class CurlResponseBase(object):
         self._set_status_code()
         self._curl.close()
 
-
-class CurlResponseStatus(CurlResponseBase, ResponseStatus):
-
-    def __init__(self, request, cookies=None):
-        super(CurlResponseStatus, self).__init__(request, cookies)
-
     @property
     def url(self):
         self._set_response_url()
@@ -73,14 +63,15 @@ class CurlResponseStatus(CurlResponseBase, ResponseStatus):
 
     @property
     def status(self):
-        return self.get_status_code()
+        self._set_status_code()
+        return self._status_code
 
     @property
     def date(self):
         return self._date
 
 
-class CurlResponse(CurlResponseStatus):
+class CurlResponse(CurlResponseBase):
 
     def __init__(self, request, writer, cookies, bucket=None):
         super(CurlResponse, self).__init__(request, cookies)
