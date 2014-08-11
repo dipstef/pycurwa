@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from httpy.client import cookie_jar
 
 from .. import PyCurwa
@@ -5,18 +6,22 @@ from .request import CurlRequestFuture, AsyncRequest
 from .requests import Requests, RequestsProcess, RequestsUpdates, RequestsStatuses
 
 
-class PyCurwaAsync(PyCurwa):
+class PyCurwaAsyncBase(PyCurwa):
 
     def __init__(self, max_connections=20, cookies=cookie_jar, bucket=None, timeout=30):
-        super(PyCurwaAsync, self).__init__(cookies, bucket, timeout)
+        super(PyCurwaAsyncBase, self).__init__(cookies, bucket, timeout)
         self._requests = Requests(max_connections)
         self._updates = CurlUpdates(self._requests)
 
-    def execute(self, request, on_completion=None, on_err=None, **kwargs):
-        request = AsyncRequest(request, on_completion, on_err, self._cookies, self._bucket)
+    def execute(self, request,  **kwargs):
+        request = self._create_request(request)
 
         self._requests.add(request)
         return request
+
+    @abstractmethod
+    def _create_request(self, request, **kwargs):
+        raise not NotImplementedError
 
     def close(self):
         self._close()
@@ -25,13 +30,20 @@ class PyCurwaAsync(PyCurwa):
         self._updates.stop()
 
 
-class PyCurwaFutures(PyCurwaAsync):
+class PyCurwaAsync(PyCurwaAsyncBase):
+
+    def _create_request(self, request, on_completion=None, on_err=None):
+        return AsyncRequest(request, on_completion, on_err, self._cookies, self._bucket)
+
+
+class PyCurwaFutures(PyCurwaAsyncBase):
 
     def execute(self, request, **kwargs):
-        request = CurlRequestFuture(request, self._cookies, self._bucket)
-
-        self._requests.add(request)
+        request = super(PyCurwaFutures, self).execute(request, **kwargs)
         return request.get_response()
+
+    def _create_request(self, request, **kwargs):
+        return CurlRequestFuture(request, self._cookies, self._bucket)
 
 
 class CurlUpdates(RequestsUpdates):

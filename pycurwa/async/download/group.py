@@ -2,7 +2,7 @@ from Queue import Queue
 
 from httpy.client import cookie_jar
 
-from .requests import ChunksMultiRequests
+from .requests import AsyncChunksDownloads
 from ...download import HttpDownloadRequests
 from ...curl.requests import RequestsStatus
 
@@ -13,7 +13,7 @@ class GroupRequests(HttpDownloadRequests):
         super(GroupRequests, self).__init__(cookies, bucket, timeout)
         self._group = ChunksDownloadGroup(requests)
 
-    def _create_request(self, chunks_file):
+    def _create_request(self, chunks_file, **kwargs):
         downloads = GroupMultiRequests(self._group, chunks_file, self._cookies, self._bucket)
         self._group.add(downloads)
         return downloads
@@ -29,7 +29,7 @@ class GroupRequests(HttpDownloadRequests):
             pass
 
 
-class GroupMultiRequests(ChunksMultiRequests):
+class GroupMultiRequests(AsyncChunksDownloads):
     def __init__(self, group, chunks_file, cookies=None, bucket=None):
         super(GroupMultiRequests, self).__init__(group, chunks_file, cookies, bucket)
         self.error = None

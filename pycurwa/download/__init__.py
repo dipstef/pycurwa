@@ -12,14 +12,17 @@ from ..curl.requests import RequestsRefresh
 
 class HttpDownloadRequests(PyCurwa):
 
-    def execute(self, request, path, chunks=1, resume=False):
+    def execute(self, request, path=None, chunks=1, resume=False, **kwargs):
         head_response = self.head(request.url, request.params, request.headers, request.data)
 
         if os.path.isdir(path):
             path = save_join(path, self._get_file_name(head_response))
 
-        chunks = get_chunks_file(DownloadRequest(request, path, chunks, resume), self._content_length(head_response))
+        chunks = get_chunks_file(DownloadRequest(request, path, chunks, resume), content_length(head_response.headers))
         return self._create_request(chunks)
+
+    def _create_request(self, chunks_file, **kwargs):
+        return DownloadChunks(chunks_file, cookies=self._cookies, bucket=self._bucket)
 
     def _get_file_name(self, header_response):
         return self._content_disposition(header_response.headers) or self._url_file_name(header_response.url)
@@ -30,19 +33,13 @@ class HttpDownloadRequests(PyCurwa):
     def _url_file_name(self, url):
         return os.path.basename(url)
 
-    def _content_length(self, header_response):
-        return content_length(header_response.headers)
-
-    def _create_request(self, chunks_file):
-        return DownloadChunks(chunks_file, cookies=self._cookies, bucket=self._bucket)
-
 
 class DownloadRequest(HttpyRequest):
 
-    def __init__(self, request, path, chunks=1, resume=False):
+    def __init__(self, request, path=None, chunks=1, resume=False):
         super(DownloadRequest, self).__init__(request.method, request.url, request.headers, request.data,
                                               request.params, request.timeout, request.redirect)
-        self.path = path
+        self.path = path or os.getcwd()
         self.chunks = max(chunks, 1)
         self.resume = resume
 

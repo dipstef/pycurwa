@@ -123,10 +123,10 @@ class DownloadRequests(RequestsUpdates):
             self._requests.close(request)
 
 
-class ChunksMultiRequests(ChunksDownloads):
+class AsyncChunksDownloads(ChunksDownloads):
 
     def __init__(self, requests, chunks_file, cookies=None, bucket=None):
-        super(ChunksMultiRequests, self).__init__(chunks_file, cookies, bucket)
+        super(AsyncChunksDownloads, self).__init__(chunks_file, cookies, bucket)
         self._requests = requests
 
     def _submit(self):
