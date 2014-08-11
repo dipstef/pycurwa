@@ -1,7 +1,7 @@
 from httpy.client import HttpyRequest
 
 from pycurwa import CurlRequest
-from pycurwa.multi.requests import ProcessRequests
+from pycurwa.async.requests import ProcessRequests
 
 
 class Request(CurlRequest):

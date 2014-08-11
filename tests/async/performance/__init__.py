@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from pycurwa.multi import PyCurwaFutures
+from pycurwa.async import PyCurwaFutures
 
 
 @contextmanager

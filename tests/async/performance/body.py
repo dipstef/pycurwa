@@ -1,4 +1,4 @@
-from tests.multi.performance import request_times
+from tests.async.performance import request_times
 
 
 def main():

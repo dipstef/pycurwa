@@ -1,4 +1,4 @@
-from pycurwa.multi import PyCurwaFutures
+from pycurwa.async import PyCurwaFutures
 
 
 def main():
