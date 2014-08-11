@@ -117,7 +117,7 @@ class RequestsStatus(CurlHandlesStatus):
 
 class RequestStatusCheck(RequestsStatus):
     def __init__(self, completed, failed, status_time=None):
-        failed = [request for request in failed if request.failed()]
+        failed = [request for request in failed if request.is_failed()]
 
         errors = []
         for request in completed:
@@ -153,7 +153,7 @@ class CurlFailed(FailedHandle):
     def is_write_error(self):
         return isinstance(self.error, CurlWriteError)
 
-    def failed(self):
+    def is_failed(self):
         return not self.is_write_error() or bool(self._request.get_status_error())
 
 

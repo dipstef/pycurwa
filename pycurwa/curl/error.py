@@ -1,6 +1,5 @@
 import pycurl
 
-from httpy import HttpRequest
 from httpy.connection.error import ConnectionRefused, UnresolvableHost, SocketError, ConnectionTimeout
 from httpy.error import HttpServerSocketError, HttpError, InvalidRangeRequest
 

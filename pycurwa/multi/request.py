@@ -1,59 +1,102 @@
 from Queue import Queue
+from abc import abstractmethod
 from threading import Event
 from ..request import CurlRequestBase
 from ..response import CurlBodyResponse
 
 
-class CurlMultiRequest(CurlRequestBase):
+class AsyncRequestBase(CurlRequestBase):
 
     def __init__(self, request, cookies=None, bucket=None):
-        super(CurlMultiRequest, self).__init__(request, cookies)
-        self._outcome = Queue(1)
-        self._response = CurlMultiResponse(self, self._outcome, cookies, bucket)
+        self._bucket = bucket
+        super(AsyncRequestBase, self).__init__(request, cookies)
 
-    def update(self, outcome):
-        self._outcome.put(outcome)
+    @abstractmethod
+    def completed(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def failed(self, error):
+        raise NotImplementedError
+
+    def _create_response(self):
+        return CurlBodyResponse(self, self._cookies, self._bucket)
+
+
+class AsyncRequest(AsyncRequestBase):
+    def __init__(self, request, on_completion, on_err, cookies=None, bucket=None):
+        super(AsyncRequest, self).__init__(request, cookies, bucket)
+        self._on_completion = on_completion
+        self._on_err = on_err
+
+    def completed(self):
+        if self._on_completion:
+            self._on_completion(self._response)
+
+    def failed(self, error):
+        if self._on_err:
+            self._on_err(self._response, error)
+
+
+class CurlRequestFuture(AsyncRequestBase):
+
+    def __init__(self, request, cookies=None, bucket=None):
+        self._outcome = Queue(1)
+        super(CurlRequestFuture, self).__init__(request, cookies, bucket)
+
+    def completed(self):
+        self._outcome.put(self._response.date)
+
+    def failed(self, error):
+        self._outcome.put(error)
+
+    def _create_response(self):
+        return CurlResponseFuture(self, self._outcome, self._cookies, self._bucket)
 
     def close(self):
-        self._response.close()
-
-    def get_response(self):
-        return self._response
+        pass
 
 
-class CurlMultiResponse(CurlBodyResponse):
+class CurlResponseFuture(CurlBodyResponse):
 
     def __init__(self, request, outcome, cookies, bucket=None):
-        super(CurlMultiResponse, self).__init__(request, cookies, bucket)
+        super(CurlResponseFuture, self).__init__(request, cookies, bucket)
         self._outcome = outcome
         self._completed = Event()
         self._headers = None
 
     def read(self):
         self._wait_completed()
+
         return self._read()
-
-    def _set_status_code(self):
-        self._wait_completed()
-        super(CurlMultiResponse, self)._set_status_code()
-
-    def _set_response_url(self):
-        self._wait_completed()
-        super(CurlMultiResponse, self)._set_response_url()
 
     @property
     def headers(self):
         self._wait_completed()
+
         return self._headers
 
     @headers.setter
     def headers(self, value):
         self._headers = value
 
+    @property
+    def status(self):
+        self._wait_completed()
+        return super(CurlResponseFuture, self).status()
+
+    @property
+    def url(self):
+        self._wait_completed()
+        return super(CurlResponseFuture, self).url()
+
     def _wait_completed(self):
         if not self._completed.is_set():
-            outcome = self._outcome.get()
-            self._completed.set()
+            try:
+                outcome = self._outcome.get()
+                self._completed.set()
 
-            if isinstance(outcome, BaseException):
-                raise outcome
+                if isinstance(outcome, BaseException):
+                    raise outcome
+            finally:
+                self.close()

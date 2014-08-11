@@ -1,8 +1,8 @@
-from pycurwa.multi import PyCurwaMulti
+from pycurwa.multi import PyCurwaFutures
 
 
 def main():
-    pycurwa = PyCurwaMulti()
+    pycurwa = PyCurwaFutures()
 
     try:
         response1 = pycurwa.get('http://www.google.com')

@@ -13,7 +13,7 @@ _default_headers = {'Accept': '*/*',
                     'Expect': ''}
 
 
-def _curl_request(curl, timeout=30, redirect=True, verbose=True):
+def _curl_request(curl, timeout=30, redirect=True, verbose=False):
     curl.setopt(pycurl.FOLLOWLOCATION, int(redirect))
     curl.setopt(pycurl.MAXREDIRS, 5)
 

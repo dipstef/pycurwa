@@ -1,10 +1,10 @@
 from contextlib import contextmanager
-from pycurwa.multi import PyCurwaMulti
+from pycurwa.multi import PyCurwaFutures
 
 
 @contextmanager
 def request_times(method, url, times):
-    with PyCurwaMulti() as pycurwa:
+    with PyCurwaFutures() as pycurwa:
 
         responses = []
         for i in range(1, times+1):
