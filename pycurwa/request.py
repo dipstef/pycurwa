@@ -3,7 +3,6 @@ from httpy.error import error_status, HttpStatusError
 
 from .curl import Curl, PyCurlError
 from .curl.request import curl_request
-from .cookies import CurlCookies
 from .curl.error import HttpCurlError
 from .response import CurlResponseBase, CurlBodyResponse
 
@@ -18,7 +17,7 @@ class CurlRequestBase(HttpyRequest):
 
         curl_request(self._curl, request)
 
-        self._cookies = CurlCookies(cookies) if cookies is not None else None
+        self._cookies = cookies
 
         if cookies:
             self._set_curl_cookies()

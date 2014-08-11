@@ -13,12 +13,15 @@ class CurlCookies(object):
             self._cookie_jar.set_cookie(cookie)
 
     def get_cookie_string(self, request):
-        request = _urllib_request(request)
+        request = urllib2.Request(request.url, headers=request.headers)
 
         self._cookie_jar.add_cookie_header(request)
 
         cookie = request.unredirected_hdrs.get('Cookie')
         return cookie
+
+    def __repr__(self):
+        return repr(self._cookie_jar._cookies)
 
     def __len__(self):
         return len(self._cookie_jar)
@@ -39,29 +42,9 @@ class CurlCookie(Cookie):
 
         rest = {'httponly': None} if http_only else {}
 
-        expiration = int(expiration)
+        expiration = int(expiration) or None
 
         Cookie.__init__(self, version=0, name=name, value=value, port=None, port_specified=False, domain=domain,
                         domain_specified=bool(domain), domain_initial_dot=domain_initial_dot,
                         path=path, path_specified=bool(path), secure=secure, expires=expiration,
                         discard=not expiration, comment=None, comment_url=None, rest=rest, rfc2109=False)
-
-
-def _urllib_request(request):
-    return urllib2.Request(request.url, headers=request.headers)
-
-
-def write_cookies(cookie_jar, response_headers, request):
-    cookie_jar.extract_cookies(UrllibResponse(response_headers), _urllib_request(request))
-
-
-class UrllibResponse(object):
-
-    def __init__(self, headers):
-        self._headers = headers
-
-    def info(self):
-        return self
-
-    def getheaders(self, name):
-        return self._headers.get_list(name)
