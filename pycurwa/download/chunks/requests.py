@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from httpy.client import HttpyRequest
 
 from .status import HttpChunksStatus, DownloadStats
 from ..error import FailedChunks
@@ -6,9 +7,13 @@ from ..files import ChunksDict
 from ...error import DownloadedContentMismatch, Abort
 
 
-class ChunkRequests(object):
+class ChunkRequests(HttpyRequest):
 
     def __init__(self, request, chunks):
+        super(HttpyRequest, self).__init__(request.method, request.url, request.headers, request.data, request.params)
+        self.path = request.path
+        self.resume = request.resume
+
         self._request = request
         self._chunks = ChunksDict(chunks)
 

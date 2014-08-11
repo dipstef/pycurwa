@@ -1,12 +1,12 @@
 import os
-from procol.console import print_err
+from procol.console import print_err, print_line
 
 from pycurwa.bucket import Bucket
 from pycurwa.async.download import AsyncDownloads
 
 
 def _completed(download):
-    print download.path, download.stats
+    print_line(download.url, download.stats)
 
 
 def _failed(download, error):
