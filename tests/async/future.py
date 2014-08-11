@@ -2,9 +2,8 @@ from pycurwa.async import PyCurwaFutures
 
 
 def main():
-    pycurwa = PyCurwaFutures()
+    with PyCurwaFutures() as pycurwa:
 
-    try:
         response1 = pycurwa.get('http://www.google.com')
         response2 = pycurwa.get('http://www.twitter.com')
         response3 = pycurwa.get('http://www.facebook.com')
@@ -12,14 +11,12 @@ def main():
         response5 = pycurwa.get('http://www.gibson.com')
         response6 = pycurwa.get('http://www.fender.com')
 
-        print response1.read()
-        print response2.read()
-        print response3.read()
-        print response4.read()
-        print response5.read()
-        print response6.read()
-    finally:
-        pycurwa.close()
+        print response1.url, response1.status
+        print response2.url, response2.status
+        print response3.url, response3.status
+        print response4.url, response4.status
+        print response5.url, response5.status
+        print response6.url, response6.status
 
 if __name__ == '__main__':
     main()

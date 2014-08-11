@@ -35,7 +35,7 @@ class AsyncRequest(AsyncRequestBase):
 
     def failed(self, error):
         if self._on_err:
-            self._on_err(self._response, error)
+            self._on_err(self, error)
 
 
 class CurlRequestFuture(AsyncRequestBase):
@@ -83,12 +83,12 @@ class CurlResponseFuture(CurlBodyResponse):
     @property
     def status(self):
         self._wait_completed()
-        return super(CurlResponseFuture, self).status()
+        return super(CurlResponseFuture, self).status
 
     @property
     def url(self):
         self._wait_completed()
-        return super(CurlResponseFuture, self).url()
+        return super(CurlResponseFuture, self).url
 
     def _wait_completed(self):
         if not self._completed.is_set():
