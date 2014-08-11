@@ -1,7 +1,7 @@
 from procol.console import print_err
 
 from pycurwa.bucket import Bucket
-from pycurwa.multi.download import MultiDownloadsRequests
+from pycurwa.async.download import AsyncDownloadFutures
 
 
 def _print_stats(group):
@@ -22,13 +22,13 @@ def main():
 
     bucket = None
 
-    requests = MultiDownloadsRequests(max_connections=10)
+    requests = AsyncDownloadFutures(max_connections=10)
 
     try:
         with requests.group() as group:
 
             group.get('http://download.thinkbroadband.com/5MB.zip', path=path, chunks=4, resume=True)
-            group.get('http://download.thinkbroadband.com/10MB.zip', path=path, chunks=4, resume=True)
+            #group.get('http://download.thinkbroadband.com/10MB.zip', path=path, chunks=4, resume=True)
 
             _print_stats(group)
 

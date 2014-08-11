@@ -12,6 +12,10 @@ from ..curl.requests import RequestsRefresh
 
 class HttpDownloadRequests(PyCurwa):
 
+    def get(self, url, path=None, chunks=1, resume=False, params=None, headers=None, **kwargs):
+        return super(HttpDownloadRequests, self).get(url, params, headers, path=path, chunks=chunks, resume=resume,
+                                                     **kwargs)
+
     def execute(self, request, path=None, chunks=1, resume=False, **kwargs):
         head_response = self.head(request.url, request.params, request.headers, request.data)
 
@@ -19,7 +23,7 @@ class HttpDownloadRequests(PyCurwa):
             path = save_join(path, self._get_file_name(head_response))
 
         chunks = get_chunks_file(DownloadRequest(request, path, chunks, resume), content_length(head_response.headers))
-        return self._create_request(chunks)
+        return self._create_request(chunks, **kwargs)
 
     def _create_request(self, chunks_file, **kwargs):
         return DownloadChunks(chunks_file, cookies=self._cookies, bucket=self._bucket)

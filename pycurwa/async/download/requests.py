@@ -1,5 +1,7 @@
+from abc import abstractmethod
 from collections import OrderedDict
 from itertools import groupby
+from procol.console import print_err_trace
 
 from ...curl.requests import RequestsStatus
 from ..requests import Requests, RequestsUpdates
@@ -128,9 +130,33 @@ class AsyncChunksDownloads(ChunksDownloads):
     def __init__(self, requests, chunks_file, cookies=None, bucket=None):
         super(AsyncChunksDownloads, self).__init__(chunks_file, cookies, bucket)
         self._requests = requests
+        #starts downloads right away
+        self._submit()
 
     def _submit(self):
         self._requests.add(self)
+
+    def _update(self, status):
+        try:
+            return self._update_status(status)
+        except BaseException, e:
+            print_err_trace('Download %s Failed: ' % self._request.url)
+            self._download_failed(e)
+
+    def _update_status(self, status):
+        return super(AsyncChunksDownloads, self)._update(status)
+
+    def _done_downloading(self, status):
+        super(AsyncChunksDownloads, self)._done_downloading(status)
+        self._download_completed(status)
+
+    @abstractmethod
+    def _download_failed(self, error):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _download_completed(self, status):
+        raise NotImplementedError
 
     def close(self):
         self._requests.close(self)

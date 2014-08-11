@@ -7,15 +7,14 @@ from ...download import HttpDownloadRequests
 from ...curl.requests import RequestsStatus
 
 
-class GroupRequests(HttpDownloadRequests):
+class DownloadGroups(HttpDownloadRequests):
 
     def __init__(self, requests, cookies=cookie_jar, bucket=None, timeout=30):
-        super(GroupRequests, self).__init__(cookies, bucket, timeout)
+        super(DownloadGroups, self).__init__(cookies, bucket, timeout)
         self._group = ChunksDownloadGroup(requests)
 
     def _create_request(self, chunks_file, **kwargs):
-        downloads = GroupMultiRequests(self._group, chunks_file, self._cookies, self._bucket)
-        self._group.add(downloads)
+        downloads = AsyncDownloadsGroup(self._group, chunks_file, self._cookies, self._bucket)
         return downloads
 
     def iterate_finished(self):
@@ -29,20 +28,16 @@ class GroupRequests(HttpDownloadRequests):
             pass
 
 
-class GroupMultiRequests(AsyncChunksDownloads):
+class AsyncDownloadsGroup(AsyncChunksDownloads):
+
     def __init__(self, group, chunks_file, cookies=None, bucket=None):
-        super(GroupMultiRequests, self).__init__(group, chunks_file, cookies, bucket)
+        super(AsyncDownloadsGroup, self).__init__(group, chunks_file, cookies, bucket)
         self.error = None
 
-    def update(self, status):
-        try:
-            return super(GroupMultiRequests, self).update(status)
-        except Exception, error:
-            self.error = error
-            self._requests.failed(self, status)
+    def _download_failed(self, error):
+        self._requests.failed(self, error)
 
-    def _done_downloading(self, status):
-        super(GroupMultiRequests, self)._done_downloading(status)
+    def _download_completed(self, status):
         self._requests.downloaded(self, status)
 
 

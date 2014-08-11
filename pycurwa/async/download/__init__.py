@@ -1,24 +1,22 @@
 from Queue import Queue
+from abc import abstractmethod
 
 from httpy.client import cookie_jar
-from procol.console import print_err_trace
 
 from .requests import DownloadRequests, AsyncChunksDownloads
 from ...download import HttpDownloadRequests
-from .group import GroupRequests
+from .group import DownloadGroups
 
 
-class AsyncDownloads(HttpDownloadRequests):
+class AsyncDownloadsBase(HttpDownloadRequests):
 
     def __init__(self, cookies=cookie_jar, bucket=None, max_connections=10, timeout=30):
-        super(AsyncDownloads, self).__init__(cookies, bucket, timeout)
+        super(AsyncDownloadsBase, self).__init__(cookies, bucket, timeout)
         self._requests = DownloadRequests(max_connections)
 
+    @abstractmethod
     def _create_request(self, chunks_file, **kwargs):
-        return AsyncChunks(self._requests, chunks_file, self._cookies, self._bucket)
-
-    def group(self):
-        return GroupRequests(self._requests, self._cookies, self._bucket)
+        raise NotImplementedError
 
     def close(self):
         self._close()
@@ -27,13 +25,47 @@ class AsyncDownloads(HttpDownloadRequests):
         self._requests.stop()
 
 
+class AsyncDownloads(AsyncDownloadsBase):
+
+    def get(self, url, path=None, chunks=1, resume=False, on_completion=None, on_err=None, params=None, headers=None,
+            **kwargs):
+        return super(AsyncDownloads, self).get(url, path, chunks, resume, params, headers,
+                                               on_completion=on_completion, on_err=on_err, **kwargs)
+
+    def _create_request(self, chunks_file, on_completion=None, on_err=None, **kwargs):
+        return AsyncChunks(self._requests, chunks_file, on_completion, on_err, self._cookies, self._bucket)
+
+
 class AsyncChunks(AsyncChunksDownloads):
+
+    def __init__(self, requests, chunks_file, on_completion=None, on_err=None, cookies=None, bucket=None):
+        self._on_completion = on_completion
+        self._on_err = on_err
+        super(AsyncChunks, self).__init__(requests, chunks_file, cookies, bucket)
+
+    def _download_failed(self, error):
+        if self._on_err:
+            self._on_err(self, error)
+
+    def _download_completed(self, status):
+        if self._on_completion:
+            self._on_completion(self)
+
+
+class AsyncDownloadFutures(AsyncDownloadsBase):
+
+    def _create_request(self, chunks_file, **kwargs):
+        return AsyncChunksFutures(self._requests, chunks_file, self._cookies, self._bucket)
+
+    def group(self):
+        return DownloadGroups(self._requests, self._cookies, self._bucket)
+
+
+class AsyncChunksFutures(AsyncChunksDownloads):
 
     def __init__(self, requests, chunks_file, cookies=None, bucket=None):
         self._outcome = Queue(1)
-        super(AsyncChunks, self).__init__(requests, chunks_file, cookies, bucket)
-        #starts downloads right away
-        self._submit()
+        super(AsyncChunksFutures, self).__init__(requests, chunks_file, cookies, bucket)
 
     def perform(self):
         if self._chunks:
@@ -43,16 +75,8 @@ class AsyncChunks(AsyncChunksDownloads):
 
         return self.stats
 
-    def _update(self, status):
-        try:
-            return self._update_status(status)
-        except BaseException, e:
-            print_err_trace()
-            self._outcome.put(e)
+    def _download_completed(self, status):
+        self._outcome.put(status.check)
 
-    def _update_status(self, status):
-        return super(AsyncChunks, self)._update(status)
-
-    def _done_downloading(self, status):
-        status = super(AsyncChunks, self)._done_downloading(status)
-        self._outcome.put(status)
+    def _download_failed(self, error):
+        self._outcome.put(error)

@@ -1,7 +1,7 @@
 import os
 
 from pycurwa.bucket import Bucket
-from pycurwa.multi.download import MultiDownloadsRequests
+from pycurwa.async.download import AsyncDownloadFutures
 
 
 def _request(downloads, url, chunks=1):
@@ -19,7 +19,7 @@ def main():
 
     bucket = None
 
-    downloads = MultiDownloadsRequests(bucket=bucket, max_connections=11)
+    downloads = AsyncDownloadFutures(bucket=bucket, max_connections=11)
 
     try:
         #request1 = _request(downloads, 'http://download.thinkbroadband.com/10MB.zip')
