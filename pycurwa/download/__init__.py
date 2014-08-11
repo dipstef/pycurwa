@@ -22,8 +22,8 @@ class HttpDownloadRequests(PyCurwa):
         if os.path.isdir(path):
             path = save_join(path, self._get_file_name(head_response))
 
-        chunks = get_chunks_file(DownloadRequest(request, path, chunks, resume), content_length(head_response.headers))
-        return self._create_request(chunks, **kwargs)
+        request = DownloadRequest(request, path, chunks, resume)
+        return self._create_request(get_chunks_file(request, content_length(head_response.headers)), **kwargs)
 
     def _create_request(self, chunks_file, **kwargs):
         return DownloadChunks(chunks_file, cookies=self._cookies, bucket=self._bucket)
