@@ -45,10 +45,13 @@ class RequestsChunksDownload(ChunksMultiRequests):
 
     def _update(self, status):
         try:
-            return super(RequestsChunksDownload, self)._update(status)
+            return self._update_status(status)
         except BaseException, e:
             print_err_trace()
             self._outcome.put(e)
+
+    def _update_status(self, status):
+        return super(RequestsChunksDownload, self)._update(status)
 
     def _done_downloading(self, status):
         status = super(RequestsChunksDownload, self)._done_downloading(status)

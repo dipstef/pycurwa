@@ -1,5 +1,5 @@
-from .response import CurlDownloadResponse, HttpDownloadHeaders, CurlRangeDownload
-from ..request import CurlHeadersRequest, CurlRequest
+from .response import CurlDownloadResponse, CurlRangeDownload
+from ..request import CurlRequest
 
 
 class HttpDownloadBase(CurlRequest):
@@ -32,16 +32,6 @@ class HttpDownloadRequest(HttpDownloadBase):
 
         if resume:
             self._curl.set_resume(self.received)
-
-
-class DownloadHeadersRequest(CurlHeadersRequest):
-
-    def __init__(self, url, headers=None, data=None, cookies=None):
-        super(DownloadHeadersRequest, self).__init__(url, headers, data, cookies=cookies)
-
-    def head(self):
-        headers = super(DownloadHeadersRequest, self).head()
-        return HttpDownloadHeaders(headers)
 
 
 class HttpDownloadRange(HttpDownloadBase):

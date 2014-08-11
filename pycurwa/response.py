@@ -2,7 +2,6 @@ from datetime import datetime
 from httpy import ResponseStatus, HttpHeaders, date_header
 from httpy.http.headers import header_string_to_dict
 from .curl import BytesIO
-from .cookies import write_cookies
 
 
 class CurlResponseBase(ResponseStatus):
@@ -15,6 +14,8 @@ class CurlResponseBase(ResponseStatus):
         self.request = request
 
         self._header_str = ''
+        #keeps tracks of the headers received from redirects
+        self._requests_headers = []
 
         if self.__headers__:
             self._curl.set_header_fun(self._write_header)
@@ -24,24 +25,28 @@ class CurlResponseBase(ResponseStatus):
 
         self._response_url = None
         self._status_code = None
+        self._closed = False
 
     def _write_header(self, buf):
         self._header_str += buf
 
         if self._header_str.endswith('\r\n\r\n'):
-            self._parse_http_header()
+            headers = self._parse_http_header(self._header_str)
+            self._date = date_header(headers) or datetime.utcnow()
 
-    def _parse_http_header(self):
-        headers = self.__headers__(header_string_to_dict(self._header_str))
+            #in case of redirect reset headers
+            self._header_str = ''
+            self._requests_headers.append(headers)
 
-        self.headers = headers
+            self.headers = headers
 
-        self._date = date_header(headers) or datetime.utcnow()
-
-        if self._cookies is not None:
-            write_cookies(self._cookies, headers, self.request)
-
+    def _parse_http_header(self, header_string):
+        headers = self.__headers__(header_string_to_dict(header_string))
         return headers
+
+    def _set_cookies(self):
+        if self._cookies is not None:
+            self._cookies.add_cookies(self._curl.get_cookies())
 
     def _set_status_code(self):
         if not self._status_code:
@@ -52,9 +57,12 @@ class CurlResponseBase(ResponseStatus):
             self._response_url = self._curl.get_response_url()
 
     def close(self):
-        self._set_response_url()
-        self._set_status_code()
-        self._curl.close()
+        if not self._closed:
+            self._set_cookies()
+            self._set_response_url()
+            self._set_status_code()
+            self._curl.close()
+            self._closed = True
 
     @property
     def url(self):
@@ -101,10 +109,7 @@ class CurlBodyResponse(CurlResponse):
         self._body = None
 
     def read(self):
-        try:
-            return self._read()
-        finally:
-            self.close()
+        return self._read()
 
     def _read(self):
         self._body = self._bytes.getvalue()

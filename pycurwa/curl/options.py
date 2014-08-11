@@ -82,6 +82,9 @@ class SetOptions(object):
     def enable_body_retrieve(self):
         self._set(pycurl.NOBODY, 0)
 
+    def enable_cookies(self):
+        self._set(pycurl.COOKIEFILE, '')
+
     def _set(self, name, value):
         self.setopt(name, value)
 

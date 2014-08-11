@@ -1,11 +1,9 @@
 from httpy.client import HttpyRequest
-
 from httpy.error import error_status, HttpStatusError
 
 from .curl import Curl, PyCurlError
-
 from .curl.request import curl_request
-from .cookies import get_cookie_string
+from .cookies import CurlCookies
 from .curl.error import HttpCurlError
 from .response import CurlResponseBase, CurlBodyResponse
 
@@ -20,7 +18,7 @@ class CurlRequestBase(HttpyRequest):
 
         curl_request(self._curl, request)
 
-        self._cookies = cookies
+        self._cookies = CurlCookies(cookies) if cookies is not None else None
 
         if cookies:
             self._set_curl_cookies()
@@ -32,7 +30,7 @@ class CurlRequestBase(HttpyRequest):
             return HttpStatusError(self, code)
 
     def _set_curl_cookies(self):
-        cookie = get_cookie_string(self._cookies, self)
+        cookie = self._cookies.get_cookie_string(self)
         if cookie:
             self._curl.set_cookie(cookie)
 
@@ -73,15 +71,13 @@ class CurlRequest(CurlRequestBase):
         self._response.close()
 
 
-class CurlHeadersRequest(CurlRequestBase):
+class CurlHeadersRequest(CurlRequest):
 
-    def __init__(self, url, headers=None, data=None, cookies=None):
-        super(CurlHeadersRequest, self).__init__(HttpyRequest('HEAD', url, headers, data), cookies)
+    def __init__(self, url, headers=None, data=None, params=None, cookies=None):
+        super(CurlHeadersRequest, self).__init__(HttpyRequest('HEAD', url, headers, data, params), cookies)
 
     def head(self):
-        response = CurlResponseBase(self, self._cookies)
-        try:
-            self._curl.perform()
-            return response.headers
-        finally:
-            self.close()
+        return self.execute().headers
+
+    def _create_response(self):
+        return CurlResponseBase(self, self._cookies)

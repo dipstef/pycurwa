@@ -13,7 +13,7 @@ _default_headers = {'Accept': '*/*',
                     'Expect': ''}
 
 
-def _curl_request(curl, timeout=30, redirect=True, verbose=False):
+def _curl_request(curl, timeout=30, redirect=True, verbose=True):
     curl.setopt(pycurl.FOLLOWLOCATION, int(redirect))
     curl.setopt(pycurl.MAXREDIRS, 5)
 
@@ -62,6 +62,7 @@ def curl_request(curl, request, params=None, multi_part=False):
         headers.update(request.headers)
 
     curl.set_headers(header_dict_to_lines(headers))
+    curl.enable_cookies()
 
     referrer = headers.get('referer')
     if referrer:

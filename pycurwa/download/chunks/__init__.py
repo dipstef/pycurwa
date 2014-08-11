@@ -13,8 +13,6 @@ from ..files.download import OneChunk
 class ChunksFileDownload(HttpChunks):
 
     def __init__(self, chunks_file, cookies=None, bucket=None):
-        self._cookies = cookies
-        self._bucket = bucket
         super(ChunksFileDownload, self).__init__(chunks_file, cookies, bucket)
 
     def _update(self, status):

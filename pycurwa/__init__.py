@@ -1,6 +1,6 @@
 from httpy.client import HttpClient
 from httpy.client.requests import cookie_jar
-from .request import CurlRequest
+from .request import CurlRequest, CurlHeadersRequest
 
 
 class PyCurwa(HttpClient):
@@ -9,6 +9,10 @@ class PyCurwa(HttpClient):
         super(PyCurwa, self).__init__(timeout)
         self._cookies = cookies
         self._bucket = bucket
+
+    def head(self, url, params=None, headers=None, data=None):
+        request = CurlHeadersRequest(url, headers, data, params, cookies=self._cookies)
+        return request.execute()
 
     def execute(self, request, **kwargs):
         request = CurlRequest(request, cookies=self._cookies, bucket=self._bucket)

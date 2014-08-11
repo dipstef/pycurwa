@@ -53,3 +53,11 @@ class NewDownload(DownloadChunkFiles):
 class OneChunk(NewDownload):
     def __init__(self, request, expected_size, resume=False):
         super(OneChunk, self).__init__(request, expected_size, chunks=1, resume=resume)
+
+
+def get_chunks_file(request, content_length):
+    try:
+        chunks = ExistingDownload(request)
+    except IOError:
+        chunks = NewDownload(request, content_length, request.chunks, resume=request.resume)
+    return chunks

@@ -6,7 +6,10 @@ from ..error import ChunksDownloadMismatch
 class HttpChunks(ChunksDownload):
 
     def __init__(self, chunks_file, cookies=None, bucket=None):
-        downloads = [HttpChunk(chunks_file.request, chunk, cookies, bucket) for chunk in chunks_file.remaining()]
+        self._cookies = cookies
+        self._bucket = bucket
+
+        downloads = [self._chunk_request(chunks_file.request, chunk) for chunk in chunks_file.remaining()]
         super(HttpChunks, self).__init__(chunks_file.request, downloads)
 
         self._chunks_file = chunks_file
@@ -42,3 +45,6 @@ class HttpChunks(ChunksDownload):
     def close(self):
         for chunk in self.chunks:
             chunk.close()
+
+    def _chunk_request(self, request, chunk):
+        return HttpChunk(request, chunk, self._cookies, self._bucket)
