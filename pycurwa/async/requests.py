@@ -133,11 +133,15 @@ class RequestsStatuses(object):
         self._requests = requests
         self._updates = Queue()
 
+        self._active = Event()
         self._perform_thread = Thread(target=self._perform)
         self._perform_thread.start()
 
     def _perform(self):
+        self._active.set()
+
         for status in self._requests.iterate_statuses():
+            self._active.wait()
             if self._is_status_update(status):
                 self._updates.put(status)
 
@@ -149,13 +153,21 @@ class RequestsStatuses(object):
             status = self._updates.get()
             if status:
                 self._close_finished(status)
+                self._active.wait()
                 yield status
 
     def _close_finished(self, status):
         for request in status.completed + status.failed:
             self._requests.close(request)
 
+    def pause(self):
+        self._active.clear()
+
+    def resume(self):
+        self._active.set()
+
     def stop(self, complete=False):
+        self._active.set()
         self._requests.stop(complete)
         #unblocks the queue
         self._updates.put(None)
