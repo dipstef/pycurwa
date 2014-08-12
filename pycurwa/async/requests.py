@@ -12,6 +12,7 @@ class RequestsProcess(RequestsRefresh):
     def __init__(self, refresh=0.5):
         self._lock = Lock()
         self._closed = Event()
+        self._complete = Event()
 
         self._on_going_requests = Event()
 
@@ -34,7 +35,13 @@ class RequestsProcess(RequestsRefresh):
         return not self.is_closed()
 
     def is_closed(self):
-        return self._closed.is_set()
+        return self._closed.is_set() and self._can_terminate()
+
+    def _can_terminate(self):
+        if self._complete.is_set():
+            with self._lock:
+                return not self._requests
+        return True
 
     def _terminate(self):
         self._closed.set()
@@ -56,6 +63,13 @@ class RequestsProcess(RequestsRefresh):
             if not self.is_closed():
                 raise
 
+    def stop(self, complete=False):
+        if complete:
+            self._complete.set()
+            self._closed.set()
+        else:
+            self._terminate()
+
 
 class LimitedRequests(RequestsProcess):
 
@@ -76,12 +90,12 @@ class LimitedRequests(RequestsProcess):
         self._handles_add.put(request)
 
     def _add_handles(self):
-        while not self._closed.is_set():
+        while not self.is_closed():
             request = self._handles_add.get()
             #check handles removed before they are added
             if request:
                 self._handles_count.acquire()
-                if not self._closed.is_set():
+                if not self.is_closed():
                     self._add_request(request)
 
     def _add_request(self, request):
@@ -96,8 +110,8 @@ class LimitedRequests(RequestsProcess):
 
     def _close(self):
         super(LimitedRequests, self)._close()
-        #unblocks semaphore
 
+        #unblocks semaphore
         for i in range(len(self._requests)):
             self._handles_count.release()
 
@@ -141,8 +155,8 @@ class RequestsStatuses(object):
         for request in status.completed + status.failed:
             self._requests.close(request)
 
-    def stop(self):
-        self._requests.stop()
+    def stop(self, complete=False):
+        self._requests.stop(complete)
         #unblocks the queue
         self._updates.put(None)
         self._perform_thread.join()
@@ -170,8 +184,8 @@ class RequestsUpdates(RequestsStatuses):
     def _send_updates(self, status):
         raise NotImplementedError
 
-    def stop(self):
-        super(RequestsUpdates, self).stop()
+    def stop(self, complete=False):
+        super(RequestsUpdates, self).stop(complete)
         self._update_thread.join()
 
 

@@ -116,7 +116,10 @@ class DownloadRequests(RequestsUpdates):
         requests_status = self._multi.get_status(status)
 
         for requests, status in requests_status:
-            requests.update(status)
+            try:
+                requests.update(status)
+            except:
+                self.close(requests)
 
     def close(self, requests):
         self._multi.close(requests)

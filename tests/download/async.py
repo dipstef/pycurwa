@@ -28,10 +28,10 @@ def main():
 
     bucket = None
 
-    downloads = AsyncDownloads(bucket=bucket, max_connections=11)
+    with AsyncDownloads(bucket=bucket, max_connections=11) as downloads:
 
-    _request(downloads, 'http://download.thinkbroadband.com/10MB.zip', chunks=4)
-    _request(downloads, 'http://download.thinkbroadband.com/5MB.zip', chunks=4)
+        _request(downloads, 'http://download.thinkbroadband.com/10MB.zip', chunks=4)
+        _request(downloads, 'http://download.thinkbroadband.com/5MB.zip', chunks=4)
 
 
 if __name__ == "__main__":

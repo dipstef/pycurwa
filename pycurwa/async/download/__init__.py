@@ -35,6 +35,9 @@ class AsyncDownloads(AsyncDownloadsBase):
     def _create_request(self, chunks_file, on_completion=None, on_err=None, **kwargs):
         return AsyncChunks(self._requests, chunks_file, on_completion, on_err, self._cookies, self._bucket)
 
+    def _close(self):
+        self._requests.stop(complete=True)
+
 
 class AsyncChunks(AsyncChunksDownloads):
 

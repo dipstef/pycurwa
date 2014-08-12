@@ -14,7 +14,7 @@ class PyCurwaAsyncBase(PyCurwa):
         self._updates = CurlUpdates(self._requests)
 
     def execute(self, request,  **kwargs):
-        request = self._create_request(request)
+        request = self._create_request(request, **kwargs)
 
         self._requests.add(request)
         return request
@@ -32,8 +32,14 @@ class PyCurwaAsyncBase(PyCurwa):
 
 class PyCurwaAsync(PyCurwaAsyncBase):
 
+    def get(self, url, params=None, headers=None, on_completion=None, on_err=None, **kwargs):
+        return super(PyCurwaAsync, self).get(url, params, headers, on_completion=on_completion, on_err=on_err, **kwargs)
+
     def _create_request(self, request, on_completion=None, on_err=None):
         return AsyncRequest(request, on_completion, on_err, self._cookies, self._bucket)
+
+    def _close(self):
+        self._updates.stop(complete=True)
 
 
 class PyCurwaFutures(PyCurwaAsyncBase):

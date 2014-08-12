@@ -19,7 +19,7 @@ def main():
 
     bucket = None
 
-    downloads = AsyncDownloadFutures(bucket=bucket, max_connections=11)
+    downloads = AsyncDownloadFutures(bucket=bucket, max_connections=10)
 
     try:
         #request1 = _request(downloads, 'http://download.thinkbroadband.com/10MB.zip')
