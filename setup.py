@@ -38,7 +38,7 @@ settings.update(
     classifiers=CLASSIFIERS,
     keywords='http client curl pycurl httpy requests',
     packages=['pycurwa', 'pycurwa.curl', 'pycurwa.download', 'pycurwa.download.chunks', 'pycurwa.download.files',
-              'pycurwa.multi', 'pycurwa.multi.download'],
+              'pycurwa.async', 'pycurwa.async.download'],
     test_suite='tests',
     requires=['unicoder', 'httpy']
 )
