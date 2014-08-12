@@ -1,28 +1,21 @@
 from Queue import Queue
 from abc import abstractmethod
-
 from httpy.client import cookie_jar
 
 from .requests import DownloadRequests, AsyncChunksDownloads
-from ...download import HttpDownloadRequests
+from .download import AsyncDownloadRequests
 from .group import DownloadGroups
 
 
-class AsyncDownloadsBase(HttpDownloadRequests):
+class AsyncDownloadsBase(AsyncDownloadRequests):
 
     def __init__(self, cookies=cookie_jar, bucket=None, max_connections=10, timeout=30):
-        super(AsyncDownloadsBase, self).__init__(cookies, bucket, timeout)
-        self._requests = DownloadRequests(max_connections)
+        super(AsyncDownloadsBase, self).__init__(DownloadRequests(max_connections), cookies, bucket, timeout)
 
     @abstractmethod
     def _create_request(self, chunks_file, **kwargs):
         raise NotImplementedError
 
-    def close(self):
-        self._close()
-
-    def _close(self):
-        self._requests.stop()
 
 
 class AsyncDownloads(AsyncDownloadsBase):

@@ -6,7 +6,7 @@ from httpy.error import error_status, HttpStatusError
 from .curl import Curl, PyCurlError
 from .curl.request import curl_request
 from .curl.error import HttpCurlError
-from .response import CurlResponseBase, CurlBodyResponse
+from .response import CurlBodyResponse
 
 
 class CurlRequestBase(HttpyRequest):
@@ -72,15 +72,3 @@ class CurlRequest(CurlRequestBase):
 
     def _create_response(self):
         return CurlBodyResponse(self, self._cookies, self._bucket)
-
-
-class CurlHeadersRequest(CurlRequest):
-
-    def __init__(self, url, headers=None, data=None, params=None, cookies=None):
-        super(CurlHeadersRequest, self).__init__(HttpyRequest('HEAD', url, headers, data, params), cookies)
-
-    def head(self):
-        return self.execute().headers
-
-    def _create_response(self):
-        return CurlResponseBase(self, self._cookies)

@@ -53,9 +53,6 @@ class CurlRequestFuture(AsyncRequestBase):
     def _create_response(self):
         return CurlResponseFuture(self, self._outcome, self._cookies, self._bucket)
 
-    def close(self):
-        pass
-
 
 class CurlResponseFuture(CurlBodyResponse):
 

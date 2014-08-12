@@ -17,7 +17,16 @@ class HttpDownloadRequests(PyCurwa):
                                                      **kwargs)
 
     def execute(self, request, path=None, chunks=1, resume=False, **kwargs):
-        head_response = self.head(request.url, request.params, request.headers, request.data)
+        if request.method.lower() == 'head':
+            return self._head(request, **kwargs)
+        else:
+            return self._download(request, path, chunks, resume, **kwargs)
+
+    def _head(self, request, **kwargs):
+        return super(HttpDownloadRequests, self).execute(request, **kwargs)
+
+    def _download(self, request, path, chunks, resume, **kwargs):
+        head_response = self.head(request.url, headers=request.headers, params=request.params, data=request.data)
 
         if os.path.isdir(path):
             path = save_join(path, self._get_file_name(head_response))

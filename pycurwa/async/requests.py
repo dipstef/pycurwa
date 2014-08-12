@@ -137,6 +137,10 @@ class RequestsStatuses(object):
         self._perform_thread = Thread(target=self._perform)
         self._perform_thread.start()
 
+    def add(self, request):
+        self._active.wait()
+        self._requests.add(request)
+
     def _perform(self):
         self._active.set()
 

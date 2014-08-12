@@ -1,13 +1,12 @@
 from Queue import Queue
-
 from httpy.client import cookie_jar
 
+from .download import AsyncDownloadRequests
 from .requests import AsyncChunksDownloads
-from ...download import HttpDownloadRequests
 from ...curl.requests import RequestsStatus
 
 
-class DownloadGroups(HttpDownloadRequests):
+class DownloadGroups(AsyncDownloadRequests):
 
     def __init__(self, requests, cookies=cookie_jar, bucket=None, timeout=30):
         super(DownloadGroups, self).__init__(cookies, bucket, timeout)
@@ -20,10 +19,7 @@ class DownloadGroups(HttpDownloadRequests):
     def iterate_finished(self):
         return self._group.iterate_finished()
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
+    def _close(self):
         for _ in self.iterate_finished():
             pass
 

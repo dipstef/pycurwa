@@ -104,10 +104,9 @@ class DownloadRequests(RequestsUpdates):
         self._multi = RequestGroups()
 
     def add(self, requests):
-        self._active.wait()
         self._multi.add(requests)
         for request in requests:
-            self._requests.add(request)
+            super(DownloadRequests, self).add(request)
 
     def _is_status_update(self, status):
         #always send updates
