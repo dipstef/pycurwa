@@ -1,6 +1,7 @@
 from Queue import Queue
 from abc import abstractmethod
 from threading import Event
+
 from ..request import CurlRequestBase
 from ..response import CurlBodyResponse
 
@@ -61,6 +62,7 @@ class CurlResponseFuture(CurlBodyResponse):
         self._outcome = outcome
         self._completed = Event()
         self._headers = None
+        self._completion = None
 
     def read(self):
         self._wait_completed()
@@ -90,10 +92,11 @@ class CurlResponseFuture(CurlBodyResponse):
     def _wait_completed(self):
         if not self._completed.is_set():
             try:
-                outcome = self._outcome.get()
+                self._completion = self._outcome.get()
                 self._completed.set()
 
-                if isinstance(outcome, BaseException):
-                    raise outcome
             finally:
                 self.close()
+
+        if isinstance(self._completion, BaseException):
+            raise self._completion
