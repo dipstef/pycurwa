@@ -20,25 +20,24 @@ class HttpDownloadRequests(PyCurwa):
         if request.method.lower() == 'head':
             return self._head(request, **kwargs)
         else:
-            return self._download(request, path, chunks, resume, **kwargs)
+            return self._download(DownloadRequest(request, path, chunks, resume), **kwargs)
 
     def _head(self, request, **kwargs):
         return super(HttpDownloadRequests, self).execute(request, **kwargs)
 
-    def _download(self, request, path, chunks, resume, **kwargs):
-        head_response = self.head(request.url, headers=request.headers, params=request.params, **kwargs)
+    def _download(self, request, **kwargs):
+        response = self.head(request.url, headers=request.headers, params=request.params, data=request.data, **kwargs)
+        return self._create_download(request, response, **kwargs)
 
-        if os.path.isdir(path):
-            path = save_join(path, self._get_file_name(head_response))
+    def _create_download(self, request, response, **kwargs):
+        if os.path.isdir(request.path):
+            file_name = self._content_disposition(response.headers) or self._url_file_name(response.url)
+            request.path = save_join(request.path, file_name)
 
-        request = DownloadRequest(request, path, chunks, resume)
-        return self._create_request(get_chunks_file(request, content_length(head_response.headers)), **kwargs)
+        return self._create_request(get_chunks_file(request, content_length(response.headers)), **kwargs)
 
     def _create_request(self, chunks_file, **kwargs):
         return DownloadChunks(chunks_file, cookies=self._cookies, bucket=self._bucket)
-
-    def _get_file_name(self, header_response):
-        return self._content_disposition(header_response.headers) or self._url_file_name(header_response.url)
 
     def _content_disposition(self, headers):
         return disposition_file_name(headers)

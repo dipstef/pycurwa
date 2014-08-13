@@ -4,7 +4,7 @@ from httpy.client import HttpyRequest
 from .status import HttpChunksStatus, DownloadStats
 from ..error import FailedChunks
 from ..files import ChunksDict
-from ...error import DownloadedContentMismatch, Abort
+from ...error import DownloadedContentMismatch
 
 
 class ChunkRequests(HttpyRequest):
@@ -88,11 +88,11 @@ class ChunksDownload(ChunksStatuses):
     def __init__(self, request, downloads):
         super(ChunksDownload, self).__init__(request, downloads)
         self.stats = DownloadStats(request.path, self.size)
-        self._abort = False
 
     def _update(self, status):
-        if self._abort:
-            raise Abort(self._request)
-
         super(ChunksDownload, self)._update(status)
         self.stats.update_progress(status)
+
+    @property
+    def speed(self):
+        return self.stats.speed

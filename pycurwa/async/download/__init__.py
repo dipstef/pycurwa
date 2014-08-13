@@ -17,13 +17,7 @@ class AsyncDownloadsBase(AsyncDownloadRequests):
         raise NotImplementedError
 
 
-
 class AsyncDownloads(AsyncDownloadsBase):
-
-    def get(self, url, path=None, chunks=1, resume=False, on_completion=None, on_err=None, params=None, headers=None,
-            **kwargs):
-        return super(AsyncDownloads, self).get(url, path, chunks, resume, params, headers,
-                                               on_completion=on_completion, on_err=on_err, **kwargs)
 
     def _create_request(self, chunks_file, on_completion=None, on_err=None, **kwargs):
         return AsyncChunks(self._requests, chunks_file, on_completion, on_err, self._cookies, self._bucket)

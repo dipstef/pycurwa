@@ -1,15 +1,7 @@
 from httpy.error import HttpResponseError, HttpError
 
 
-class Abort(HttpError):
-    pass
-
-
-class HttpDownloadError(HttpError):
-    pass
-
-
-class UnexpectedContent(HttpDownloadError):
+class UnexpectedContent(HttpError):
     def __init__(self, request, path, actual, expected):
         super(UnexpectedContent, self).__init__(request, path, path, actual, expected)
         message = '%s content %d different than expected %d. Try to reduce download connections.'

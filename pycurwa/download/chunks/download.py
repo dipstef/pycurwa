@@ -24,7 +24,7 @@ class HttpChunks(ChunksDownload):
 
             if self._is_done():
                 self._done_downloading(status)
-        except BaseException, e:
+        except BaseException:
             self.close()
             raise
 
