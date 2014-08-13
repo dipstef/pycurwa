@@ -31,13 +31,12 @@ class HttpChunks(ChunksDownload):
     def _done_downloading(self, status):
         self.close()
         self._verify_completed()
+        self._chunks_file.copy_chunks()
         self._completed = True
 
     def _verify_completed(self):
         if not self.is_completed():
             raise ChunksDownloadMismatch(self._request, self)
-
-        self._chunks_file.copy_chunks()
 
     def _is_done(self):
         return len(self.completed) >= len(self._chunks) or bool(self.failed)
