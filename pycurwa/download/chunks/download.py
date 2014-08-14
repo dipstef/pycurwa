@@ -1,3 +1,4 @@
+from httpy.error import HttpError
 from .request import HttpChunk
 from .requests import ChunksDownload
 from ..error import ChunksDownloadMismatch
@@ -24,7 +25,7 @@ class HttpChunks(ChunksDownload):
 
             if self._is_done():
                 self._done_downloading(status)
-        except BaseException:
+        except HttpError:
             self.close()
             raise
 

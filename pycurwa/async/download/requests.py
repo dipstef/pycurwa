@@ -44,37 +44,41 @@ class RequestGroups(object):
 
     def __init__(self):
         super(RequestGroups, self).__init__()
-        self._handles_requests = OrderedDict()
-        self._requests_handles = OrderedDict()
+        self._handles_group = OrderedDict()
+        self._group_handles = OrderedDict()
 
     def add(self, requests):
         handles = self._get_requests_handles(requests)
 
         for request in requests:
-            self._handles_requests[request.handle] = requests
+            self._handles_group[request.handle] = requests
             handles.add(request.handle)
 
     def _get_requests_handles(self, requests):
-        requests_handles = self._requests_handles.get(requests)
+        requests_handles = self._group_handles.get(requests)
         if not requests_handles:
             requests_handles = set()
-            self._requests_handles[requests] = requests_handles
+            self._group_handles[requests] = requests_handles
 
         return requests_handles
 
     def close(self, requests):
         for request in requests:
-            group = self._handles_requests[request.handle]
-            del self._handles_requests[request.handle]
+            self._close(request)
 
-            handles = self._requests_handles[group]
+    def _close(self, request):
+        group = self._handles_group.get(request.handle)
+        if group:
+            del self._handles_group[request.handle]
+
+            handles = self._group_handles[group]
             handles.remove(request.handle)
 
             if not handles:
-                del self._requests_handles[group]
+                del self._group_handles[group]
 
     def get_status(self, status):
-        requests_status = RequestGroupStatus(self._requests_handles, status)
+        requests_status = RequestGroupStatus(self._group_handles, status)
 
         for group, completed in self._group_by_requests(status.completed):
             requests_status.add_completed(group, completed)
@@ -85,16 +89,16 @@ class RequestGroups(object):
         return requests_status
 
     def _group_by_requests(self, requests):
-        existing = (request for request in requests if request.handle in self._handles_requests)
+        existing = (request for request in requests if request.handle in self._handles_group)
 
-        grouped = groupby(existing, key=lambda request: self._handles_requests[request.handle])
+        grouped = groupby(existing, key=lambda request: self._handles_group[request.handle])
         return ((group, list(group_requests)) for group, group_requests in grouped)
 
     def __iter__(self):
-        return self._requests_handles.iterkeys()
+        return self._group_handles.iterkeys()
 
     def __len__(self):
-        return len(self._requests_handles)
+        return len(self._group_handles)
 
 
 class DownloadRequests(RequestsUpdates):
@@ -119,6 +123,8 @@ class DownloadRequests(RequestsUpdates):
             try:
                 requests.update(status)
             except:
+                #Should have been handled by the requests class
+                print_err_trace()
                 self.close(requests)
 
     def close(self, requests):
@@ -143,7 +149,6 @@ class AsyncChunksDownloads(ChunksDownloads):
         try:
             return self._update_status(status)
         except BaseException, e:
-            print_err_trace('Download %s Failed: ' % self._request.url)
             self._download_failed(e)
 
     def _update_status(self, status):
