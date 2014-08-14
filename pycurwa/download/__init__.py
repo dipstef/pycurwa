@@ -1,7 +1,7 @@
 import os
 
 from httpy.client import HttpyRequest
-from httpy.http.headers.content import content_length, disposition_file_name
+from httpy.http.headers.content import disposition_file_name
 
 from .chunks import ChunksDownloads
 from .files.download import get_chunks_file
@@ -37,7 +37,7 @@ class HttpDownloadRequests(PyCurwa):
         return self._create_chunks(download, response.headers, **kwargs)
 
     def _create_chunks(self, request, response_headers, **kwargs):
-        chunks_file = get_chunks_file(request, content_length(response_headers))
+        chunks_file = get_chunks_file(request, response_headers)
 
         return self._create_request(chunks_file, **kwargs)
 

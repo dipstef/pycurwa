@@ -67,6 +67,8 @@ class RequestsProcess(RequestsRefresh):
         if complete:
             self._complete.set()
             self._closed.set()
+            #unblocks waiting for available requests
+            self._on_going_requests.set()
         else:
             self._terminate()
 

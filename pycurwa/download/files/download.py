@@ -1,5 +1,6 @@
 import codecs
 import json
+from httpy.http.headers.content import content_length
 from . import DownloadChunkFiles, chunks_file_path
 from .chunk import ChunkFile
 
@@ -55,9 +56,9 @@ class OneChunk(NewDownload):
         super(OneChunk, self).__init__(request, expected_size, chunks=1, resume=resume)
 
 
-def get_chunks_file(request, content_length):
+def get_chunks_file(request, response_headers):
     try:
         chunks = ExistingDownload(request)
     except IOError:
-        chunks = NewDownload(request, content_length, request.chunks, resume=request.resume)
+        chunks = NewDownload(request, content_length(response_headers), request.chunks, resume=request.resume)
     return chunks
