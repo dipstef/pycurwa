@@ -29,7 +29,7 @@ class CurlRequestBase(HttpyRequest):
     def get_status_error(self):
         code = self._curl.get_status_code()
 
-        if code != 404 and code in error_status:
+        if code in error_status:
             return HttpStatusError(self, code)
 
     def _set_curl_cookies(self):

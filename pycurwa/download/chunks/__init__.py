@@ -50,7 +50,8 @@ class ChunksDownloads(RetryChunks):
         try:
             return super(ChunksDownloads, self)._update(status)
         except FailedChunks, e:
-            if len(self._chunks_file) == 1:
+            errors = [failed for failed in e.failed if not (failed.is_write_error() or failed.is_not_found)]
+            if len(self._chunks_file) == 1 or not errors:
                 raise
 
             for chunk_request in e.failed.values():

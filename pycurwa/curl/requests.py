@@ -116,9 +116,8 @@ class RequestsStatus(CurlHandlesStatus):
 
 
 class RequestStatusCheck(RequestsStatus):
-    def __init__(self, completed, failed, status_time=None):
-        failed = [request for request in failed if request.is_failed()]
 
+    def __init__(self, completed, failed, status_time=None):
         errors = []
         for request in completed:
             status_error = request.get_status_error()
@@ -128,7 +127,6 @@ class RequestStatusCheck(RequestsStatus):
                 failed.append(FailedHandle(request, status_error))
 
         completed = completed if not errors else [request for request in completed if not request in errors]
-
         super(RequestStatusCheck, self).__init__(completed, failed, status_time)
 
 
@@ -145,16 +143,17 @@ class FailedHandle(object):
     def __repr__(self):
         return '%s: %s' % (repr(self._request), repr(self.error))
 
+    def is_write_error(self):
+        return isinstance(self.error, CurlWriteError)
+
+    def is_not_found(self):
+        status_error = self._request.get_status_error()
+        return status_error and  status_error.code == 404
+
 
 class CurlFailed(FailedHandle):
     def __init__(self, request, errno, msg):
         super(CurlFailed, self).__init__(request, HttpCurlError(request, errno, msg))
-
-    def is_write_error(self):
-        return isinstance(self.error, CurlWriteError)
-
-    def is_failed(self):
-        return not self.is_write_error() or bool(self._request.get_status_error())
 
 
 class RequestsDict(OrderedDict):
