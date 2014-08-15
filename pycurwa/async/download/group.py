@@ -12,8 +12,8 @@ class DownloadGroups(AsyncDownloadRequests):
         super(DownloadGroups, self).__init__(cookies, bucket, timeout)
         self._group = ChunksDownloadGroup(requests)
 
-    def _create_download(self, chunks_file, **kwargs):
-        downloads = AsyncDownloadsGroup(self._group, chunks_file, self._cookies, self._bucket)
+    def _create_download(self, request, chunks, **kwargs):
+        downloads = AsyncDownloadsGroup(self._group, request, chunks, self._cookies, self._bucket)
         return downloads
 
     def iterate_finished(self):
@@ -26,8 +26,8 @@ class DownloadGroups(AsyncDownloadRequests):
 
 class AsyncDownloadsGroup(AsyncChunksDownloads):
 
-    def __init__(self, group, chunks_file, cookies=None, bucket=None):
-        super(AsyncDownloadsGroup, self).__init__(group, chunks_file, cookies, bucket)
+    def __init__(self, group, request, chunks, cookies=None, bucket=None):
+        super(AsyncDownloadsGroup, self).__init__(group, request, chunks, cookies, bucket)
         self.error = None
 
     def _download_failed(self, error):

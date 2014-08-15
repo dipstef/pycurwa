@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from collections import OrderedDict
 from itertools import groupby
+from httpy.error import HttpError
 from procol.console import print_err_trace
 
 from ...curl.requests import RequestsStatus
@@ -136,11 +137,16 @@ class DownloadRequests(RequestsUpdates):
 
 class AsyncChunksDownloads(ChunksDownloads):
 
-    def __init__(self, requests, chunks_file, cookies=None, bucket=None):
-        super(AsyncChunksDownloads, self).__init__(chunks_file, cookies, bucket)
+    def __init__(self, requests, request, chunks, cookies=None, bucket=None):
+        super(AsyncChunksDownloads, self).__init__(request, cookies, bucket)
         self._requests = requests
-        #starts downloads right away
-        self._submit()
+
+        try:
+            self._create_chunks(chunks)
+            #starts downloads right away
+            self._submit()
+        except HttpError, error:
+            self._download_failed(error)
 
     def _submit(self):
         self._requests.add(self)
