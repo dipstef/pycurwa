@@ -56,9 +56,9 @@ class OneChunk(NewDownload):
         super(OneChunk, self).__init__(request, expected_size, chunks=1, resume=resume)
 
 
-def get_chunks_file(request, response_headers):
+def get_chunks_file(request, chunks_number, response_headers):
     try:
         chunks = ExistingDownload(request)
     except IOError:
-        chunks = NewDownload(request, content_length(response_headers), request.chunks, resume=request.resume)
+        chunks = NewDownload(request, content_length(response_headers), chunks_number, resume=request.resume)
     return chunks

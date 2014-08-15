@@ -6,6 +6,32 @@ from ..files import ChunksDict
 from ...curl.requests import RequestsStatus
 
 
+class ChunksCompletion(ChunksDict):
+
+    def __init__(self, chunks=()):
+        super(ChunksCompletion, self).__init__(chunks)
+
+    @property
+    def size_downloaded(self):
+        return sum(chunk.size for chunk in self.values())
+
+    @property
+    def size_completed(self):
+        return sum((chunk.size for chunk in self.values() if chunk.is_completed()))
+
+    @property
+    def size(self):
+        return self.size_downloaded + self.size_completed
+
+    @property
+    def chunks_received(self):
+        return OrderedDict(((chunk_id, chunk.received) for chunk_id, chunk in self.iteritems()))
+
+    @property
+    def received(self):
+        return sum(self.chunks_received.values()) + self.size_completed
+
+
 class ChunkStatus(OrderedDict):
 
     def __add__(self, other):

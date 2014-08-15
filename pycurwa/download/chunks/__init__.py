@@ -1,7 +1,6 @@
 import time
 
 from httpy.error import InvalidRangeRequest
-
 from procol.console import print_err
 
 from .download import HttpChunks
@@ -11,9 +10,6 @@ from ..files.download import OneChunk
 
 
 class ChunksFileDownload(HttpChunks):
-
-    def __init__(self, chunks_file, cookies=None, bucket=None):
-        super(ChunksFileDownload, self).__init__(chunks_file, cookies, bucket)
 
     def _update(self, status):
         try:
@@ -40,21 +36,15 @@ class RetryChunks(ChunksFileDownload):
 
     def _retry_chunks(self, chunks_file):
         self.close()
-        self._reset(chunks_file)
+        self._create_from_chunks_file(chunks_file)
         self._submit()
         time.sleep(2)
-
-    def _reset(self, chunks_file):
-        super(RetryChunks, self).__init__(chunks_file, self._cookies, self._bucket)
 
     def _submit(self):
         raise NotImplementedError
 
 
 class ChunksDownloads(RetryChunks):
-
-    def __init__(self, chunks_file, cookies=None, bucket=None):
-        super(ChunksDownloads, self).__init__(chunks_file, cookies, bucket)
 
     def _update(self, status):
         try:

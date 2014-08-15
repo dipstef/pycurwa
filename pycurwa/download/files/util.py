@@ -10,5 +10,5 @@ else:
     fs_encode = lambda x: x  # do nothing
 
 
-def save_join(*args):
+def join_encoded(*args):
     return fs_encode(os.path.join(*[to_unicode(x, encoding='utf-8') for x in args]))

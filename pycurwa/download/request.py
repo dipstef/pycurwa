@@ -1,3 +1,4 @@
+from httpy.client import HttpyRequest
 from .response import CurlDownloadResponse, CurlRangeDownload
 from ..request import CurlRequest
 
@@ -44,3 +45,12 @@ class HttpDownloadRange(HttpDownloadBase):
 
     def _create_response(self):
         return CurlRangeDownload(self, self._cookies, self._bucket)
+
+
+class DownloadRequest(HttpyRequest):
+
+    def __init__(self, request, path, resume=False):
+        super(DownloadRequest, self).__init__(request.method, request.url, request.headers, request.data,
+                                              request.params, request.timeout, request.redirect)
+        self.path = path
+        self.resume = resume

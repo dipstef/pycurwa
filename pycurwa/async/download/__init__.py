@@ -13,13 +13,13 @@ class AsyncDownloadsBase(AsyncDownloadRequests):
         super(AsyncDownloadsBase, self).__init__(DownloadRequests(max_connections), cookies, bucket, timeout)
 
     @abstractmethod
-    def _create_request(self, chunks_file, **kwargs):
+    def _create_download(self, chunks_file, **kwargs):
         raise NotImplementedError
 
 
 class AsyncDownloads(AsyncDownloadsBase):
 
-    def _create_request(self, chunks_file, on_completion=None, on_err=None, **kwargs):
+    def _create_download(self, chunks_file, on_completion=None, on_err=None, **kwargs):
         return AsyncChunks(self._requests, chunks_file, on_completion, on_err, self._cookies, self._bucket)
 
     def _close(self):
@@ -44,7 +44,7 @@ class AsyncChunks(AsyncChunksDownloads):
 
 class AsyncDownloadFutures(AsyncDownloadsBase):
 
-    def _create_request(self, chunks_file, **kwargs):
+    def _create_download(self, chunks_file, **kwargs):
         return AsyncChunksFutures(self._requests, chunks_file, self._cookies, self._bucket)
 
     def group(self):

@@ -1,27 +1,21 @@
-from collections import OrderedDict
-from httpy.client import HttpyRequest
-
-from .status import HttpChunksStatus, DownloadStats
+from .status import ChunksCompletion, HttpChunksStatus, DownloadStats
+from ..request import DownloadRequest
 from ..error import FailedChunks
 from ..files import ChunksDict
 from ...error import DownloadedContentMismatch
 
 
-class ChunkRequests(HttpyRequest):
+class ChunkRequests(DownloadRequest):
 
-    def __init__(self, request, chunks):
-        super(HttpyRequest, self).__init__(request.method, request.url, request.headers, request.data, request.params)
-        self.path = request.path
-        self.resume = request.resume
-
+    def __init__(self, request):
+        super(ChunkRequests, self).__init__(request, request.path, request.resume)
         self._request = request
-        self._chunks = ChunksDict(chunks)
 
-        self._download_size = sum(chunk.size for chunk in chunks)
-        self._completed_size = sum((chunk.get_size() for chunk in chunks if chunk.is_completed()))
+    def _create_chunks(self, chunks):
+        self._chunks = ChunksCompletion(chunks)
 
     def update(self, status):
-        status = HttpChunksStatus(status, self.chunks_received)
+        status = HttpChunksStatus(status, self._chunks.chunks_received)
         self._update(status)
 
     def _update(self, status):
@@ -37,19 +31,11 @@ class ChunkRequests(HttpyRequest):
         return list(self._chunks.values())
 
     @property
-    def chunks_received(self):
-        return OrderedDict(((chunk_id, chunk.received) for chunk_id, chunk in self._chunks.iteritems()))
-
-    @property
-    def received(self):
-        return sum(self.chunks_received.values()) + self._completed_size
-
-    @property
     def size(self):
-        return self._download_size + self._completed_size
+        return self._chunks.size
 
     def is_completed(self):
-        return self.received >= self.size
+        return self._chunks.received >= self.size
 
     def __iter__(self):
         return self._chunks.itervalues()
@@ -60,9 +46,11 @@ class ChunkRequests(HttpyRequest):
 
 class ChunksStatuses(ChunkRequests):
 
-    def __init__(self, request, chunks):
-        super(ChunksStatuses, self).__init__(request, chunks)
+    def __init__(self, request):
+        super(ChunksStatuses, self).__init__(request)
 
+    def _create_chunks(self, chunks):
+        super(ChunksStatuses, self)._create_chunks(chunks)
         self.completed = ChunksDict()
         self.failed = ChunksDict()
 
@@ -85,9 +73,12 @@ class ChunksStatuses(ChunkRequests):
 
 class ChunksDownload(ChunksStatuses):
 
-    def __init__(self, request, downloads):
-        super(ChunksDownload, self).__init__(request, downloads)
-        self.stats = DownloadStats(request.path, self.size)
+    def __init__(self, request):
+        super(ChunksDownload, self).__init__(request)
+
+    def _create_chunks(self, chunks):
+        super(ChunksDownload, self)._create_chunks(chunks)
+        self.stats = DownloadStats(self.path, self.size)
 
     def _update(self, status):
         super(ChunksDownload, self)._update(status)

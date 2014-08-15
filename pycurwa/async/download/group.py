@@ -12,7 +12,7 @@ class DownloadGroups(AsyncDownloadRequests):
         super(DownloadGroups, self).__init__(cookies, bucket, timeout)
         self._group = ChunksDownloadGroup(requests)
 
-    def _create_request(self, chunks_file, **kwargs):
+    def _create_download(self, chunks_file, **kwargs):
         downloads = AsyncDownloadsGroup(self._group, chunks_file, self._cookies, self._bucket)
         return downloads
 
