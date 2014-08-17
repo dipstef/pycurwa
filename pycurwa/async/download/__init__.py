@@ -10,8 +10,8 @@ from .. import AsyncRequest
 
 class AsyncDownloadsBase(AsyncDownloadRequests):
 
-    def __init__(self, cookies=cookie_jar, bucket=None, max_connections=10, timeout=30):
-        super(AsyncDownloadsBase, self).__init__(DownloadRequests(max_connections), cookies, bucket, timeout)
+    def __init__(self, cookies=cookie_jar, max_speed=None, max_connections=10, timeout=30):
+        super(AsyncDownloadsBase, self).__init__(DownloadRequests(max_connections), cookies, max_speed, timeout)
 
     @abstractmethod
     def _create_download(self, request, chunks, **kwargs):

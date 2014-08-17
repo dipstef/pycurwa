@@ -1,7 +1,7 @@
 import os
 from procol.console import print_err, print_line
 
-from pycurwa.bucket import Bucket
+from pycurwa.bucket import TransferLimit
 from pycurwa.async.download import AsyncDownloads
 
 
@@ -23,12 +23,7 @@ def _request(downloads, url, chunks=1):
 
 def main():
 
-    bucket = Bucket()
-    bucket.max_speed = 200 * 1024
-
-    bucket = None
-
-    with AsyncDownloads(bucket=bucket, max_connections=11) as downloads:
+    with AsyncDownloads(max_connections=11) as downloads:
         _request(downloads, 'http://download.thinkbroadband.com/not_found.zip', chunks=4)
         _request(downloads, 'http://download.thinkbroadband.com/10MB.zip', chunks=4)
         _request(downloads, 'http://download.thinkbroadband.com/5MB.zip', chunks=4)

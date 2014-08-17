@@ -1,6 +1,5 @@
 import os
 
-from pycurwa.bucket import Bucket
 from pycurwa.async.download import AsyncDownloadFutures
 
 
@@ -14,12 +13,7 @@ def _request(downloads, url, chunks=1):
 
 def main():
 
-    bucket = Bucket()
-    bucket.max_speed = 200 * 1024
-
-    bucket = None
-
-    downloads = AsyncDownloadFutures(bucket=bucket, max_connections=10)
+    downloads = AsyncDownloadFutures(max_connections=10)
 
     try:
         #request1 = _request(downloads, 'http://download.thinkbroadband.com/10MB.zip')

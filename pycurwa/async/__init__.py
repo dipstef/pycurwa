@@ -8,8 +8,8 @@ from .requests import Requests, RequestsProcess, RequestsUpdates, RequestsStatus
 
 class PyCurwaAsyncBase(PyCurwa):
 
-    def __init__(self, max_connections=20, cookies=cookie_jar, bucket=None, timeout=30):
-        super(PyCurwaAsyncBase, self).__init__(cookies, bucket, timeout)
+    def __init__(self, max_connections=20, cookies=cookie_jar, timeout=30):
+        super(PyCurwaAsyncBase, self).__init__(cookies, timeout)
         self._requests = Requests(max_connections)
         self._updates = CurlUpdates(self._requests)
 

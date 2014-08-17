@@ -3,13 +3,14 @@ from time import time, sleep
 
 
 #bandwidth limit
-class Bucket(object):
-    def __init__(self, max_speed=0):
-        self._speed_rate = max_speed
+class TransferLimit(object):
+    def __init__(self, kbytes=0):
+        self._speed_rate = 0
         self._tokens = 0
-
         self._last_transfer_time = time()
         self._lock = Lock()
+
+        self.max_speed = kbytes
 
     def sleep_if_above_rate(self, received):
         #min. 10kb, may become unresponsive otherwise
@@ -36,9 +37,9 @@ class Bucket(object):
         return self._speed_rate
 
     @max_speed.setter
-    def max_speed(self, rate):
+    def max_speed(self, kbytes):
         with self._lock:
-            self._speed_rate = int(rate)
+            self._speed_rate = int(kbytes*1024)
 
     def __nonzero__(self):
         return not self._speed_rate < 10240

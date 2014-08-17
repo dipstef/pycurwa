@@ -1,4 +1,5 @@
 import os
+from httpy.client import cookie_jar
 
 from .chunks import ChunksDownloads
 from .request import DownloadRequest
@@ -7,6 +8,10 @@ from ..curl.requests import RequestsRefresh
 
 
 class HttpDownloadRequests(PyCurwa):
+
+    def __init__(self, cookies=cookie_jar, max_speed=None, timeout=30):
+        super(HttpDownloadRequests, self).__init__(cookies, timeout)
+        self.set_speed(kbytes=max_speed)
 
     def get(self, url, path=None, chunks=1, resume=False, params=None, headers=None, **kwargs):
         return super(HttpDownloadRequests, self).get(url, params, headers, path=path, chunks=chunks, resume=resume,
@@ -25,8 +30,8 @@ class HttpDownloadRequests(PyCurwa):
 
 class HttpDownload(HttpDownloadRequests):
 
-    def execute(self, request, path, chunks=1, resume=False):
-        download = super(HttpDownload, self).execute(request, path, chunks, resume)
+    def execute(self, request, path=None, chunks=1, resume=False, **kwargs):
+        download = super(HttpDownload, self).execute(request, path, chunks, resume, **kwargs)
         return download.perform()
 
 

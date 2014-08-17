@@ -1,6 +1,5 @@
 from procol.console import print_err
 
-from pycurwa.bucket import Bucket
 from pycurwa.async.download import AsyncDownloadFutures
 
 
@@ -16,11 +15,6 @@ def main():
     import os
 
     path = os.path.dirname(__file__)
-
-    bucket = Bucket()
-    bucket.max_speed = 200 * 1024
-
-    bucket = None
 
     requests = AsyncDownloadFutures(max_connections=10)
 

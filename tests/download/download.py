@@ -1,4 +1,3 @@
-from pycurwa.bucket import Bucket
 from pycurwa.download import HttpDownload
 
 
@@ -10,12 +9,7 @@ def main():
     #path = os.path.basename(url)
     path = os.path.dirname(__file__)
 
-    bucket = Bucket()
-    bucket.max_speed = 200 * 1024
-
-    bucket = None
-
-    download_client = HttpDownload(bucket=bucket)
+    download_client = HttpDownload()
 
     stats = download_client.get(url, path=path, chunks=4, resume=True)
 

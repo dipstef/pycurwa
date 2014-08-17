@@ -8,16 +8,15 @@ from ...curl.requests import RequestsStatus
 
 class DownloadGroups(AsyncDownloadRequests):
 
-    def __init__(self, requests, cookies=cookie_jar, bucket=None, timeout=30):
-        super(DownloadGroups, self).__init__(cookies, bucket, timeout)
-        self._group = ChunksDownloadGroup(requests)
+    def __init__(self, requests, cookies=cookie_jar, max_speed=None, timeout=30):
+        super(DownloadGroups, self).__init__(ChunksDownloadGroup(requests), cookies, max_speed, timeout)
 
     def _create_download(self, request, chunks, **kwargs):
-        downloads = AsyncDownloadsGroup(self._group, request, chunks, self._cookies, self._bucket)
+        downloads = AsyncDownloadsGroup(self._requests, request, chunks, self._cookies, self._bucket)
         return downloads
 
     def iterate_finished(self):
-        return self._group.iterate_finished()
+        return self._requests.iterate_finished()
 
     def _close(self):
         for _ in self.iterate_finished():
