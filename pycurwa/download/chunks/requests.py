@@ -1,4 +1,4 @@
-from .status import ChunksCompletion, HttpChunksStatus, DownloadStats
+from .status import ChunksCompletion, ChunksProgress, DownloadStats
 from ..request import DownloadRequest
 from ..error import FailedChunks
 from ..files import ChunksDict
@@ -10,38 +10,32 @@ class ChunkRequests(DownloadRequest):
     def __init__(self, request):
         super(ChunkRequests, self).__init__(request, request.path, request.resume)
         self._request = request
+        self._chunks = ChunksCompletion()
 
     def _create_chunks(self, chunks):
         self._chunks = ChunksCompletion(chunks)
 
     def update(self, status):
-        status = HttpChunksStatus(status, self._chunks.chunks_received)
         self._update(status)
 
     def _update(self, status):
         if status.failed:
             raise FailedChunks(self._request, status)
 
-        for chunk in status.completed.values():
+        for chunk in status.completed:
             if not chunk.is_completed():
                 raise DownloadedContentMismatch(self._request, chunk.path, chunk.received, chunk.size)
 
     @property
     def chunks(self):
-        return list(self._chunks.values())
+        return list(self._chunks.remaining)
 
     @property
     def size(self):
         return self._chunks.size
 
-    def is_completed(self):
-        return self._chunks.received >= self.size
-
     def __iter__(self):
-        return self._chunks.itervalues()
-
-    def __getitem__(self, item):
-        return self._chunks[item]
+        return iter(self._chunks.remaining)
 
 
 class ChunksStatuses(ChunkRequests):
@@ -50,9 +44,12 @@ class ChunksStatuses(ChunkRequests):
         super(ChunksStatuses, self).__init__(request)
 
     def _create_chunks(self, chunks):
-        super(ChunksStatuses, self)._create_chunks(chunks)
+        self._create_chunks_stats(chunks)
         self.completed = ChunksDict()
         self.failed = ChunksDict()
+
+    def _create_chunks_stats(self, chunks):
+        super(ChunksStatuses, self)._create_chunks(chunks)
 
     def _update(self, status):
         self._update_chunks_status(status)
@@ -67,8 +64,8 @@ class ChunksStatuses(ChunkRequests):
             if chunk.id in status.completed:
                 del self.failed[chunk.id]
 
-        self.completed.update(status.completed)
-        self.failed.update(status.failed)
+        self.completed.update(ChunksDict(status.completed))
+        self.failed.update(ChunksDict(status.failed))
 
 
 class ChunksDownload(ChunksStatuses):
@@ -76,14 +73,17 @@ class ChunksDownload(ChunksStatuses):
     def __init__(self, request):
         super(ChunksDownload, self).__init__(request)
 
-    def _create_chunks(self, chunks):
-        super(ChunksDownload, self)._create_chunks(chunks)
-        self.stats = DownloadStats(self.path, self.size)
+    def _create_chunks_stats(self, chunks):
+        self._chunks = ChunksProgress(chunks)
 
     def _update(self, status):
         super(ChunksDownload, self)._update(status)
-        self.stats.update_progress(status)
+        self._chunks.update_progress(status)
 
     @property
     def speed(self):
-        return self.stats.speed
+        return self._chunks.speed
+
+    @property
+    def stats(self):
+        return DownloadStats(self.path, self.size, self._chunks.speed)

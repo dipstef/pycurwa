@@ -1,4 +1,4 @@
-from ..request import HttpDownloadRange
+from ..request import HttpDownloadRange, DownloadRequest
 from ..response import CurlRangeDownload
 
 
@@ -26,6 +26,20 @@ class HttpChunk(HttpDownloadRange):
     def __str__(self):
         size = '' if not self._chunk.range.end else ' size=%d, ' % self._chunk.range.size
         return '<%s id=%d,%s arrived=%d>' % (self.__class__.__name__, self.id, size, self._response.received)
+
+
+class HttpChunkCompleted(DownloadRequest):
+
+    def __init__(self, request, chunk):
+        super(HttpChunkCompleted, self).__init__(request, chunk.path, chunk.resume)
+        self.path = chunk.path
+        self.id = chunk.id
+        self.size = chunk.size
+        self.received = chunk.size
+
+    @staticmethod
+    def is_completed():
+        return True
 
 
 class HttpChunkDownload(CurlRangeDownload):

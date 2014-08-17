@@ -4,7 +4,8 @@ from httpy.error import HttpError
 from httpy.http.headers.content import disposition_file_name
 from pycurwa import pycurwa
 
-from .request import HttpChunk
+from .request import HttpChunk, HttpChunkCompleted
+
 from .requests import ChunksDownload
 from ..error import ChunksDownloadMismatch
 from ..files.download import get_chunks_file
@@ -20,20 +21,24 @@ class HttpChunks(ChunksDownload):
         self._completed = False
 
     def _request_chunks(self, chunks_number):
-        try:
-            chunks_file = self._create_chunks_file(chunks_number)
-            self._create_downloads(chunks_file)
-        except HttpError:
-            self._create_chunks([])
-            raise
+        chunks_file = self._create_chunks_file(chunks_number)
+        self._create_downloads(chunks_file)
 
     def _create_downloads(self, chunks_file):
+        self.path = chunks_file.file_path
+        self.resume = chunks_file.resume
         self._chunks_file = chunks_file
 
-        downloads = [HttpChunk(self, chunk, self._cookies, self._bucket) for chunk in chunks_file.remaining()]
-        self._create_chunks(downloads)
+        chunks = []
+        for chunk in chunks_file.chunks:
+            if chunk.is_completed():
+                chunks.append(HttpChunkCompleted(self, chunk))
+            else:
+                chunks.append(HttpChunk(self, chunk, self._cookies, self._bucket))
 
-        if not downloads and self._chunks_file.chunks:
+        self._create_chunks(chunks)
+
+        if not self.chunks and self._chunks_file.chunks:
             self._verify_completed()
             self._chunks_file.copy_chunks()
 
@@ -54,11 +59,11 @@ class HttpChunks(ChunksDownload):
         self._completed = True
 
     def _verify_completed(self):
-        if not self.is_completed():
-            raise ChunksDownloadMismatch(self._request, self)
+        if not self._chunks.is_completed():
+            raise ChunksDownloadMismatch(self._request, self._chunks)
 
     def _is_done(self):
-        return len(self.completed) >= len(self._chunks) or bool(self.failed)
+        return len(self.completed) >= len(self._chunks.remaining) or bool(self.failed)
 
     def close(self):
         for chunk in self.chunks:

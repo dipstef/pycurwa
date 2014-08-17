@@ -1,35 +1,10 @@
 from collections import OrderedDict
 import numbers
 import operator
+from collected.sequence import partition
 
 from ..files import ChunksDict
 from ...curl.requests import RequestsStatus
-
-
-class ChunksCompletion(ChunksDict):
-
-    def __init__(self, chunks=()):
-        super(ChunksCompletion, self).__init__(chunks)
-
-    @property
-    def size_downloaded(self):
-        return sum(chunk.size for chunk in self.values())
-
-    @property
-    def size_completed(self):
-        return sum((chunk.size for chunk in self.values() if chunk.is_completed()))
-
-    @property
-    def size(self):
-        return self.size_downloaded + self.size_completed
-
-    @property
-    def chunks_received(self):
-        return OrderedDict(((chunk_id, chunk.received) for chunk_id, chunk in self.iteritems()))
-
-    @property
-    def received(self):
-        return sum(self.chunks_received.values()) + self.size_completed
 
 
 class ChunkStatus(OrderedDict):
@@ -66,16 +41,31 @@ class ChunkStatus(OrderedDict):
         return sum(self.values())
 
 
-class DownloadStats(object):
+class ChunksCompletion(object):
 
-    def __init__(self, path, size, refresh_rate=1):
-        self.path = path
-        self.size = size
+    def __init__(self, chunks=()):
+        completed, remaining = partition(lambda chunk: chunk.is_completed(), chunks)
 
+        self.size = sum(chunk.size for chunk in chunks)
+        self._chunks = ChunksDict(chunks)
+        self.completed = completed
+        self.remaining = remaining
+
+    @property
+    def chunks_received(self):
+        return ChunkStatus(((chunk.id, chunk.received) for chunk in self.remaining))
+
+    def is_completed(self):
+        return all(chunk.is_completed() for chunk in self._chunks.values())
+
+
+class ChunksProgress(ChunksCompletion):
+
+    def __init__(self, chunks, refresh_rate=1):
+        super(ChunksProgress, self).__init__(chunks)
         self._last_check = 0
 
         self._last_received = ChunkStatus()
-
         self._last_speeds = ChunkStatus()
 
         self._last_two_speeds = ({}, {})
@@ -83,12 +73,13 @@ class DownloadStats(object):
 
     def update_progress(self, status):
         if self._is_speed_refresh_time(status.check):
-            self._update_progress(status.check, status.received)
+            self._update_progress(status.check)
 
     def _is_speed_refresh_time(self, status_time):
         return self._last_check + self._speed_refresh_time < status_time
 
-    def _update_progress(self, status_time, received_now):
+    def _update_progress(self, status_time):
+        received_now = self.chunks_received
         received_diff = received_now - self._last_received
 
         last_speeds = received_diff/float(status_time - self._last_check)
@@ -110,19 +101,22 @@ class DownloadStats(object):
         return current_speeds
 
     @property
-    def received(self):
-        return self._last_received.sum()
-
-    @property
     def percent(self):
-        return (self.received * 100) / self.size
-
-    def __str__(self):
-        return '%s:, size: %d, speed: %d' % (self.path, self.size, self.speed)
+        return (self._last_received.sum() * 100) / self.size
 
 
 class HttpChunksStatus(RequestsStatus):
 
-    def __init__(self, status, received):
+    def __init__(self, status):
         super(HttpChunksStatus, self).__init__(ChunksDict(status.completed), ChunksDict(status.failed), status.check)
-        self.received = ChunkStatus(received)
+
+
+class DownloadStats(object):
+
+    def __init__(self, path, size, speed):
+        self.path = path
+        self.size = size
+        self.speed = speed
+
+    def __str__(self):
+        return '%s:, size: %d, speed: %d' % (self.path, self.size, self.speed)

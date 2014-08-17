@@ -2,8 +2,8 @@ from ..error import DownloadedContentMismatch, FailedStatus
 
 
 class ChunksDownloadMismatch(DownloadedContentMismatch):
-    def __init__(self, request, downloads):
-        super(ChunksDownloadMismatch, self).__init__(request, request.path, downloads.size, downloads.received)
+    def __init__(self, request, chunks):
+        super(ChunksDownloadMismatch, self).__init__(request, request.path, chunks.received, chunks.size)
 
 
 class FailedChunks(FailedStatus):

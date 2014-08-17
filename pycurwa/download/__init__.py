@@ -1,8 +1,6 @@
 import os
 
 from .chunks import ChunksDownloads
-from .files.download import get_chunks_file
-from .files.util import join_encoded
 from .request import DownloadRequest
 from .. import PyCurwa
 from ..curl.requests import RequestsRefresh
@@ -40,7 +38,7 @@ class DownloadChunks(ChunksDownloads):
         self._chunks_number = chunks
 
     def perform(self):
-        self._create_chunks(self._chunks_number)
+        self._request_chunks(self._chunks_number)
         self._submit()
 
         for status in self._requests.iterate_statuses():
