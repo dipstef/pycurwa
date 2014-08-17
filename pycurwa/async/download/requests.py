@@ -1,13 +1,9 @@
-from abc import abstractmethod
 from collections import OrderedDict
 from itertools import groupby
 
-from httpy.error import HttpError
 from procol.console import print_err_trace
 
-from .download import AsyncHeadFuture
 from ..requests import Requests, RequestsUpdates
-from ...download import ChunksDownloads
 from ...curl.requests import RequestsStatus
 
 
@@ -135,48 +131,3 @@ class DownloadRequests(RequestsUpdates):
 
         for request in requests:
             self._requests.close(request)
-
-
-class AsyncChunksDownloads(ChunksDownloads):
-
-    def __init__(self, requests, request, chunks, cookies=None, bucket=None):
-        super(AsyncChunksDownloads, self).__init__(request, cookies, bucket)
-        self._requests = requests
-
-        try:
-            self._request_chunks(chunks)
-            #starts downloads right away
-            self._submit()
-        except HttpError, error:
-            self._download_failed(error)
-
-    def _submit(self):
-        self._requests.add(self)
-
-    def update(self, status):
-        try:
-            return self._update_status(status)
-        except BaseException, e:
-            self._download_failed(e)
-
-    def _update_status(self, status):
-        return super(AsyncChunksDownloads, self).update(status)
-
-    def _done_downloading(self, status):
-        super(AsyncChunksDownloads, self)._done_downloading(status)
-        self._download_completed(status)
-
-    @abstractmethod
-    def _download_failed(self, error):
-        raise NotImplementedError
-
-    @abstractmethod
-    def _download_completed(self, status):
-        raise NotImplementedError
-
-    def close(self):
-        self._requests.close(self)
-
-    def _resolve_headers(self):
-        request = AsyncHeadFuture(self._requests, self._request, self._cookies)
-        return request.get_response()

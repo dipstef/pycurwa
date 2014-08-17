@@ -1,8 +1,7 @@
 from Queue import Queue
 from httpy.client import cookie_jar
 
-from .download import AsyncDownloadRequests
-from .requests import AsyncChunksDownloads
+from .download import AsyncDownloadRequests, AsyncChunksDownloads
 from ...curl.requests import RequestsStatus
 
 

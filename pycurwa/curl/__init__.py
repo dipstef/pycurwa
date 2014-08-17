@@ -19,11 +19,11 @@ else:
 class ClosingCurl(SetOptions, GetOptions):
 
     def __init__(self, curl_class):
-        self.curl = curl_class()
+        self.handle = curl_class()
         self.closed = False
 
     def close(self):
-        self.curl.close()
+        self.handle.close()
         self.closed = True
 
     def __enter__(self):
@@ -33,10 +33,10 @@ class ClosingCurl(SetOptions, GetOptions):
         self.close()
 
     def __eq__(self, other):
-        return other == self.curl
+        return other == self.handle
 
     def __getattr__(self, item):
-        return getattr(self.curl, item)
+        return getattr(self.handle, item)
 
 
 class CurlMulti(ClosingCurl):
@@ -46,26 +46,26 @@ class CurlMulti(ClosingCurl):
 
     def add_handle(self, curl):
         if isinstance(curl, Curl):
-            curl = curl.curl
+            curl = curl.handle
 
-        self.curl.add_handle(curl)
+        self.handle.add_handle(curl)
 
     def remove_handle(self, curl):
         if isinstance(curl, Curl):
-            curl = curl.curl
-        self.curl.remove_handle(curl)
+            curl = curl.handle
+        self.handle.remove_handle(curl)
 
     def execute(self):
         while True:
-            ret, num_handles = self.curl.perform()
+            ret, num_handles = self.handle.perform()
             if ret != pycurl.E_CALL_MULTI_PERFORM:
                 break
 
     def select(self, timeout=None):
-        return self.curl.select(timeout)
+        return self.handle.select(timeout)
 
     def get_status(self):
-        remaining, completed, failed = self.curl.info_read()
+        remaining, completed, failed = self.handle.info_read()
         return CurlMultiStatus(completed, failed, remaining)
 
 
@@ -91,6 +91,6 @@ class Curl(ClosingCurl):
 
     def perform(self):
         try:
-            self.curl.perform()
+            self.handle.perform()
         except pycurl.error, e:
             raise PyCurlError(*e.args)

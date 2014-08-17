@@ -2,8 +2,8 @@ from Queue import Queue
 from abc import abstractmethod
 from threading import Event
 from httpy.client import cookie_jar
-from .requests import DownloadRequests, AsyncChunksDownloads
-from .download import AsyncDownloadRequests, AsyncHead
+from .requests import DownloadRequests
+from .download import AsyncDownloadRequests, AsyncHead, AsyncChunksDownloads
 from .group import DownloadGroups
 from .. import AsyncRequest
 

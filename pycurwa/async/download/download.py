@@ -1,4 +1,7 @@
+from abc import abstractmethod
 from httpy.client import cookie_jar
+from httpy.error import HttpError
+from pycurwa.download import ChunksDownloads
 
 from ..request import CurlRequestFuture
 from ...download import HttpDownloadRequests
@@ -39,14 +42,33 @@ class AsyncDownloadRequests(HttpDownloadRequests):
 class AsyncHead(object):
 
     def __init__(self, requests, request):
+        self._requests = requests
         self._request = request
-        requests.add(self)
+        self._submit()
+
+    def _submit(self):
+        self._requests.add(self)
 
     def update(self, status):
         if status.completed:
-            self._request.completed()
+            self._completed()
         elif status.failed:
-            self._request.failed(status.failed[0].error)
+            self._failed(status.failed[0].error)
+
+    def _close(self):
+        self._requests.close(self)
+        self._request.close()
+
+    def _completed(self):
+        self._close()
+        self._request.completed()
+
+    def _failed(self, error):
+        self._close()
+        self._request.failed(error)
+
+    def close(self):
+        pass
 
     def __iter__(self):
         return iter([self])
@@ -58,3 +80,45 @@ class AsyncHead(object):
 class AsyncHeadFuture(AsyncHead):
     def __init__(self, requests, request, cookies=None):
         super(AsyncHeadFuture, self).__init__(requests, CurlRequestFuture(request, cookies))
+
+
+class AsyncChunksDownloads(ChunksDownloads):
+
+    def __init__(self, requests, request, chunks, cookies=None, bucket=None):
+        super(AsyncChunksDownloads, self).__init__(request, cookies, bucket)
+        self._requests = requests
+
+        try:
+            self._request_chunks(chunks)
+            #starts downloads right away
+            self._submit()
+        except HttpError, error:
+            self._download_failed(error)
+
+    def _submit(self):
+        self._requests.add(self)
+
+    def update(self, status):
+        try:
+            return super(AsyncChunksDownloads, self).update(status)
+        except HttpError, e:
+            self._download_failed(e)
+
+    def _done_downloading(self, status):
+        super(AsyncChunksDownloads, self)._done_downloading(status)
+        self._download_completed(status)
+
+    @abstractmethod
+    def _download_failed(self, error):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _download_completed(self, status):
+        raise NotImplementedError
+
+    def close(self):
+        self._requests.close(self)
+
+    def _resolve_headers(self):
+        request = AsyncHeadFuture(self._requests, self._request, self._cookies)
+        return request.get_response()

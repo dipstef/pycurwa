@@ -26,7 +26,8 @@ class RequestsProcess(RequestsRefresh):
     def close(self, request):
         with self._lock:
             super(RequestsProcess, self).close(request)
-            if not self._requests:
+            #Avoids resetting the flag if requests have been stopped for termination
+            if not self._requests and not self._closed.is_set():
                 self._on_going_requests.clear()
 
     def _has_requests(self):
@@ -45,12 +46,10 @@ class RequestsProcess(RequestsRefresh):
 
     def _terminate(self):
         self._closed.set()
-
-        self._close()
-
+        self._unblock()
         super(RequestsProcess, self)._terminate()
 
-    def _close(self):
+    def _unblock(self):
         #unblocks thread waiting for requests
         self._on_going_requests.set()
 
@@ -110,8 +109,8 @@ class LimitedRequests(RequestsProcess):
         super(LimitedRequests, self)._remove(request)
         self._handles_count.release()
 
-    def _close(self):
-        super(LimitedRequests, self)._close()
+    def _unblock(self):
+        super(LimitedRequests, self)._unblock()
 
         #unblocks semaphore
         for i in range(len(self._requests)):
