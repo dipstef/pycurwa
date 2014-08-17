@@ -2,7 +2,6 @@ from threading import Lock
 from time import time, sleep
 
 
-#bandwidth limit
 class TransferLimit(object):
     def __init__(self, kbytes=0):
         self._speed_rate = 0
