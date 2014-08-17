@@ -9,7 +9,7 @@ class ChunksDownloadMismatch(DownloadedContentMismatch):
 class FailedChunks(FailedStatus):
     def __init__(self, request, status, *args, **kwargs):
         super(FailedChunks, self).__init__(request, status, *args, **kwargs)
-        self.message = '\n'.join('%s: %s' % (chunk_id, chunk.error) for chunk_id, chunk in status.failed.iteritems())
+        self.message = '\n'.join('%s: %s' % (chunk.id, chunk.error) for chunk in status.failed)
 
     def __str__(self):
         return self.message

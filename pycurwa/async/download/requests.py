@@ -153,14 +153,14 @@ class AsyncChunksDownloads(ChunksDownloads):
     def _submit(self):
         self._requests.add(self)
 
-    def _update(self, status):
+    def update(self, status):
         try:
             return self._update_status(status)
         except BaseException, e:
             self._download_failed(e)
 
     def _update_status(self, status):
-        return super(AsyncChunksDownloads, self)._update(status)
+        return super(AsyncChunksDownloads, self).update(status)
 
     def _done_downloading(self, status):
         super(AsyncChunksDownloads, self)._done_downloading(status)

@@ -2,7 +2,6 @@ import os
 
 from httpy.error import HttpError
 from httpy.http.headers.content import disposition_file_name
-from pycurwa import pycurwa
 
 from .request import HttpChunk, HttpChunkCompleted
 
@@ -10,6 +9,7 @@ from .requests import ChunksDownload
 from ..error import ChunksDownloadMismatch
 from ..files.download import get_chunks_file
 from ..files.util import join_encoded
+from ... import pycurwa
 
 
 class HttpChunks(ChunksDownload):
@@ -46,7 +46,7 @@ class HttpChunks(ChunksDownload):
         try:
             super(HttpChunks, self).update(status)
 
-            if self._is_done():
+            if self._chunks.is_finished():
                 self._done_downloading(status)
         except HttpError:
             self.close()
@@ -62,9 +62,6 @@ class HttpChunks(ChunksDownload):
         if not self._chunks.is_completed():
             raise ChunksDownloadMismatch(self._request, self._chunks)
 
-    def _is_done(self):
-        return len(self.completed) >= len(self._chunks.remaining) or bool(self.failed)
-
     def close(self):
         for chunk in self.chunks:
             chunk.close()
@@ -74,7 +71,6 @@ class HttpChunks(ChunksDownload):
 
         if os.path.isdir(self.path):
             self.path = join_encoded(self.path, self._response_file_name(response.url, response.headers))
-            self._request.path = self.path
 
         return get_chunks_file(self._request, chunks, response.headers)
 

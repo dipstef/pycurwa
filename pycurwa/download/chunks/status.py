@@ -1,10 +1,10 @@
 from collections import OrderedDict
 import numbers
 import operator
+
 from collected.sequence import partition
 
 from ..files import ChunksDict
-from ...curl.requests import RequestsStatus
 
 
 class ChunkStatus(OrderedDict):
@@ -48,8 +48,24 @@ class ChunksCompletion(object):
 
         self.size = sum(chunk.size for chunk in chunks)
         self._chunks = ChunksDict(chunks)
-        self.completed = completed
+
+        self.completed = ChunksDict(completed)
+        self.failed = ChunksDict()
+
         self.remaining = remaining
+
+    def update_progress(self, status):
+        for chunk in self.completed.values():
+            if chunk.id in status.failed:
+                del self.completed[chunk.id]
+
+        for chunk in self.failed.values():
+            if chunk.id in status.completed:
+                del self.failed[chunk.id]
+
+        self.completed.update(ChunksDict(status.completed))
+        self.failed.update(ChunksDict(status.failed))
+
 
     @property
     def chunks_received(self):
@@ -57,6 +73,9 @@ class ChunksCompletion(object):
 
     def is_completed(self):
         return all(chunk.is_completed() for chunk in self._chunks.values())
+
+    def is_finished(self):
+        return len(self.completed) >= len(self._chunks) or bool(self.failed)
 
 
 class ChunksProgress(ChunksCompletion):
@@ -72,6 +91,7 @@ class ChunksProgress(ChunksCompletion):
         self._speed_refresh_time = refresh_rate
 
     def update_progress(self, status):
+        super(ChunksProgress, self).update_progress(status)
         if self._is_speed_refresh_time(status.check):
             self._update_progress(status.check)
 
@@ -103,12 +123,6 @@ class ChunksProgress(ChunksCompletion):
     @property
     def percent(self):
         return (self._last_received.sum() * 100) / self.size
-
-
-class HttpChunksStatus(RequestsStatus):
-
-    def __init__(self, status):
-        super(HttpChunksStatus, self).__init__(ChunksDict(status.completed), ChunksDict(status.failed), status.check)
 
 
 class DownloadStats(object):

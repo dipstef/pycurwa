@@ -11,9 +11,9 @@ from ..files.download import OneChunk
 
 class ChunksFileDownload(HttpChunks):
 
-    def _update(self, status):
+    def update(self, status):
         try:
-            super(ChunksFileDownload, self)._update(status)
+            super(ChunksFileDownload, self).update(status)
         except FailedChunks:
             if not self._chunks_file.resume:
                 self._chunks_file.remove()
@@ -22,9 +22,9 @@ class ChunksFileDownload(HttpChunks):
 
 class RetryChunks(ChunksFileDownload):
 
-    def _update(self, status):
+    def update(self, status):
         try:
-            super(RetryChunks, self)._update(status)
+            super(RetryChunks, self).update(status)
         except InvalidRangeRequest:
             if self._chunks_file.resume:
                 return self._no_resume_download()
@@ -46,15 +46,15 @@ class RetryChunks(ChunksFileDownload):
 
 class ChunksDownloads(RetryChunks):
 
-    def _update(self, status):
+    def update(self, status):
         try:
-            return super(ChunksDownloads, self)._update(status)
+            return super(ChunksDownloads, self).update(status)
         except FailedChunks, e:
-            errors = [failed for failed in e.failed if not (failed.is_write_error() or failed.is_not_found)]
+            errors = [chunk for chunk in e.failed if not (chunk.is_write_error() or chunk.is_not_found())]
             if len(self._chunks_file) == 1 or not errors:
                 raise
 
-            for chunk_request in e.failed.values():
+            for chunk_request in e.failed:
                 print_err('Chunk %d failed: %s' % (chunk_request.id + 1, str(chunk_request.error)))
 
             self._revert_to_one_chunk()
