@@ -10,9 +10,14 @@ class AsyncDownloadRequests(HttpDownloadRequests):
         super(AsyncDownloadRequests, self).__init__(cookies, bucket, timeout)
         self._requests = requests
 
+    def execute(self, request, path=None, chunks=1, resume=False, **kwargs):
+        if request.method.lower() == 'head':
+            return self._head(request, **kwargs)
+        else:
+            return super(AsyncDownloadRequests, self).execute(request, path=None, chunks=1, resume=False, **kwargs)
+
     def _head(self, request, **kwargs):
-        request = HeadRequestFuture(request, self._cookies)
-        self._requests.add(request)
+        request = AsyncHeadFuture(self._requests, request, self._cookies)
         return request.get_response()
 
     def close(self):
@@ -22,13 +27,25 @@ class AsyncDownloadRequests(HttpDownloadRequests):
         self._requests.stop()
 
 
-class HeadRequestFuture(CurlRequestFuture):
+class AsyncHead(object):
+
+    def __init__(self, requests, request):
+        self._request = request
+        requests.add(self)
 
     def update(self, status):
         if status.completed:
-            self.completed()
+            self._request.completed()
         elif status.failed:
-            self.failed(status.failed[0].error)
+            self._request.failed(status.failed[0].error)
 
     def __iter__(self):
         return iter([self])
+
+    def __getattr__(self, item):
+        return getattr(self._request, item)
+
+
+class AsyncHeadFuture(AsyncHead):
+    def __init__(self, requests, request, cookies=None):
+        super(AsyncHeadFuture, self).__init__(requests, CurlRequestFuture(request, cookies))

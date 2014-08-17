@@ -1,12 +1,14 @@
 from abc import abstractmethod
 from collections import OrderedDict
 from itertools import groupby
+
 from httpy.error import HttpError
 from procol.console import print_err_trace
 
-from ...curl.requests import RequestsStatus
+from .download import AsyncHeadFuture
 from ..requests import Requests, RequestsUpdates
 from ...download import ChunksDownloads
+from ...curl.requests import RequestsStatus
 
 
 class RequestGroupStatus(object):
@@ -142,7 +144,7 @@ class AsyncChunksDownloads(ChunksDownloads):
         self._requests = requests
 
         try:
-            self._create_chunks(chunks)
+            self._request_chunks(chunks)
             #starts downloads right away
             self._submit()
         except HttpError, error:
@@ -174,3 +176,7 @@ class AsyncChunksDownloads(ChunksDownloads):
 
     def close(self):
         self._requests.close(self)
+
+    def _resolve_headers(self):
+        request = AsyncHeadFuture(self._requests, self._request, self._cookies)
+        return request.get_response()

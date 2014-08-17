@@ -3,9 +3,9 @@ import os
 from .chunks import ChunksDownloads
 from .files.download import get_chunks_file
 from .files.util import join_encoded
+from .request import DownloadRequest
 from .. import PyCurwa
 from ..curl.requests import RequestsRefresh
-from .request import DownloadRequest
 
 
 class HttpDownloadRequests(PyCurwa):
@@ -15,11 +15,8 @@ class HttpDownloadRequests(PyCurwa):
                                                      **kwargs)
 
     def execute(self, request, path=None, chunks=1, resume=False, **kwargs):
-        if request.method.lower() == 'head':
-            return self._head(request, **kwargs)
-        else:
-            path = path or os.getcwd()
-            return self._create_download(DownloadRequest(request, path, resume), max(chunks,1), **kwargs)
+        path = path or os.getcwd()
+        return self._create_download(DownloadRequest(request, path, resume), max(chunks, 1), **kwargs)
 
     def _head(self, request, **kwargs):
         return super(HttpDownloadRequests, self).execute(request, **kwargs)

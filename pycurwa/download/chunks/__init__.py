@@ -36,7 +36,7 @@ class RetryChunks(ChunksFileDownload):
 
     def _retry_chunks(self, chunks_file):
         self.close()
-        self._create_from_chunks_file(chunks_file)
+        self._create_downloads(chunks_file)
         self._submit()
         time.sleep(2)
 

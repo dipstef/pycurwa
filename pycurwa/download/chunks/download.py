@@ -19,14 +19,19 @@ class HttpChunks(ChunksDownload):
         self._bucket = bucket
         self._completed = False
 
-    def _create_chunks(self, chunks_number):
-        self._create_from_chunks_file(self._create_chunks_file(chunks_number))
+    def _request_chunks(self, chunks_number):
+        try:
+            chunks_file = self._create_chunks_file(chunks_number)
+            self._create_downloads(chunks_file)
+        except HttpError:
+            self._create_chunks([])
+            raise
 
-    def _create_from_chunks_file(self, chunks_file):
+    def _create_downloads(self, chunks_file):
         self._chunks_file = chunks_file
 
-        downloads = [HttpChunk(self, chunk, self._cookies, self._bucket) for chunk in self._chunks_file.remaining()]
-        super(HttpChunks, self)._create_chunks(downloads)
+        downloads = [HttpChunk(self, chunk, self._cookies, self._bucket) for chunk in chunks_file.remaining()]
+        self._create_chunks(downloads)
 
         if not downloads and self._chunks_file.chunks:
             self._verify_completed()

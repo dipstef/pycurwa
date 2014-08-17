@@ -39,11 +39,15 @@ class AsyncRequest(AsyncRequestBase):
             self._on_err(self, error)
 
 
-class CurlRequestFuture(AsyncRequestBase):
+class CurlRequestFuture(AsyncRequest):
 
     def __init__(self, request, cookies=None, bucket=None):
         self._outcome = Queue(1)
         super(CurlRequestFuture, self).__init__(request, cookies, bucket)
+
+    def execute(self):
+        assert self._response.status == 200
+        return self._response
 
     def completed(self):
         self._outcome.put(self._response.date)
