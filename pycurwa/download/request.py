@@ -56,7 +56,7 @@ class DownloadRequest(HttpyRequest):
         self.resume = resume
 
 
-class DownloadHeadRequest(HttpyRequest):
+class HeadersRequest(HttpyRequest):
     def __init__(self, request):
-        super(DownloadHeadRequest, self).__init__('HEAD', request.url, request.headers, request.data, request.params,
+        super(HeadersRequest, self).__init__('HEAD', request.url, request.headers, request.data, request.params,
                                                   request.timeout, request.redirect)

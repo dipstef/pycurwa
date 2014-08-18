@@ -5,7 +5,7 @@ from httpy.error import HttpError
 
 from .requests import AsyncFuture, AsyncRequest
 from ...download import HttpDownloadRequests, ChunksDownloads
-from ...download.request import DownloadHeadRequest
+from ...download.request import HeadersRequest
 
 
 class AsyncDownloadRequests(HttpDownloadRequests):
@@ -18,7 +18,7 @@ class AsyncDownloadRequests(HttpDownloadRequests):
         if request.method.lower() == 'head':
             return self._head(request, **kwargs)
         else:
-            return super(AsyncDownloadRequests, self).execute(request, path=None, chunks=1, resume=False, **kwargs)
+            return super(AsyncDownloadRequests, self).execute(request, path, chunks, resume, **kwargs)
 
     def _head(self, request, **kwargs):
         request = AsyncFuture(self._requests, request, self._cookies)
@@ -42,12 +42,12 @@ class AsyncDownloadRequests(HttpDownloadRequests):
 
 class AsyncHead(AsyncRequest):
     def __init__(self, requests, request, on_completion, on_err, cookies):
-        super(AsyncHead, self).__init__(requests, DownloadHeadRequest(request), on_completion, on_err, cookies)
+        super(AsyncHead, self).__init__(requests, HeadersRequest(request), on_completion, on_err, cookies)
 
 
 class AsyncHeadFuture(AsyncFuture):
     def __init__(self, requests, request, cookies=None):
-        super(AsyncHeadFuture, self).__init__(requests, DownloadHeadRequest(request), cookies)
+        super(AsyncHeadFuture, self).__init__(requests, HeadersRequest(request), cookies)
 
 
 class AsyncChunksDownloads(ChunksDownloads):
