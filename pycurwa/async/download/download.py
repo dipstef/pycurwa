@@ -1,10 +1,11 @@
 from abc import abstractmethod
+
 from httpy.client import cookie_jar
 from httpy.error import HttpError
 
-from .requests import GroupRequest
-from ..request import CurlRequestFuture, AsyncRequest
+from .requests import AsyncFuture, AsyncRequest
 from ...download import HttpDownloadRequests, ChunksDownloads
+from ...download.request import DownloadHeadRequest
 
 
 class AsyncDownloadRequests(HttpDownloadRequests):
@@ -20,7 +21,7 @@ class AsyncDownloadRequests(HttpDownloadRequests):
             return super(AsyncDownloadRequests, self).execute(request, path=None, chunks=1, resume=False, **kwargs)
 
     def _head(self, request, **kwargs):
-        request = AsyncHeadFuture(self._requests, request, self._cookies)
+        request = AsyncFuture(self._requests, request, self._cookies)
         return request.get_response()
 
     def close(self):
@@ -39,15 +40,14 @@ class AsyncDownloadRequests(HttpDownloadRequests):
         self._requests.resume()
 
 
-class AsyncHead(GroupRequest):
-
+class AsyncHead(AsyncRequest):
     def __init__(self, requests, request, on_completion, on_err, cookies):
-        super(AsyncHead, self).__init__(requests, AsyncRequest(request, on_completion, on_err, cookies))
+        super(AsyncHead, self).__init__(requests, DownloadHeadRequest(request), on_completion, on_err, cookies)
 
 
-class AsyncHeadFuture(GroupRequest):
+class AsyncHeadFuture(AsyncFuture):
     def __init__(self, requests, request, cookies=None):
-        super(AsyncHeadFuture, self).__init__(requests, CurlRequestFuture(request, cookies))
+        super(AsyncHeadFuture, self).__init__(requests, DownloadHeadRequest(request), cookies)
 
 
 class AsyncChunksDownloads(ChunksDownloads):

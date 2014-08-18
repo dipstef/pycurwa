@@ -54,3 +54,9 @@ class DownloadRequest(HttpyRequest):
                                               request.params, request.timeout, request.redirect)
         self.path = path
         self.resume = resume
+
+
+class DownloadHeadRequest(HttpyRequest):
+    def __init__(self, request):
+        super(DownloadHeadRequest, self).__init__('HEAD', request.url, request.headers, request.data, request.params,
+                                                  request.timeout, request.redirect)

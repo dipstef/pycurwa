@@ -6,7 +6,7 @@ from httpy.http.headers.content import disposition_file_name
 from .request import HttpChunk, HttpChunkCompleted
 
 from .requests import ChunksDownload
-from ..error import ChunksDownloadMismatch
+from ..error import ChunksDownloadMismatch, FailedChunks
 from ..files.download import get_chunks_file
 from ..files.util import join_encoded
 from ... import pycurwa
@@ -25,24 +25,29 @@ class HttpChunks(ChunksDownload):
         self._create_downloads(chunks_file)
 
     def _create_downloads(self, chunks_file):
-        self.path = chunks_file.file_path
-        self.resume = chunks_file.resume
         self._chunks_file = chunks_file
 
-        chunks = []
-        for chunk in chunks_file.chunks:
-            if chunk.is_completed():
-                chunks.append(HttpChunkCompleted(self, chunk))
-            else:
-                chunks.append(HttpChunk(self, chunk, self._cookies, self._bucket))
-
-        self._create_chunks(chunks)
+        self._create_chunks([self._chunk(chunk) for chunk in chunks_file.chunks])
 
         if not self.chunks and self._chunks_file.chunks:
             self._verify_completed()
             self._chunks_file.copy_chunks()
 
+    def _chunk(self, chunk):
+        if not chunk.is_completed():
+            return HttpChunk(self, chunk, self._cookies, self._bucket)
+        else:
+            return HttpChunkCompleted(self, chunk)
+
     def update(self, status):
+        try:
+            self._update(status)
+        except FailedChunks:
+            if not self.resume:
+                self._chunks_file.remove()
+            raise
+
+    def _update(self, status):
         try:
             super(HttpChunks, self).update(status)
 
@@ -67,12 +72,16 @@ class HttpChunks(ChunksDownload):
             chunk.close()
 
     def _create_chunks_file(self, chunks):
-        response = self._resolve_headers()
-
-        if os.path.isdir(self.path):
-            self.path = join_encoded(self.path, self._response_file_name(response.url, response.headers))
+        response = self._resolve_download()
 
         return get_chunks_file(self._request, chunks, response.headers)
+
+    def _resolve_download(self):
+        response = self._resolve_headers()
+        if os.path.isdir(self.path):
+            file_name = self._response_file_name(response.url, response.headers)
+            self.path = join_encoded(self.path, file_name)
+        return response
 
     def _resolve_headers(self):
         return pycurwa.head(self.url, params=self.params, headers=self.headers, data=self.data)

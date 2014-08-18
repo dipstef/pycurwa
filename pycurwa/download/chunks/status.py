@@ -46,7 +46,7 @@ class ChunksCompletion(object):
     def __init__(self, chunks=()):
         completed, remaining = partition(lambda chunk: chunk.is_completed(), chunks)
 
-        self.size = sum(chunk.size for chunk in chunks)
+        self.size = sum(chunk.size for chunk in chunks) if chunks else 0
         self._chunks = ChunksDict(chunks)
 
         self.completed = ChunksDict(completed)

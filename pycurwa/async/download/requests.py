@@ -2,6 +2,8 @@ from collections import OrderedDict
 from itertools import groupby
 from procol.console import print_err_trace
 
+from ..request import CurlRequestFuture, AsyncRequest as Request
+
 from ..requests import Requests, RequestsUpdates
 from ...curl.requests import RequestsStatus
 
@@ -163,3 +165,14 @@ class GroupRequest(object):
 
     def __getattr__(self, item):
         return getattr(self._request, item)
+
+
+class AsyncRequest(GroupRequest):
+
+    def __init__(self, requests, request, on_completion, on_err, cookies):
+        super(AsyncRequest, self).__init__(requests, Request(request, on_completion, on_err, cookies))
+
+
+class AsyncFuture(GroupRequest):
+    def __init__(self, requests, request, cookies=None):
+        super(AsyncFuture, self).__init__(requests, CurlRequestFuture(request, cookies))

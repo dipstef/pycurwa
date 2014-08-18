@@ -39,7 +39,7 @@ class AsyncRequest(AsyncRequestBase):
             self._on_err(self, error)
 
 
-class CurlRequestFuture(AsyncRequest):
+class CurlRequestFuture(AsyncRequestBase):
 
     def __init__(self, request, cookies=None, bucket=None):
         self._outcome = Queue(1)

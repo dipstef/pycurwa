@@ -6,7 +6,6 @@ class HttpChunk(HttpDownloadRange):
 
     def __init__(self, request, chunk, cookies=None, bucket=None):
         super(HttpChunk, self).__init__(request, chunk.path, chunk.download_range, cookies, bucket, chunk.resume)
-
         self._chunk = chunk
 
     @property
