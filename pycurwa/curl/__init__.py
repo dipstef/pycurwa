@@ -1,5 +1,6 @@
 import pycurl
 import sys
+import itertools
 
 from .error import PyCurlError
 from .options import SetOptions, GetOptions
@@ -74,6 +75,9 @@ class CurlHandlesStatus(object):
     def __init__(self, completed=(), failed=()):
         self.completed = completed
         self.failed = failed
+
+    def __iter__(self):
+        return itertools.chain(self.completed, self.failed)
 
 
 class CurlMultiStatus(CurlHandlesStatus):

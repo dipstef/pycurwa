@@ -1,6 +1,7 @@
 from Queue import Queue
 from abc import abstractmethod
 from threading import Event, Semaphore, Thread, Lock
+from procol.console import print_err_trace
 
 from .curl import CurlMulti
 from ..curl.requests import RequestsRefresh
@@ -13,9 +14,7 @@ class RequestsProcess(RequestsRefresh):
         self._lock = Lock()
         self._closed = Event()
         self._complete = Event()
-
         self._on_going_requests = Event()
-
         super(RequestsProcess, self).__init__(refresh, CurlMulti())
 
     def add(self, request):
@@ -157,13 +156,13 @@ class RequestsStatuses(object):
         while not self._requests.is_closed():
             status = self._updates.get()
             if status:
-                self._close_finished(status)
+                for request in status:
+                    self._close(request)
                 self._active.wait()
                 yield status
 
-    def _close_finished(self, status):
-        for request in status.completed + status.failed:
-            self._requests.close(request)
+    def _close(self, request):
+        self._requests.close(request)
 
     def pause(self):
         self._active.clear()
@@ -174,6 +173,7 @@ class RequestsStatuses(object):
     def stop(self, complete=False):
         self._active.set()
         self._requests.stop(complete)
+
         #unblocks the queue
         self._updates.put(None)
         self._perform_thread.join()
@@ -195,7 +195,12 @@ class RequestsUpdates(RequestsStatuses):
 
     def _process_updates(self):
         for status in self.iterate_statuses():
-            self._send_updates(status)
+            try:
+                self._send_updates(status)
+            except:
+                #Should have been handled by the requests class
+                print_err_trace()
+
 
     @abstractmethod
     def _send_updates(self, status):

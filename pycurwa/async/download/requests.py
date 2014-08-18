@@ -1,6 +1,5 @@
 from collections import OrderedDict
 from itertools import groupby
-
 from procol.console import print_err_trace
 
 from ..requests import Requests, RequestsUpdates
@@ -46,12 +45,11 @@ class RequestGroups(object):
         self._handles_group = OrderedDict()
         self._group_handles = OrderedDict()
 
-    def add(self, requests):
-        handles = self._get_requests_handles(requests)
+    def add(self, request, group):
+        handles = self._get_requests_handles(group)
 
-        for request in requests:
-            self._handles_group[request.handle] = requests
-            handles.add(request.handle)
+        self._handles_group[request.handle] = group
+        handles.add(request.handle)
 
     def _get_requests_handles(self, requests):
         requests_handles = self._group_handles.get(requests)
@@ -61,11 +59,7 @@ class RequestGroups(object):
 
         return requests_handles
 
-    def close(self, requests):
-        for request in requests:
-            self._close(request)
-
-    def _close(self, request):
+    def close(self, request):
         group = self._handles_group.get(request.handle)
         if group:
             del self._handles_group[request.handle]
@@ -93,6 +87,15 @@ class RequestGroups(object):
         grouped = groupby(existing, key=lambda request: self._handles_group[request.handle])
         return ((group, list(group_requests)) for group, group_requests in grouped)
 
+    def group_by_requests(self, status):
+        requests_status = self.get_status(status)
+
+        for requests, status in requests_status:
+            for request in status:
+                self.close(request)
+
+            yield requests, status
+
     def __iter__(self):
         return self._group_handles.iterkeys()
 
@@ -107,8 +110,8 @@ class DownloadRequests(RequestsUpdates):
         self._multi = RequestGroups()
 
     def add(self, requests):
-        self._multi.add(requests)
         for request in requests:
+            self._multi.add(request, requests)
             super(DownloadRequests, self).add(request)
 
     def _is_status_update(self, status):
@@ -116,18 +119,47 @@ class DownloadRequests(RequestsUpdates):
         return True
 
     def _send_updates(self, status):
-        requests_status = self._multi.get_status(status)
-
-        for requests, status in requests_status:
+        for requests, requests_status in self._multi.group_by_requests(status):
             try:
-                requests.update(status)
+                requests.update(requests_status)
             except:
                 #Should have been handled by the requests class
                 print_err_trace()
                 self.close(requests)
 
     def close(self, requests):
-        self._multi.close(requests)
-
         for request in requests:
-            self._requests.close(request)
+            self._multi.close(request)
+            self._close(request)
+
+
+class GroupRequest(object):
+
+    def __init__(self, requests, request):
+        self._requests = requests
+        self._request = request
+        self._submit()
+
+    def _submit(self):
+        self._requests.add(self)
+
+    def update(self, status):
+        if status.completed:
+            self._completed()
+        elif status.failed:
+            self._failed(status.failed[0].error)
+
+    def _completed(self):
+        self._request.completed()
+
+    def _failed(self, error):
+        self._request.failed(error)
+
+    def close(self):
+        self._request.close()
+
+    def __iter__(self):
+        return iter([self._request])
+
+    def __getattr__(self, item):
+        return getattr(self._request, item)

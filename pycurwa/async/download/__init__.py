@@ -5,7 +5,6 @@ from httpy.client import cookie_jar
 from .requests import DownloadRequests
 from .download import AsyncDownloadRequests, AsyncHead, AsyncChunksDownloads
 from .group import DownloadGroups
-from .. import AsyncRequest
 
 
 class AsyncDownloadsBase(AsyncDownloadRequests):
@@ -21,7 +20,7 @@ class AsyncDownloadsBase(AsyncDownloadRequests):
 class AsyncDownloads(AsyncDownloadsBase):
 
     def _head(self, request, on_completion=None, on_err=None, **kwargs):
-        return AsyncHead(self._requests, AsyncRequest(request, on_completion, on_err, self._cookies))
+        return AsyncHead(self._requests, request, on_completion, on_err, self._cookies)
 
     def _create_download(self, request, chunks, on_completion=None, on_err=None, **kwargs):
         return AsyncChunks(self._requests, request, chunks, on_completion, on_err, self._cookies, self._bucket)

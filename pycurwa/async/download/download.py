@@ -1,10 +1,10 @@
 from abc import abstractmethod
 from httpy.client import cookie_jar
 from httpy.error import HttpError
-from pycurwa.download import ChunksDownloads
 
-from ..request import CurlRequestFuture
-from ...download import HttpDownloadRequests
+from .requests import GroupRequest
+from ..request import CurlRequestFuture, AsyncRequest
+from ...download import HttpDownloadRequests, ChunksDownloads
 
 
 class AsyncDownloadRequests(HttpDownloadRequests):
@@ -39,45 +39,13 @@ class AsyncDownloadRequests(HttpDownloadRequests):
         self._requests.resume()
 
 
-class AsyncHead(object):
+class AsyncHead(GroupRequest):
 
-    def __init__(self, requests, request):
-        self._requests = requests
-        self._request = request
-        self._submit()
-
-    def _submit(self):
-        self._requests.add(self)
-
-    def update(self, status):
-        if status.completed:
-            self._completed()
-        elif status.failed:
-            self._failed(status.failed[0].error)
-
-    def _close(self):
-        self._requests.close(self)
-        self._request.close()
-
-    def _completed(self):
-        self._close()
-        self._request.completed()
-
-    def _failed(self, error):
-        self._close()
-        self._request.failed(error)
-
-    def close(self):
-        pass
-
-    def __iter__(self):
-        return iter([self])
-
-    def __getattr__(self, item):
-        return getattr(self._request, item)
+    def __init__(self, requests, request, on_completion, on_err, cookies):
+        super(AsyncHead, self).__init__(requests, AsyncRequest(request, on_completion, on_err, cookies))
 
 
-class AsyncHeadFuture(AsyncHead):
+class AsyncHeadFuture(GroupRequest):
     def __init__(self, requests, request, cookies=None):
         super(AsyncHeadFuture, self).__init__(requests, CurlRequestFuture(request, cookies))
 
