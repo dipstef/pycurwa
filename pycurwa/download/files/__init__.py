@@ -6,7 +6,8 @@ import shutil
 
 from unicoder import to_unicode, encoded
 
-from ...error import UnexpectedCopyChunk, UnexpectedContent
+from .error import UnexpectedCopyChunk
+from ...error import UnexpectedContent
 from ..files.util import fs_encode
 
 

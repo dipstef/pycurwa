@@ -14,12 +14,6 @@ class DownloadedContentMismatch(UnexpectedContent):
         self.message = 'Content size mismatch% s: received: %d, expected: %d' % (path, actual, expected)
 
 
-class UnexpectedCopyChunk(DownloadedContentMismatch):
-    def __init__(self, request, path, actual, expected):
-        super(UnexpectedCopyChunk, self).__init__(request, path, actual, expected)
-        self.message = 'Not Completed %s: %d expected %d' % (path, actual, expected)
-
-
 class FailedStatus(HttpResponseError):
     def __init__(self, request, status, *args, **kwargs):
         super(FailedStatus, self).__init__(request, status, *args, **kwargs)

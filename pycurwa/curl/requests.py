@@ -26,7 +26,7 @@ class Requests(object):
         try:
             self._curl.remove_handle(request.handle)
             self._remove(request)
-        except CurlError:
+        except (CurlError, KeyError):
             #already removed
             pass
 

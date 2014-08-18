@@ -6,7 +6,7 @@ from httpy.http.headers.content import disposition_file_name
 from .request import HttpChunk, HttpChunkCompleted
 
 from .requests import ChunksDownload
-from ..error import ChunksDownloadMismatch, FailedChunks
+from ..error import ChunksDownloadMismatch
 from ..files.download import get_chunks_file
 from ..files.util import join_encoded
 from ... import pycurwa
@@ -42,7 +42,7 @@ class HttpChunks(ChunksDownload):
     def update(self, status):
         try:
             self._update(status)
-        except FailedChunks:
+        except:
             if not self.resume:
                 self._chunks_file.remove()
             raise
