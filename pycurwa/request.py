@@ -6,7 +6,7 @@ from httpy.error import error_status, HttpStatusError
 from .curl import Curl, PyCurlError
 from .curl.request import curl_request
 from .curl.error import HttpCurlError
-from .response import CurlBodyResponse
+from .response import CurlResponseBase, CurlBodyResponse
 
 
 class CurlRequestBase(HttpyRequest):
@@ -26,12 +26,6 @@ class CurlRequestBase(HttpyRequest):
 
         self._response = self._create_response()
 
-    def get_status_error(self):
-        code = self._curl.get_status_code()
-
-        if code in error_status:
-            return HttpStatusError(self, code)
-
     def _set_curl_cookies(self):
         cookie = self._cookies.get_cookie_string(self)
         if cookie:
@@ -39,7 +33,7 @@ class CurlRequestBase(HttpyRequest):
 
     @abstractmethod
     def _create_response(self):
-        raise NotImplementedError
+        raise CurlResponseBase(self, self._cookies)
 
     def get_response(self):
         return self._response
@@ -65,9 +59,11 @@ class CurlRequest(CurlRequestBase):
     def _execute(self):
         self._curl.perform()
 
-        error = self.get_status_error()
-        if error:
-            raise error
+        code = self._curl.get_status_code()
+
+        if code in error_status:
+            raise HttpStatusError(self, code)
+
         return self._response
 
     def _create_response(self):

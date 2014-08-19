@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from time import time
 
 from . import CurlMulti, CurlHandlesStatus
+from httpy.error import error_status, HttpStatusError
 from .error import CurlWriteError, HttpCurlError, MissingHandle, CurlError
 
 
@@ -118,11 +119,11 @@ class RequestStatusCheck(RequestsStatus):
     def __init__(self, completed, failed, status_time=None):
         errors = []
         for request in completed:
-            status_error = request.get_status_error()
+            response = request.get_response()
 
-            if status_error:
+            if response.status in error_status:
                 errors.append(request)
-                failed.append(FailedHandle(request, status_error))
+                failed.append(FailedHandle(request, HttpStatusError(request, response.status)))
 
         if errors:
             completed = [request for request in completed if not request in errors]
@@ -147,8 +148,9 @@ class FailedHandle(object):
         return isinstance(self.error, CurlWriteError)
 
     def is_not_found(self):
-        status_error = self._request.get_status_error()
-        return status_error and status_error.code == 404
+        response = self._request.get_response()
+        status_code = response.status
+        return bool(status_code) and status_code == 404
 
 
 class CurlFailed(FailedHandle):
