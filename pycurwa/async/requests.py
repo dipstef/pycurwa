@@ -197,7 +197,10 @@ class RequestsStatuses(object):
                 yield status
 
     def _close(self, request):
-        self._requests.close(request)
+        try:
+            self._requests.close(request)
+        except:
+            print_err_trace()
 
     def pause(self, complete=False):
         self._requests.pause(complete)

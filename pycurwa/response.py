@@ -5,7 +5,8 @@ from .curl import BytesIO
 
 
 class CurlResponseBase(ResponseStatus):
-    __headers__ = HttpHeaders
+
+    __headers__ = True
 
     def __init__(self, request, cookies=None):
         self._curl = request._curl
@@ -23,6 +24,9 @@ class CurlResponseBase(ResponseStatus):
         self._date = datetime.utcnow()
         self._cookies = cookies
 
+        self._headers = None
+        self._parsed = None
+
         self._response_url = None
         self._status_code = None
         self._closed = False
@@ -31,18 +35,15 @@ class CurlResponseBase(ResponseStatus):
         self._header_str += buf
 
         if self._header_str.endswith('\r\n\r\n'):
-            headers = self._parse_http_header(self._header_str)
-            self._date = date_header(headers) or datetime.utcnow()
-
-            #in case of redirect reset headers
+            self._parse_header(self._header_str)
+            #reset header in case of redirect reset headers
             self._header_str = ''
-            self._requests_headers.append(headers)
+            self._requests_headers.append(self._headers)
 
-            self.headers = headers
-
-    def _parse_http_header(self, header_string):
-        headers = self.__headers__(header_string_to_dict(header_string))
-        return headers
+    def _parse_header(self, header_string):
+        headers = header_string_to_dict(header_string)
+        self._headers = HttpHeaders(headers)
+        self._parsed = datetime.utcnow()
 
     def _set_cookies(self):
         if self._cookies is not None:
@@ -58,25 +59,30 @@ class CurlResponseBase(ResponseStatus):
 
     def close(self):
         if not self._closed:
-            self._set_cookies()
-            self._set_response_url()
-            self._set_status_code()
-            self._curl.close()
+            self._close()
             self._closed = True
+
+    def _close(self):
+        self._set_cookies()
+        self._set_response_url()
+        self._set_status_code()
+        self._curl.close()
 
     @property
     def url(self):
-        self._set_response_url()
         return self._response_url
 
     @property
     def status(self):
-        self._set_status_code()
         return self._status_code
 
     @property
+    def headers(self):
+        return self._headers
+
+    @property
     def date(self):
-        return self._date
+        return date_header(self.headers) if self.headers else self._parsed
 
 
 class CurlResponse(CurlResponseBase):

@@ -38,12 +38,11 @@ class HttpDownload(HttpDownloadRequests):
 class DownloadChunks(ChunksDownloads):
 
     def __init__(self, request, chunks, cookies=None, bucket=None):
-        super(DownloadChunks, self).__init__(request, cookies, bucket)
+        super(DownloadChunks, self).__init__(request, chunks, cookies, bucket)
         self._requests = RequestsRefresh(refresh=0.5)
-        self._chunks_number = chunks
 
     def perform(self):
-        self._request_chunks(self._chunks_number)
+        self._request_chunks()
         self._submit()
 
         for status in self._requests.iterate_statuses():

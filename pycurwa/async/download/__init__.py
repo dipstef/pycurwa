@@ -2,10 +2,10 @@ from Queue import Queue
 from abc import abstractmethod
 from threading import Event
 from httpy.client import cookie_jar
-from pycurwa.async.download.requests import AsyncRequest
-from .requests import DownloadRequests
-from .download import AsyncDownloadRequests, AsyncChunksDownloads
+from .requests import DownloadRequests, AsyncRequest
+from .download import AsyncDownloadRequests, AsyncChunksDownloads, AsyncHead
 from .group import DownloadGroups
+from ..request import AsyncOutcome
 
 
 class AsyncDownloadsBase(AsyncDownloadRequests):
@@ -27,7 +27,7 @@ class AsyncDownloads(AsyncDownloadsBase):
         return AsyncChunks(self._requests, request, chunks, on_completion, on_err, self._cookies, self._bucket)
 
     def _close(self):
-        self._requests.stop(complete=True)
+        self.stop(complete=True)
 
 
 class AsyncChunks(AsyncChunksDownloads):
@@ -36,6 +36,14 @@ class AsyncChunks(AsyncChunksDownloads):
         self._on_completion = on_completion
         self._on_err = on_err
         super(AsyncChunks, self).__init__(requests, request, chunks, cookies, bucket)
+
+    def _request_chunks(self):
+        outcome = AsyncOutcome(self._create_chunks_file, lambda request, error: self._download_failed(error))
+        self._request_head(outcome.completed, outcome.failed)
+        outcome.wait()
+
+    def _request_head(self, completed, failed):
+        AsyncHead(self._requests, self._request, completed, failed, cookies=self._cookies)
 
     def _download_failed(self, error):
         if self._on_err:
@@ -53,6 +61,9 @@ class AsyncDownloadFutures(AsyncDownloadsBase):
 
     def group(self):
         return DownloadGroups(self._requests, self._cookies, self._bucket)
+
+    def _close(self):
+        self.stop()
 
 
 class AsyncChunksFutures(AsyncChunksDownloads):

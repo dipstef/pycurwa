@@ -24,8 +24,6 @@ class HttpDownloadHeaders(HttpHeaders):
 
 class CurlDownloadResponse(CurlResponse):
 
-    __headers__ = HttpDownloadHeaders
-
     def __init__(self, request, cookies=None, bucket=None):
         self.path = request.path
 
@@ -35,6 +33,10 @@ class CurlDownloadResponse(CurlResponse):
 
         if request.resume:
             self.received = self._fp.tell() or os.path.getsize(self.path)
+
+    @property
+    def headers(self):
+        return self._headers and HttpDownloadHeaders(self._headers)
 
     def close(self):
         try:
@@ -46,18 +48,6 @@ class CurlDownloadResponse(CurlResponse):
     def _flush(self):
         self._fp.flush()
         os.fsync(self._fp.fileno())
-
-    @property
-    def chunk_support(self):
-        return self.headers.chunk_support
-
-    @property
-    def disposition_name(self):
-        return self.headers.file_name
-
-    @property
-    def size(self):
-        return self.headers.size
 
 
 class CurlRangeDownload(CurlDownloadResponse):

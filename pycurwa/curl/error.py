@@ -1,7 +1,7 @@
 import pycurl
 
 from httpy.connection.error import ConnectionRefused, UnresolvableHost, SocketError, ConnectionTimeout
-from httpy.error import HttpServerSocketError, HttpError, InvalidRangeRequest
+from httpy.error import HttpServerSocketError, HttpError, InvalidRangeRequest, IncompleteRead
 
 
 CurlError = pycurl.error
@@ -20,6 +20,7 @@ class CurlHttpError(HttpError, PyCurlError):
         super(CurlHttpError, self).__init__(request, curl_error)
         self.curl_errno = curl_error.curl_errno
         self.curl_message = curl_error.curl_message
+        self.message = '%s: %s' % (self.__class__.__name__, self.curl_message)
 
 
 class CurlHttpServerSocketError(HttpServerSocketError, PyCurlError):
@@ -32,7 +33,8 @@ _by_errno = {
     pycurl.E_COULDNT_CONNECT: ConnectionRefused,
     pycurl.E_COULDNT_RESOLVE_HOST: UnresolvableHost,
     pycurl.E_OPERATION_TIMEDOUT: ConnectionTimeout,
-    pycurl.E_HTTP_RANGE_ERROR: InvalidRangeRequest
+    pycurl.E_HTTP_RANGE_ERROR: InvalidRangeRequest,
+    pycurl.E_PARTIAL_FILE: IncompleteRead
 }
 
 

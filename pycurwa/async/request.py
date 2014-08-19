@@ -65,7 +65,6 @@ class CurlResponseFuture(CurlBodyResponse):
         super(CurlResponseFuture, self).__init__(request, cookies, bucket)
         self._outcome = outcome
         self._completed = Event()
-        self._headers = None
         self._completion = None
 
     def read(self):
@@ -78,10 +77,6 @@ class CurlResponseFuture(CurlBodyResponse):
         self._wait_completed()
 
         return self._headers
-
-    @headers.setter
-    def headers(self, value):
-        self._headers = value
 
     @property
     def status(self):
@@ -104,3 +99,22 @@ class CurlResponseFuture(CurlBodyResponse):
 
         if isinstance(self._completion, BaseException):
             raise self._completion
+
+
+class AsyncOutcome(object):
+
+    def __init__(self, completed, failed):
+        self._processed = Event()
+        self._completed = completed
+        self._failed = failed
+
+    def completed(self, response):
+        self._completed(response)
+        self._processed.set()
+
+    def failed(self, request, error):
+        self._failed(request, error)
+        self._processed.set()
+
+    def wait(self):
+        self._processed.wait()

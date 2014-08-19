@@ -10,18 +10,25 @@ from ..error import ChunksDownloadMismatch
 from ..files.download import get_chunks_file
 from ..files.util import join_encoded
 from ... import pycurwa
+from ...error import DownloadedContentMismatch
 
 
 class HttpChunks(ChunksDownload):
 
-    def __init__(self, request, cookies=None, bucket=None):
+    def __init__(self, request, chunks, cookies=None, bucket=None):
         super(HttpChunks, self).__init__(request)
+        self._chunks_number = chunks
         self._cookies = cookies
         self._bucket = bucket
         self._completed = False
 
-    def _request_chunks(self, chunks_number):
-        chunks_file = self._create_chunks_file(chunks_number)
+    def _request_chunks(self):
+        response = pycurwa.head(self.url, params=self.params, headers=self.headers, data=self.data)
+        self._create_chunks_file(response)
+
+    def _create_chunks_file(self, response):
+        self._resolve_download(response)
+        chunks_file = get_chunks_file(self._request, self._chunks_number, response.headers)
         self._create_downloads(chunks_file)
 
     def _create_downloads(self, chunks_file):
@@ -42,8 +49,8 @@ class HttpChunks(ChunksDownload):
     def update(self, status):
         try:
             self._update(status)
-        except:
-            if not self.resume:
+        except BaseException, e:
+            if isinstance(e, DownloadedContentMismatch) or not self.resume:
                 self._chunks_file.remove()
             raise
 
@@ -71,20 +78,10 @@ class HttpChunks(ChunksDownload):
         for chunk in self.chunks:
             chunk.close()
 
-    def _create_chunks_file(self, chunks):
-        response = self._resolve_download()
-
-        return get_chunks_file(self._request, chunks, response.headers)
-
-    def _resolve_download(self):
-        response = self._resolve_headers()
+    def _resolve_download(self, response):
         if os.path.isdir(self.path):
             file_name = self._response_file_name(response.url, response.headers)
             self.path = join_encoded(self.path, file_name)
-        return response
-
-    def _resolve_headers(self):
-        return pycurwa.head(self.url, params=self.params, headers=self.headers, data=self.data)
 
     def _response_file_name(self, url, headers):
         return disposition_file_name(headers) or os.path.basename(url)

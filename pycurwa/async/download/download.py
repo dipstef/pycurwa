@@ -1,5 +1,4 @@
 from abc import abstractmethod
-
 from httpy.client import cookie_jar
 from httpy.error import HttpError
 
@@ -53,15 +52,22 @@ class AsyncHeadFuture(AsyncFuture):
 class AsyncChunksDownloads(ChunksDownloads):
 
     def __init__(self, requests, request, chunks, cookies=None, bucket=None):
-        super(AsyncChunksDownloads, self).__init__(request, cookies, bucket)
+        super(AsyncChunksDownloads, self).__init__(request, chunks, cookies, bucket)
         self._requests = requests
 
+        self._request_chunks()
+
+    def _request_chunks(self):
+        request = AsyncHeadFuture(self._requests, self._request, self._cookies)
         try:
-            self._request_chunks(chunks)
-            #starts downloads right away
-            self._submit()
+            self._create_chunks_file(request.get_response())
         except HttpError, error:
             self._download_failed(error)
+
+    def _create_chunks_file(self, response):
+        super(AsyncChunksDownloads, self)._create_chunks_file(response)
+        #starts downloads right away
+        self._submit()
 
     def _submit(self):
         self._requests.add(self)
@@ -86,7 +92,3 @@ class AsyncChunksDownloads(ChunksDownloads):
 
     def close(self):
         self._requests.close(self)
-
-    def _resolve_headers(self):
-        request = AsyncHeadFuture(self._requests, self._request, self._cookies)
-        return request.get_response()

@@ -1,7 +1,7 @@
 import os
 from procol.console import print_err, print_line
+import time
 
-from pycurwa.bucket import TransferLimit
 from pycurwa.async.download import AsyncDownloads
 
 
@@ -14,9 +14,9 @@ def _failed(download, error):
 
 
 def _request(downloads, url, chunks=1):
-    file_name = os.path.basename(url)
+    #file_name = os.path.basename(url)
 
-    request = downloads.get(url, file_name, chunks=chunks, resume=True, on_completion=_completed, on_err=_failed)
+    request = downloads.get(url, chunks=chunks, resume=True, on_completion=_completed, on_err=_failed)
 
     return request
 
@@ -24,10 +24,9 @@ def _request(downloads, url, chunks=1):
 def main():
 
     with AsyncDownloads(max_connections=11) as downloads:
-        _request(downloads, 'http://download.thinkbroadband.com/not_found.zip', chunks=4)
-        _request(downloads, 'http://download.thinkbroadband.com/10MB.zip', chunks=4)
+        #_request(downloads, 'http://download.thinkbroadband.com/not_found.zip', chunks=4)
+        #_request(downloads, 'http://download.thinkbroadband.com/10MB.zip', chunks=4)
         _request(downloads, 'http://download.thinkbroadband.com/5MB.zip', chunks=4)
-
 
 if __name__ == "__main__":
     main()
