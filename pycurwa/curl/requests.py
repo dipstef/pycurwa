@@ -148,7 +148,7 @@ class FailedHandle(object):
 
     def is_not_found(self):
         status_error = self._request.get_status_error()
-        return status_error and  status_error.code == 404
+        return status_error and status_error.code == 404
 
 
 class CurlFailed(FailedHandle):

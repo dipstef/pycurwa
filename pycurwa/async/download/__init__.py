@@ -5,7 +5,7 @@ from httpy.client import cookie_jar
 from .requests import DownloadRequests, AsyncRequest
 from .download import AsyncDownloadRequests, AsyncChunksDownloads, AsyncHead
 from .group import DownloadGroups
-from ..request import AsyncOutcome
+from ..request import AsyncCallback, AsyncGet
 
 
 class AsyncDownloadsBase(AsyncDownloadRequests):
@@ -37,14 +37,6 @@ class AsyncChunks(AsyncChunksDownloads):
         self._on_err = on_err
         super(AsyncChunks, self).__init__(requests, request, chunks, cookies, bucket)
 
-    def _request_chunks(self):
-        outcome = AsyncOutcome(self._create_chunks_file, lambda request, error: self._download_failed(error))
-        self._request_head(outcome.completed, outcome.failed)
-        outcome.wait()
-
-    def _request_head(self, completed, failed):
-        AsyncHead(self._requests, self._request, completed, failed, cookies=self._cookies)
-
     def _download_failed(self, error):
         if self._on_err:
             self._on_err(self, error)
@@ -66,25 +58,15 @@ class AsyncDownloadFutures(AsyncDownloadsBase):
         self.stop()
 
 
-class AsyncChunksFutures(AsyncChunksDownloads):
+class AsyncChunksFutures(AsyncChunks):
 
     def __init__(self, requests, request, chunks, cookies=None, bucket=None):
-        self._outcome = Queue(1)
-        self._performed = Event()
-        super(AsyncChunksFutures, self).__init__(requests, request, chunks, cookies, bucket)
+        self._outcome = AsyncGet()
+        super(AsyncChunksFutures, self).__init__(requests, request, chunks, self._outcome.completed,
+                                                 self._outcome.failed, cookies, bucket)
 
     def perform(self):
-        if self._chunks or self._performed.is_set():
-            outcome = self._outcome.get()
-            if isinstance(outcome, Exception):
-                raise outcome
+        if self._chunks:
+            return self._outcome.get()
 
         return self.stats
-
-    def _download_completed(self, status):
-        self._performed.set()
-        self._outcome.put(status.check)
-
-    def _download_failed(self, error):
-        self._performed.set()
-        self._outcome.put(error)

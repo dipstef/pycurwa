@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from httpy.client import cookie_jar
 from httpy.error import HttpError
+from pycurwa.async.request import AsyncCallback
 
 from .requests import AsyncFuture, AsyncRequest
 from ...download import HttpDownloadRequests, ChunksDownloads
@@ -58,11 +59,13 @@ class AsyncChunksDownloads(ChunksDownloads):
         self._request_chunks()
 
     def _request_chunks(self):
-        request = AsyncHeadFuture(self._requests, self._request, self._cookies)
-        try:
-            self._create_chunks_file(request.get_response())
-        except HttpError, error:
-            self._download_failed(error)
+        outcome = AsyncCallback(completed=self._create_chunks_file,
+                                failed=lambda request, error: self._download_failed(error))
+        self._request_head(outcome.completed, outcome.failed)
+        outcome.wait()
+
+    def _request_head(self, completed, failed):
+        AsyncHead(self._requests, self._request, completed, failed, cookies=self._cookies)
 
     def _create_chunks_file(self, response):
         super(AsyncChunksDownloads, self)._create_chunks_file(response)

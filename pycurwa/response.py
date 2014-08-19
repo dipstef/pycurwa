@@ -1,4 +1,5 @@
 from datetime import datetime
+from multiprocessing import Lock, Event
 from httpy import ResponseStatus, HttpHeaders, date_header
 from httpy.http.headers import header_string_to_dict
 from .curl import BytesIO
@@ -29,14 +30,14 @@ class CurlResponseBase(ResponseStatus):
 
         self._response_url = None
         self._status_code = None
-        self._closed = False
+        self._closed = Event()
 
     def _write_header(self, buf):
         self._header_str += buf
 
         if self._header_str.endswith('\r\n\r\n'):
             self._parse_header(self._header_str)
-            #reset header in case of redirect reset headers
+            # reset header in case of redirect reset headers
             self._header_str = ''
             self._requests_headers.append(self._headers)
 
@@ -58,9 +59,9 @@ class CurlResponseBase(ResponseStatus):
             self._response_url = self._curl.get_response_url()
 
     def close(self):
-        if not self._closed:
+        if not self._closed.is_set():
             self._close()
-            self._closed = True
+            self._closed.set()
 
     def _close(self):
         self._set_cookies()

@@ -1,4 +1,4 @@
-from .status import ChunksCompletion, ChunksProgress, DownloadStats
+from .status import ChunksCompletion, ChunksSpeeds, DownloadStats, ChunksProgress
 from ..request import DownloadRequest
 from ..error import FailedChunks
 from ...error import DownloadedContentMismatch

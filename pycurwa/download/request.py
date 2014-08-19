@@ -11,9 +11,6 @@ class HttpDownloadBase(CurlRequest):
 
         super(HttpDownloadBase, self).__init__(request, cookies, bucket)
 
-    def get_speed(self):
-        return self._curl.get_speed_download()
-
     @property
     def received(self):
         return self._response.received

@@ -160,9 +160,6 @@ class LimitedRequests(RequestsProcess):
         self._handles_add.put(None)
         self._handles_thread.join()
 
-    def __nonzero__(self):
-        return self._on_going_requests.is_set()
-
 
 class Requests(RequestsRefresh):
     def __new__(cls, max_connections=None, refresh=0.5):

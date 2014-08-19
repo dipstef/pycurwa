@@ -80,8 +80,25 @@ class ChunksCompletion(object):
 
 class ChunksProgress(ChunksCompletion):
 
+
+    @property
+    def chunks_speeds(self):
+        return OrderedDict(((chunk.id, chunk.get_response().speed())for chunk in self.remaining))
+
+    #current speed
+    @property
+    def speed(self):
+        return sum(self.chunks_speeds.values())
+
+    @property
+    def percent(self):
+        return (self.chunks_received.sum() * 100) / self.size
+
+
+class ChunksSpeeds(ChunksCompletion):
+
     def __init__(self, chunks, refresh_rate=1):
-        super(ChunksProgress, self).__init__(chunks)
+        super(ChunksSpeeds, self).__init__(chunks)
         self._last_check = 0
 
         self._last_received = ChunkStatus()
@@ -91,7 +108,7 @@ class ChunksProgress(ChunksCompletion):
         self._speed_refresh_time = refresh_rate
 
     def update_progress(self, status):
-        super(ChunksProgress, self).update_progress(status)
+        super(ChunksSpeeds, self).update_progress(status)
         if self._is_speed_refresh_time(status.check):
             self._update_progress(status.check)
 

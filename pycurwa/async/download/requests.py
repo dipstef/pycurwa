@@ -118,7 +118,8 @@ class DownloadRequests(RequestsUpdates):
 
     def _is_status_update(self, status):
         #always send updates
-        return True
+        #return True
+        return super(DownloadRequests, self)._is_status_update(status)
 
     def _send_updates(self, status):
         for requests, requests_status in self._multi.group_by_requests(status):

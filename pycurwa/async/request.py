@@ -39,21 +39,14 @@ class AsyncRequest(AsyncRequestBase):
             self._on_err(self, error)
 
 
-class CurlRequestFuture(AsyncRequestBase):
+class CurlRequestFuture(AsyncRequest):
 
     def __init__(self, request, cookies=None, bucket=None):
-        self._outcome = Queue(1)
-        super(CurlRequestFuture, self).__init__(request, cookies, bucket)
+        self._outcome = AsyncGet()
+        super(CurlRequestFuture, self).__init__(request, self._outcome.completed, self._outcome.failed, cookies, bucket)
 
     def execute(self):
-        assert self._response.status == 200
-        return self._response
-
-    def completed(self):
-        self._outcome.put(self._response.date)
-
-    def failed(self, error):
-        self._outcome.put(error)
+        return self._outcome.get()
 
     def _create_response(self):
         return CurlResponseFuture(self, self._outcome, self._cookies, self._bucket)
@@ -75,7 +68,6 @@ class CurlResponseFuture(CurlBodyResponse):
     @property
     def headers(self):
         self._wait_completed()
-
         return self._headers
 
     @property
@@ -89,19 +81,14 @@ class CurlResponseFuture(CurlBodyResponse):
         return super(CurlResponseFuture, self).url
 
     def _wait_completed(self):
-        if not self._completed.is_set():
-            try:
-                self._completion = self._outcome.get()
-                self._completed.set()
-
-            finally:
+        try:
+            self._outcome.get()
+        finally:
+            if not self._closed.is_set():
                 self.close()
 
-        if isinstance(self._completion, BaseException):
-            raise self._completion
 
-
-class AsyncOutcome(object):
+class AsyncCallback(object):
 
     def __init__(self, completed, failed):
         self._processed = Event()
@@ -118,3 +105,24 @@ class AsyncOutcome(object):
 
     def wait(self):
         self._processed.wait()
+
+
+class AsyncGet(object):
+    def __init__(self):
+        self._processed = Event()
+        self._response = None
+        self._error = None
+
+    def completed(self, response):
+        self._response = response
+        self._processed.set()
+
+    def failed(self, request, error):
+        self._error = error
+        self._processed.set()
+
+    def get(self):
+        self._processed.wait()
+        if not self._response:
+            raise self._error
+        return self._response

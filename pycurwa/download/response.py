@@ -33,13 +33,19 @@ class CurlDownloadResponse(CurlResponse):
 
         if request.resume:
             self.received = self._fp.tell() or os.path.getsize(self.path)
+        self._speed = 0
 
     @property
     def headers(self):
         return self._headers and HttpDownloadHeaders(self._headers)
 
-    def close(self):
+    def speed(self):
+        return self._speed
+
+    def _close(self):
         try:
+            self._speed = self._curl.get_speed_download()
+            super(CurlDownloadResponse, self)._close()
             self._flush()
             self._fp.close()
         except:

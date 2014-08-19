@@ -76,6 +76,10 @@ class CurlHandlesStatus(object):
         self.completed = completed
         self.failed = failed
 
+    @property
+    def finished(self):
+        return self.completed + self.failed
+
     def __iter__(self):
         return itertools.chain(self.completed, self.failed)
 
