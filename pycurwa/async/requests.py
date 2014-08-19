@@ -1,5 +1,6 @@
 from Queue import Queue
 from abc import abstractmethod
+from collections import OrderedDict
 from threading import Event, Semaphore, Thread, Lock
 from procol.console import print_err_trace
 
@@ -12,12 +13,20 @@ class RequestsProcess(RequestsRefresh):
 
     def __init__(self, refresh=0.5):
         self._lock = Lock()
+
+        self._active = Event()
+        self._active.set()
+
         self._closed = Event()
         self._complete = Event()
         self._on_going_requests = Event()
         super(RequestsProcess, self).__init__(refresh, CurlMulti())
 
     def add(self, request):
+        self._active.wait()
+        self._add(request)
+
+    def _add(self, request):
         with self._lock:
             super(RequestsProcess, self).add(request)
         self._on_going_requests.set()
@@ -32,19 +41,26 @@ class RequestsProcess(RequestsRefresh):
     def _has_requests(self):
         self._on_going_requests.wait()
 
+        if not self._active.is_set() and self._can_pause():
+            self._active.wait()
+
         return not self.is_closed()
 
     def is_closed(self):
         return self._closed.is_set() and self._can_terminate()
 
-    def _can_terminate(self):
+    def _can_pause(self):
         if self._complete.is_set():
             with self._lock:
                 return not self._requests
         return True
 
+    def _can_terminate(self):
+        return self._can_pause()
+
     def _terminate(self):
         self._closed.set()
+        self._active.set()
         self._unblock()
         super(RequestsProcess, self)._terminate()
 
@@ -58,7 +74,7 @@ class RequestsProcess(RequestsRefresh):
         except CurlError:
             #might happen when requests a close meanwhile a status has been yielded, followed by the _select call
             #We simply ignore this case rather than checking on flag in each iteration
-            if not self.is_closed():
+            if not self._closed.is_set():
                 raise
 
     def stop(self, complete=False):
@@ -69,6 +85,16 @@ class RequestsProcess(RequestsRefresh):
             self._on_going_requests.set()
         else:
             self._terminate()
+
+    def pause(self, complete=False):
+        if complete:
+            self._complete.set()
+        self._active.clear()
+
+    def resume(self):
+        self._active.set()
+        if not self._closed.is_set():
+            self._complete.clear()
 
 
 class LimitedRequests(RequestsProcess):
@@ -81,32 +107,47 @@ class LimitedRequests(RequestsProcess):
         self._handles_thread = Thread(target=self._add_handles)
         self._handles_thread.start()
 
-    def add(self, request):
-        with self._lock:
-            #mark as inserted
-            self._requests[request.handle] = request
-            self._on_going_requests.set()
+        self._queued = OrderedDict()
 
-        self._handles_add.put(request)
+    def add(self, request):
+        if not self._closed.is_set():
+            with self._lock:
+                self._queued[request.handle] = request
+            self._handles_add.put((request, self._active.is_set()))
 
     def _add_handles(self):
         while not self.is_closed():
-            request = self._handles_add.get()
+            queued = self._handles_add.get()
             #check handles removed before they are added
-            if request:
-                self._handles_count.acquire()
+            if queued:
+                request, active = queued
+                if not active:
+                    self._active.wait()
+
                 if not self.is_closed():
                     self._add_request(request)
 
     def _add_request(self, request):
+        self._handles_count.acquire()
         with self._lock:
-            #has been removed meanwhile(in case of failed chunks)
-            if request.handle in self._requests:
-                self._add_curl_handle(request)
+            #has been removed meanwhile(in case of failed request groups)
+            queued = self._queued.pop(request.handle, None)
+
+        if queued:
+            self._add(request)
+        else:
+            self._handles_count.release()
 
     def _remove(self, request):
+        self._queued.pop(request.handle, None)
         super(LimitedRequests, self)._remove(request)
         self._handles_count.release()
+
+    def _can_terminate(self):
+        if self._complete.is_set():
+            with self._lock:
+                return not self._requests and not self._queued
+        return True
 
     def _unblock(self):
         super(LimitedRequests, self)._unblock()
@@ -133,19 +174,14 @@ class RequestsStatuses(object):
         self._requests = requests
         self._updates = Queue()
 
-        self._active = Event()
         self._perform_thread = Thread(target=self._perform)
         self._perform_thread.start()
 
     def add(self, request):
-        self._active.wait()
         self._requests.add(request)
 
     def _perform(self):
-        self._active.set()
-
         for status in self._requests.iterate_statuses():
-            self._active.wait()
             if self._is_status_update(status):
                 self._updates.put(status)
 
@@ -158,22 +194,19 @@ class RequestsStatuses(object):
             if status:
                 for request in status:
                     self._close(request)
-                self._active.wait()
                 yield status
 
     def _close(self, request):
         self._requests.close(request)
 
-    def pause(self):
-        self._active.clear()
+    def pause(self, complete=False):
+        self._requests.pause(complete)
 
     def resume(self):
-        self._active.set()
+        self._requests.resume()
 
     def stop(self, complete=False):
-        self._active.set()
         self._requests.stop(complete)
-
         #unblocks the queue
         self._updates.put(None)
         self._perform_thread.join()
@@ -200,7 +233,6 @@ class RequestsUpdates(RequestsStatuses):
             except:
                 #Should have been handled by the requests class
                 print_err_trace()
-
 
     @abstractmethod
     def _send_updates(self, status):

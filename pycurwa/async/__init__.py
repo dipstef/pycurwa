@@ -10,8 +10,7 @@ class PyCurwaAsyncBase(PyCurwa):
 
     def __init__(self, max_connections=20, cookies=cookie_jar, timeout=30):
         super(PyCurwaAsyncBase, self).__init__(cookies, timeout)
-        self._requests = Requests(max_connections)
-        self._updates = CurlUpdates(self._requests)
+        self._requests = CurlUpdates(max_connections)
 
     def execute(self, request,  **kwargs):
         request = self._create_request(request, **kwargs)
@@ -27,7 +26,13 @@ class PyCurwaAsyncBase(PyCurwa):
         self._close()
 
     def _close(self):
-        self._updates.stop()
+        self._requests.stop()
+
+    def pause(self, complete=False):
+        self._requests.pause(complete)
+        
+    def resume(self):
+        self._requests.resume()
 
 
 class PyCurwaAsync(PyCurwaAsyncBase):
@@ -39,7 +44,7 @@ class PyCurwaAsync(PyCurwaAsyncBase):
         return AsyncRequest(request, on_completion, on_err, self._cookies, self._bucket)
 
     def _close(self):
-        self._updates.stop(complete=True)
+        self._requests.stop(complete=True)
 
 
 class PyCurwaFutures(PyCurwaAsyncBase):
@@ -54,8 +59,8 @@ class PyCurwaFutures(PyCurwaAsyncBase):
 
 class CurlUpdates(RequestsUpdates):
 
-    def __init__(self, requests):
-        super(CurlUpdates, self).__init__(requests)
+    def __init__(self, max_connections):
+        super(CurlUpdates, self).__init__(Requests(max_connections))
 
     def _send_updates(self, status):
         for request in status.completed:

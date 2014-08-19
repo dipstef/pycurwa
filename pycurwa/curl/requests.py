@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from contextlib import contextmanager
 from time import time
 
 from . import CurlMulti, CurlHandlesStatus
@@ -9,7 +10,7 @@ class Requests(object):
 
     def __init__(self, curl=None):
         self._curl = curl or CurlMulti()
-        self._requests = RequestsDict()
+        self._requests = OrderedDict()
 
     def add(self, request):
         self._requests[request.handle] = request
@@ -42,10 +43,13 @@ class Requests(object):
 
         return request
 
-    def get_status(self):
-        return self._get_status(time())
+    @contextmanager
+    def _curl_status(self):
+        self._curl.execute()
+        yield self._get_status(time())
+        self._select(timeout=1)
 
-    def _get_status(self, status_time):
+    def _get_status(self, now):
         status = self._curl.get_status()
 
         while status.remaining:
@@ -54,17 +58,13 @@ class Requests(object):
         request_completed = [self._get_request(handle) for handle in status.completed]
         request_failed = [CurlFailed(self._get_request(handle), errno, msg) for handle, errno, msg in status.failed]
 
-        return RequestStatusCheck(request_completed, request_failed, status_time)
+        return RequestStatusCheck(request_completed, request_failed, now)
 
     def iterate_statuses(self):
         try:
             while self._has_requests():
-                self._curl.execute()
-                status = self.get_status()
-
-                yield status
-
-                self._select(timeout=1)
+                with self._curl_status() as status:
+                    yield status
         finally:
             self._terminate()
 
@@ -97,11 +97,9 @@ class RequestsRefresh(Requests):
         self._refresh_rate = refresh
         self._last_update = 0
 
-    def get_status(self):
-        now = time()
-
+    def _get_status(self, now):
         if now - self._last_update >= self._refresh_rate:
-            status = super(RequestsRefresh, self).get_status()
+            status = super(RequestsRefresh, self)._get_status(now)
             self._last_update = now
         else:
             status = RequestsStatus([], [], now)
@@ -126,7 +124,10 @@ class RequestStatusCheck(RequestsStatus):
                 errors.append(request)
                 failed.append(FailedHandle(request, status_error))
 
-        completed = completed if not errors else [request for request in completed if not request in errors]
+        if errors:
+            print 'Errors: ', errors
+            completed = [request for request in completed if not request in errors]
+
         super(RequestStatusCheck, self).__init__(completed, failed, status_time)
 
 
@@ -154,9 +155,3 @@ class FailedHandle(object):
 class CurlFailed(FailedHandle):
     def __init__(self, request, errno, msg):
         super(CurlFailed, self).__init__(request, HttpCurlError(request, errno, msg))
-
-
-class RequestsDict(OrderedDict):
-
-    def __init__(self, requests=()):
-        super(RequestsDict, self).__init__(((request.handle, request) for request in requests))
