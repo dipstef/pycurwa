@@ -125,7 +125,6 @@ class RequestStatusCheck(RequestsStatus):
                 failed.append(FailedHandle(request, status_error))
 
         if errors:
-            print 'Errors: ', errors
             completed = [request for request in completed if not request in errors]
 
         super(RequestStatusCheck, self).__init__(completed, failed, status_time)
