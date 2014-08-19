@@ -109,11 +109,11 @@ class DownloadRequests(RequestsUpdates):
 
     def __init__(self, max_connections=10, refresh=0.5):
         super(DownloadRequests, self).__init__(Requests(max_connections, refresh=refresh))
-        self._multi = RequestGroups()
+        self._groups = RequestGroups()
 
     def add(self, requests):
         for request in requests:
-            self._multi.add(request, requests)
+            self._groups.add(request, group=requests)
             super(DownloadRequests, self).add(request)
 
     def _is_status_update(self, status):
@@ -122,7 +122,7 @@ class DownloadRequests(RequestsUpdates):
         return super(DownloadRequests, self)._is_status_update(status)
 
     def _send_updates(self, status):
-        for requests, requests_status in self._multi.group_by_requests(status):
+        for requests, requests_status in self._groups.group_by_requests(status):
             try:
                 requests.update(requests_status)
             except:
@@ -132,7 +132,7 @@ class DownloadRequests(RequestsUpdates):
 
     def close(self, requests):
         for request in requests:
-            self._multi.close(request)
+            self._groups.close(request)
             self._close(request)
 
 
