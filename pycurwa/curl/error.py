@@ -1,6 +1,7 @@
 import pycurl
+from httpy.connection import is_disconnected
 
-from httpy.connection.error import ConnectionRefused, UnresolvableHost, SocketError, ConnectionTimeout
+from httpy.connection.error import ConnectionRefused, SocketError, ConnectionTimeout, UnresolvableHost, NotConnected
 from httpy.error import HttpServerSocketError, HttpError, InvalidRangeRequest, IncompleteRead
 
 
@@ -26,8 +27,15 @@ class CurlHttpError(HttpError, PyCurlError):
 class CurlHttpServerSocketError(HttpServerSocketError, PyCurlError):
     def __init__(self, request, error, curl_errno, curl_message):
         super(CurlHttpServerSocketError, self).__init__(request, error)
+        self.curl_error = _get_error(curl_errno, curl_message)
         self.curl_errno = curl_errno
         self.curl_message = curl_message
+
+
+_connection_errors = {pycurl.E_COULDNT_CONNECT,
+                      pycurl.E_COULDNT_RESOLVE_HOST,
+                      pycurl.E_OPERATION_TIMEDOUT,
+                      pycurl.E_PARTIAL_FILE}
 
 _by_errno = {
     pycurl.E_COULDNT_CONNECT: ConnectionRefused,
@@ -57,19 +65,44 @@ def _curl_error(errno, message):
     return PyCurlError(errno, message)
 
 
+def is_connection_error(errno):
+    return errno in _connection_errors
+
+
+def _get_error(errno, message):
+    error_mapping = _by_errno.get(errno)
+    return error_mapping(message) if error_mapping else _curl_error(errno, message)
+
+
+class CurlNotConnected(CurlHttpServerSocketError):
+
+    def __init__(self, request, curl_errno, curl_message):
+        super(CurlNotConnected, self).__init__(request, NotConnected(), curl_errno, curl_message)
+
+    def __new__(cls, request, *args):
+        return super(CurlNotConnected, cls).__new__(cls, request, NotConnected(), *args)
+
+
 class HttpCurlError(PyCurlError):
 
-    def __new__(cls, request, errno, message):
+    def __new__(cls, request, errno, message, disconnected_check=None):
+        if is_connection_error(errno):
+            if disconnected_check is None:
+                disconnected_check = is_disconnected()
+            if disconnected_check:
+                return CurlNotConnected(request, errno, message)
+
         error_mapping = _by_errno.get(errno)
 
         if error_mapping:
-            error = error_mapping(request, message) if issubclass(error_mapping, HttpError) else error_mapping(message)
-            if isinstance(error, SocketError):
-                return CurlHttpServerSocketError(request, error, errno, message)
-        else:
-            error = _curl_error(errno, message)
+            if issubclass(error_mapping, SocketError):
+                return CurlHttpServerSocketError(request, error_mapping(message), errno, message)
+            elif issubclass(error_mapping, HttpError):
+                error = error_mapping(request)
+                error.message = error_mapping.__name__ + ': ' + message
+                return error
 
-        return CurlHttpError(request, error)
+        return CurlHttpError(request, _curl_error(errno, message))
 
 
 class HandleUnknownError(HttpError):

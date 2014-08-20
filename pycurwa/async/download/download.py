@@ -1,10 +1,12 @@
 from abc import abstractmethod
 from httpy.client import cookie_jar
+from httpy.connection.error import NotConnected
 from httpy.error import HttpError
+from procol.console import print_err
+import time
+from .requests import AsyncFuture, AsyncRequest
 from ..request import AsyncGet
 from ...download.files.download import ChunkCreationError
-
-from .requests import AsyncFuture, AsyncRequest
 from ...download import HttpDownloadRequests, ChunksDownloads
 from ...download.request import HeadersRequest
 
@@ -60,12 +62,19 @@ class AsyncChunksDownloads(ChunksDownloads):
         self._request_chunks()
 
     def _request_chunks(self):
-        outcome = AsyncGet()
-        self._request_head(outcome.completed, outcome.failed)
-        try:
-            self._create_chunks(outcome.get())
-        except BaseException, error:
-            self._download_failed(error)
+        while True:
+            outcome = AsyncGet()
+            self._request_head(outcome.completed, outcome.failed)
+
+            try:
+                self._create_chunks(outcome.get())
+                break
+            except NotConnected:
+                print_err('Not connected while resolving: ', self._request)
+                time.sleep(1)
+            except BaseException, error:
+                self._download_failed(error)
+                break
 
     def _request_head(self, completed, failed):
         AsyncHead(self._requests, self._request, completed, failed, cookies=self._cookies)

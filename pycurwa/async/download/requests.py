@@ -5,7 +5,7 @@ from procol.console import print_err_trace
 from ..request import CurlRequestFuture, AsyncRequest as Request
 
 from ..requests import Requests, RequestsUpdates
-from ...curl.requests import RequestsStatus
+from ...curl.status import RequestsStatus
 
 
 class RequestGroupStatus(object):

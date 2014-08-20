@@ -2,7 +2,7 @@ from Queue import Queue
 from httpy.client import cookie_jar
 
 from .download import AsyncDownloadRequests, AsyncChunksDownloads
-from ...curl.requests import RequestsStatus
+from ...curl.status import RequestsStatus
 
 
 class DownloadGroups(AsyncDownloadRequests):
@@ -24,8 +24,8 @@ class DownloadGroups(AsyncDownloadRequests):
 
 class AsyncDownloadsGroup(AsyncChunksDownloads):
 
-    def __init__(self, group, request, chunks, cookies=None, bucket=None):
-        super(AsyncDownloadsGroup, self).__init__(group, request, chunks, cookies, bucket)
+    def __init__(self, group, request, cookies=None, bucket=None):
+        super(AsyncDownloadsGroup, self).__init__(group, request, cookies, bucket)
         self.error = None
 
     def _download_failed(self, error):

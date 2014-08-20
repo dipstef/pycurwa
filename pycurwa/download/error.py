@@ -1,3 +1,4 @@
+from httpy.connection.error import NotConnected
 from ..error import DownloadedContentMismatch, FailedStatus
 
 
@@ -10,6 +11,13 @@ class FailedChunks(FailedStatus):
     def __init__(self, request, status, *args, **kwargs):
         super(FailedChunks, self).__init__(request, status, *args, **kwargs)
         self.message = '\n'.join('%s: %s' % (chunk.id, chunk.error) for chunk in status.failed)
+
+    @property
+    def available(self):
+        return [request for request in self.failed if not (request.is_write_error() or request.is_not_found())]
+
+    def disconnected(self):
+        return any((isinstance(request.error, NotConnected) for request in self.failed))
 
     def __str__(self):
         return self.message

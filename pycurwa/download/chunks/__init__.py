@@ -41,14 +41,15 @@ class ChunksDownloads(RetryChunks):
         try:
             return super(ChunksDownloads, self)._update(status)
         except FailedChunks, e:
-            errors = [chunk for chunk in e.failed if not (chunk.is_write_error() or chunk.is_not_found())]
-            if len(self._chunks_file) == 1 or not errors:
+            if e.disconnected():
+                print_err('Disconnected: while downloading, retrying %s' % self._request)
+                self._retry_chunks(self._chunks_file)
+            elif len(self._chunks_file) == 1 or not e.available:
                 raise
-
-            for chunk_request in e.failed:
-                print_err('Chunk %d failed: %s' % (chunk_request.id + 1, str(chunk_request.error)))
-
-            self._revert_to_one_chunk()
+            else:
+                for chunk_request in e.failed:
+                    print_err('Chunk %d failed: %s' % (chunk_request.id + 1, str(chunk_request.error)))
+                self._revert_to_one_chunk()
 
     def _revert_to_one_chunk(self):
         print_err('fallback to single connection')
