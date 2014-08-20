@@ -1,12 +1,10 @@
 from abc import abstractmethod
+
 from httpy.client import cookie_jar
-from httpy.connection.error import NotConnected
 from httpy.error import HttpError
-from procol.console import print_err
-import time
+
 from .requests import AsyncFuture, AsyncRequest
 from ..request import AsyncGet
-from ...download.files.download import ChunkCreationError
 from ...download import HttpDownloadRequests, ChunksDownloads
 from ...download.request import HeadersRequest
 
@@ -62,30 +60,19 @@ class AsyncChunksDownloads(ChunksDownloads):
         self._request_chunks()
 
     def _request_chunks(self):
-        while True:
-            outcome = AsyncGet()
-            self._request_head(outcome.completed, outcome.failed)
-
-            try:
-                self._create_chunks(outcome.get())
-                break
-            except NotConnected:
-                print_err('Not connected while resolving: ', self._request)
-                time.sleep(1)
-            except BaseException, error:
-                self._download_failed(error)
-                break
-
-    def _request_head(self, completed, failed):
-        AsyncHead(self._requests, self._request, completed, failed, cookies=self._cookies)
-
-    def _create_chunks(self, response):
         try:
-            super(AsyncChunksDownloads, self)._create_chunks(response)
-            #starts downloads right away
+            super(AsyncChunksDownloads, self)._request_chunks()
             self._submit()
-        except ChunkCreationError, error:
+        except BaseException, error:
             self._download_failed(error)
+
+    def _resolve_download(self):
+        outcome = AsyncGet()
+        self._async_head(outcome.completed, outcome.failed)
+        return outcome.get()
+
+    def _async_head(self, completed, failed):
+        AsyncHead(self._requests, self._request, completed, failed, cookies=self._cookies)
 
     def _submit(self):
         self._requests.add(self)

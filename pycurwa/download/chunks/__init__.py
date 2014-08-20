@@ -1,5 +1,5 @@
 import time
-
+from httpy.connection.error import NotConnected
 from httpy.error import InvalidRangeRequest
 from procol.console import print_err
 
@@ -36,6 +36,17 @@ class RetryChunks(HttpChunks):
 
 
 class ChunksDownloads(RetryChunks):
+
+    def _get_head_response(self):
+        while True:
+            try:
+                return self._resolve_download()
+            except NotConnected:
+                print_err('Not connected while resolving: ', self._request)
+                time.sleep(1)
+
+    def _resolve_download(self):
+        return super(ChunksDownloads, self)._get_head_response()
 
     def _update(self, status):
         try:

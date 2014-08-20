@@ -4,7 +4,6 @@ from httpy.error import HttpError
 from httpy.http.headers.content import disposition_file_name, accepts_ranges, content_length
 
 from .request import HttpChunk, HttpChunkCompleted
-
 from .requests import ChunksDownload
 from ..error import ChunksDownloadMismatch
 from ..files.download import create_chunks_file, load_existing_chunks, ChunkCreationError
@@ -22,10 +21,7 @@ class HttpChunks(ChunksDownload):
         self._completed = False
 
     def _request_chunks(self):
-        response = pycurwa.head(self.url, params=self.params, headers=self.headers, data=self.data)
-        self._create_chunks(response)
-
-    def _create_chunks(self, response):
+        response = self._get_head_response()
         if os.path.isdir(self.path):
             self.path = join_encoded(self.path, self._response_file_name(response))
 
@@ -33,6 +29,10 @@ class HttpChunks(ChunksDownload):
 
         chunks_file = self._create_chunk_file(chunks_number, content_length(response.headers))
         self._create_downloads(chunks_file)
+
+    def _get_head_response(self):
+        response = pycurwa.head(self.url, params=self.params, headers=self.headers, data=self.data)
+        return response
 
     def _create_chunk_file(self, chunks_number, size):
         try:
