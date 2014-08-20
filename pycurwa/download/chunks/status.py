@@ -1,7 +1,6 @@
 from collections import OrderedDict
 import numbers
 import operator
-
 from collected.sequence import partition
 
 from ..files import ChunksDict
@@ -66,11 +65,6 @@ class ChunksCompletion(object):
         self.completed.update(ChunksDict(status.completed))
         self.failed.update(ChunksDict(status.failed))
 
-
-    @property
-    def chunks_received(self):
-        return ChunkStatus(((chunk.id, chunk.received) for chunk in self.remaining))
-
     def is_completed(self):
         return all(chunk.is_completed() for chunk in self._chunks.values())
 
@@ -93,6 +87,10 @@ class ChunksProgress(ChunksCompletion):
     @property
     def percent(self):
         return (self.chunks_received.sum() * 100) / self.size
+
+    @property
+    def chunks_received(self):
+        return ChunkStatus(((chunk.id, chunk.received) for chunk in self.remaining))
 
 
 class ChunksSpeeds(ChunksCompletion):

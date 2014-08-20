@@ -1,7 +1,7 @@
 import os
 
 from httpy.error import HttpError
-from httpy.http.headers.content import disposition_file_name
+from httpy.http.headers.content import disposition_file_name, accepts_ranges
 
 from .request import HttpChunk, HttpChunkCompleted
 
@@ -15,28 +15,30 @@ from ...error import DownloadedContentMismatch
 
 class HttpChunks(ChunksDownload):
 
-    def __init__(self, request, chunks, cookies=None, bucket=None):
+    def __init__(self, request, cookies=None, bucket=None):
         super(HttpChunks, self).__init__(request)
-        self._chunks_number = chunks
         self._cookies = cookies
         self._bucket = bucket
         self._completed = False
 
     def _request_chunks(self):
         response = pycurwa.head(self.url, params=self.params, headers=self.headers, data=self.data)
-        self._create_chunks_file(response)
+        self._create_chunks(response)
 
-    def _create_chunks_file(self, response):
-        self._resolve_download(response)
-        chunks_file = get_chunks_file(self._request, self._chunks_number, response.headers)
-        self._create_downloads(chunks_file)
+    def _create_chunks(self, response):
+        if os.path.isdir(self.path):
+            self.path = join_encoded(self.path, self._response_file_name(response))
+
+        chunks_number = self.chunks_requested if accepts_ranges(response.headers) else 1
+
+        self._create_downloads(get_chunks_file(self._request, chunks_number, response.headers))
 
     def _create_downloads(self, chunks_file):
         self._chunks_file = chunks_file
 
-        self._create_chunks([self._chunk(chunk) for chunk in chunks_file.chunks])
+        self._add_chunks([self._chunk(chunk) for chunk in chunks_file.chunks])
 
-        if not self.chunks and self._chunks_file.chunks:
+        if not self._downloads and self._chunks_file.chunks:
             self._verify_completed()
             self._chunks_file.copy_chunks()
 
@@ -75,13 +77,9 @@ class HttpChunks(ChunksDownload):
             raise ChunksDownloadMismatch(self._request, self._chunks)
 
     def close(self):
-        for chunk in self.chunks:
+        for chunk in self._downloads:
             chunk.close()
 
-    def _resolve_download(self, response):
-        if os.path.isdir(self.path):
-            file_name = self._response_file_name(response.url, response.headers)
-            self.path = join_encoded(self.path, file_name)
-
-    def _response_file_name(self, url, headers):
-        return disposition_file_name(headers) or os.path.basename(url)
+    @staticmethod
+    def _response_file_name(response):
+        return disposition_file_name(response.headers) or os.path.basename(response.url)

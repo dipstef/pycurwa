@@ -53,14 +53,14 @@ class AsyncHeadFuture(AsyncFuture):
 
 class AsyncChunksDownloads(ChunksDownloads):
 
-    def __init__(self, requests, request, chunks, cookies=None, bucket=None):
-        super(AsyncChunksDownloads, self).__init__(request, chunks, cookies, bucket)
+    def __init__(self, requests, request, cookies=None, bucket=None):
+        super(AsyncChunksDownloads, self).__init__(request, cookies, bucket)
         self._requests = requests
 
         self._request_chunks()
 
     def _request_chunks(self):
-        outcome = AsyncCallback(completed=self._create_chunks_file,
+        outcome = AsyncCallback(completed=self._create_chunks,
                                 failed=lambda request, error: self._download_failed(error))
         self._request_head(outcome.completed, outcome.failed)
         outcome.wait()
@@ -68,9 +68,9 @@ class AsyncChunksDownloads(ChunksDownloads):
     def _request_head(self, completed, failed):
         AsyncHead(self._requests, self._request, completed, failed, cookies=self._cookies)
 
-    def _create_chunks_file(self, response):
+    def _create_chunks(self, response):
         try:
-            super(AsyncChunksDownloads, self)._create_chunks_file(response)
+            super(AsyncChunksDownloads, self)._create_chunks(response)
             #starts downloads right away
             self._submit()
         except ChunkCreationError, error:

@@ -2,7 +2,7 @@ import os
 from httpy.client import cookie_jar
 
 from .chunks import ChunksDownloads
-from .request import DownloadRequest
+from .request import ChunksDownloadRequest
 from .. import PyCurwa
 from ..curl.requests import RequestsRefresh
 
@@ -18,14 +18,14 @@ class HttpDownloadRequests(PyCurwa):
                                                      **kwargs)
 
     def execute(self, request, path=None, chunks=1, resume=False, **kwargs):
-        path = path or os.getcwd()
-        return self._create_download(DownloadRequest(request, path, resume), max(chunks, 1), **kwargs)
+        download = ChunksDownloadRequest(request, path or os.getcwd(), max(chunks, 1), resume)
+        return self._create_download(download, **kwargs)
 
     def _head(self, request, **kwargs):
         return super(HttpDownloadRequests, self).execute(request, **kwargs)
 
-    def _create_download(self, request, chunks, **kwargs):
-        return DownloadChunks(request, chunks, cookies=self._cookies, bucket=self._bucket)
+    def _create_download(self, request, **kwargs):
+        return DownloadChunks(request, cookies=self._cookies, bucket=self._bucket)
 
 
 class HttpDownload(HttpDownloadRequests):
@@ -37,8 +37,8 @@ class HttpDownload(HttpDownloadRequests):
 
 class DownloadChunks(ChunksDownloads):
 
-    def __init__(self, request, chunks, cookies=None, bucket=None):
-        super(DownloadChunks, self).__init__(request, chunks, cookies, bucket)
+    def __init__(self, request, cookies=None, bucket=None):
+        super(DownloadChunks, self).__init__(request, cookies, bucket)
         self._requests = RequestsRefresh(refresh=0.5)
 
     def perform(self):
@@ -55,5 +55,5 @@ class DownloadChunks(ChunksDownloads):
             self._requests.add(request)
 
     def close(self):
-        for chunk in self.chunks:
+        for chunk in self._downloads:
             self._requests.close(chunk)

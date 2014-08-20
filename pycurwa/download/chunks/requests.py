@@ -1,16 +1,16 @@
-from .status import ChunksCompletion, ChunksSpeeds, DownloadStats, ChunksProgress
-from ..request import DownloadRequest
+from .status import ChunksCompletion, DownloadStats, ChunksProgress
+from ..request import ChunksDownloadRequest
 from ..error import FailedChunks
 from ...error import DownloadedContentMismatch
 
 
-class ChunkRequests(DownloadRequest):
+class ChunkRequests(ChunksDownloadRequest):
 
     def __init__(self, request):
-        super(ChunkRequests, self).__init__(request, request.path, request.resume)
+        super(ChunkRequests, self).__init__(request, request.path, request.chunks_requested, request.resume)
         self._chunks = ChunksCompletion()
 
-    def _create_chunks(self, chunks):
+    def _add_chunks(self, chunks):
         self._chunks = ChunksCompletion(chunks)
 
     def update(self, status):
@@ -24,7 +24,7 @@ class ChunkRequests(DownloadRequest):
                 raise DownloadedContentMismatch(self._request, chunk.path, chunk.received, chunk.size)
 
     @property
-    def chunks(self):
+    def _downloads(self):
         return list(self._chunks.remaining)
 
     @property
@@ -33,7 +33,7 @@ class ChunkRequests(DownloadRequest):
 
     @property
     def _request(self):
-        return DownloadRequest(self, self.path, self.resume)
+        return ChunksDownloadRequest(self, self.path, self.chunks_requested, self.resume)
 
     def __iter__(self):
         return iter(self._chunks.remaining)
@@ -44,7 +44,7 @@ class ChunksDownload(ChunkRequests):
     def __init__(self, request):
         super(ChunksDownload, self).__init__(request)
 
-    def _create_chunks(self, chunks):
+    def _add_chunks(self, chunks):
         self._chunks = ChunksProgress(chunks)
 
     @property

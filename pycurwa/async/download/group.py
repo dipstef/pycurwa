@@ -10,8 +10,8 @@ class DownloadGroups(AsyncDownloadRequests):
     def __init__(self, requests, cookies=cookie_jar, max_speed=None, timeout=30):
         super(DownloadGroups, self).__init__(ChunksDownloadGroup(requests), cookies, max_speed, timeout)
 
-    def _create_download(self, request, chunks, **kwargs):
-        downloads = AsyncDownloadsGroup(self._requests, request, chunks, self._cookies, self._bucket)
+    def _create_download(self, request, **kwargs):
+        downloads = AsyncDownloadsGroup(self._requests, request, self._cookies, self._bucket)
         return downloads
 
     def iterate_finished(self):

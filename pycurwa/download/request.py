@@ -38,7 +38,9 @@ class HttpDownloadRange(HttpDownloadBase):
         self.range = bytes_range
         super(HttpDownloadRange, self).__init__(request, file_path, cookies, bucket, resume)
 
-        self._curl.set_range(self.received + self.range.start, self.range.end)
+        start = self.received + self.range.start
+        if start or self.range.end:
+            self._curl.set_range(start, self.range.end)
 
     def _create_response(self):
         return CurlRangeDownload(self, self._cookies, self._bucket)
@@ -51,6 +53,13 @@ class DownloadRequest(HttpyRequest):
                                               request.params, request.timeout, request.redirect)
         self.path = path
         self.resume = resume
+
+
+class ChunksDownloadRequest(DownloadRequest):
+
+    def __init__(self, request, path, chunks=1, resume=False):
+        super(ChunksDownloadRequest, self).__init__(request, path, resume)
+        self.chunks_requested = chunks
 
 
 class HeadersRequest(HttpyRequest):
