@@ -20,7 +20,7 @@ class HttpChunk(HttpDownloadRange):
         return self.size == self.received
 
     def _create_response(self):
-        return HttpChunkDownload(self, self._cookies, self._bucket)
+        return HttpChunkDownload(self._curl, self, self._cookies, self._bucket)
 
     def __str__(self):
         size = '' if not self._chunk.range.end else ' size=%d, ' % self._chunk.range.size

@@ -2,8 +2,8 @@ import codecs
 import json
 import os
 from httpy.error import HttpError
-from httpy.http.headers.content import content_length
 from . import DownloadChunkFiles, chunks_file_path
+from unicoder import encoded
 from .chunk import ChunkFile
 
 
@@ -54,19 +54,8 @@ class OneChunk(NewDownload):
         super(OneChunk, self).__init__(request, expected_size, chunks=1, resume=resume)
 
 
-def get_chunks_file(request, chunks_number, response_headers):
-    try:
-        chunks = _load_existing(chunks_file_path(request.path), request)
-
-        if not chunks:
-            chunks = NewDownload(request, content_length(response_headers), chunks_number, resume=request.resume)
-    except Exception, e:
-        raise ChunkCreationError(request, request.path, e)
-
-    return chunks
-
-
-def _load_existing(chunk_file_path, request):
+def load_existing_chunks(download_path, request):
+    chunk_file_path = chunks_file_path(download_path)
     if os.path.exists(chunk_file_path):
         try:
             return ExistingDownload(request, _load_json(chunk_file_path))
@@ -74,6 +63,12 @@ def _load_existing(chunk_file_path, request):
             os.remove(chunk_file_path)
 
 
+def create_chunks_file(request, chunks_number, size):
+    return NewDownload(request, size, chunks_number, resume=request.resume)
+
+
 class ChunkCreationError(HttpError):
-    def __init__(self, request, *args, **kwargs):
-        super(ChunkCreationError, self).__init__(request, *args, **kwargs)
+    def __init__(self, request, path, error):
+        super(ChunkCreationError, self).__init__(request, path, error)
+        self.message = 'Error :%s creating chunks file for download %s, %s' % (str(error), encoded(path), str(request))
+        self.error = error

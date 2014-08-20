@@ -33,7 +33,7 @@ class CurlRequestBase(HttpyRequest):
 
     @abstractmethod
     def _create_response(self):
-        raise CurlResponseBase(self, self._cookies)
+        raise CurlResponseBase(self._curl, self, self._cookies)
 
     def get_response(self):
         return self._response
@@ -67,4 +67,4 @@ class CurlRequest(CurlRequestBase):
         return self._response
 
     def _create_response(self):
-        return CurlBodyResponse(self, self._cookies, self._bucket)
+        return CurlBodyResponse(self._curl, self, self._cookies, self._bucket)

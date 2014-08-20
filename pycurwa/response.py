@@ -1,5 +1,5 @@
 from datetime import datetime
-from multiprocessing import Lock, Event
+from multiprocessing import Event
 from httpy import ResponseStatus, HttpHeaders, date_header
 from httpy.http.headers import header_string_to_dict
 from .curl import BytesIO
@@ -9,9 +9,8 @@ class CurlResponseBase(ResponseStatus):
 
     __headers__ = True
 
-    def __init__(self, request, cookies=None):
-        self._curl = request._curl
-        self.handle = request.handle
+    def __init__(self, curl, request, cookies=None):
+        self._curl = curl
 
         self.request = request
 
@@ -45,6 +44,10 @@ class CurlResponseBase(ResponseStatus):
         headers = header_string_to_dict(header_string)
         self._headers = HttpHeaders(headers)
         self._parsed = datetime.utcnow()
+
+    def get_status(self):
+        self._set_status_code()
+        return self._status_code
 
     def _set_cookies(self):
         if self._cookies is not None:
@@ -88,8 +91,8 @@ class CurlResponseBase(ResponseStatus):
 
 class CurlResponse(CurlResponseBase):
 
-    def __init__(self, request, writer, cookies, bucket=None):
-        super(CurlResponse, self).__init__(request, cookies)
+    def __init__(self, curl, request, writer, cookies, bucket=None):
+        super(CurlResponse, self).__init__(curl, request, cookies)
         self._bucket = bucket
 
         self.received = 0
@@ -110,9 +113,9 @@ class CurlResponse(CurlResponseBase):
 
 class CurlBodyResponse(CurlResponse):
 
-    def __init__(self, request, cookies, bucket=None):
+    def __init__(self, curl, request, cookies, bucket=None):
         self._bytes = BytesIO()
-        super(CurlBodyResponse, self).__init__(request, self._bytes.write, cookies, bucket)
+        super(CurlBodyResponse, self).__init__(curl, request, self._bytes.write, cookies, bucket)
         self._body = None
 
     def read(self):

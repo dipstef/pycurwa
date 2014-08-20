@@ -1,6 +1,4 @@
-import os
 from procol.console import print_err, print_line
-import time
 
 from pycurwa.async.download import AsyncDownloads
 

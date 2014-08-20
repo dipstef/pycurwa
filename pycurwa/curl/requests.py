@@ -1,10 +1,11 @@
 from collections import OrderedDict
 from contextlib import contextmanager
 from time import time
+from httpy.error import error_status, HttpStatusError
+from procol.console import print_err, print_err_trace
 
 from . import CurlMulti, CurlHandlesStatus
-from httpy.error import error_status, HttpStatusError
-from .error import CurlWriteError, HttpCurlError, MissingHandle, CurlError
+from .error import CurlWriteError, HttpCurlError, CurlError, HandleError
 
 
 class Requests(object):
@@ -40,7 +41,11 @@ class Requests(object):
         request = self._requests.get(handle)
 
         if not request:
-            raise MissingHandle(handle)
+            #should never happen
+            print_err('Cant locate request for handle ' % repr(handle))
+
+            handle.close()
+            self._curl.remove_handle(handle)
 
         return request
 
@@ -56,10 +61,23 @@ class Requests(object):
         while status.remaining:
             status = self._curl.get_status()
 
-        request_completed = [self._get_request(handle) for handle in status.completed]
-        request_failed = [CurlFailed(self._get_request(handle), errno, msg) for handle, errno, msg in status.failed]
+        completed, failed = [], []
 
-        return RequestStatusCheck(request_completed, request_failed, now)
+        for handle in status.completed:
+            request = self._get_request(handle)
+            if request:
+                error = _get_response_status_error(request)
+                if error:
+                    failed.append(FailedHandle(request, error))
+                else:
+                    completed.append(request)
+
+        for handle, errno, msg in status.failed:
+            request = self._requests.get(handle)
+            if request:
+                failed.append(FailedHandle(request, HttpCurlError(request, errno, msg)))
+
+        return RequestsStatus(completed, failed, now)
 
     def iterate_statuses(self):
         try:
@@ -114,23 +132,6 @@ class RequestsStatus(CurlHandlesStatus):
         self.check = status_time or time()
 
 
-class RequestStatusCheck(RequestsStatus):
-
-    def __init__(self, completed, failed, status_time=None):
-        errors = []
-        for request in completed:
-            response = request.get_response()
-
-            if response.status in error_status:
-                errors.append(request)
-                failed.append(FailedHandle(request, HttpStatusError(request, response.status)))
-
-        if errors:
-            completed = [request for request in completed if not request in errors]
-
-        super(RequestStatusCheck, self).__init__(completed, failed, status_time)
-
-
 class FailedHandle(object):
 
     def __init__(self, request, error):
@@ -153,6 +154,13 @@ class FailedHandle(object):
         return bool(status_code) and status_code == 404
 
 
-class CurlFailed(FailedHandle):
-    def __init__(self, request, errno, msg):
-        super(CurlFailed, self).__init__(request, HttpCurlError(request, errno, msg))
+def _get_response_status_error(request):
+    response = request.get_response()
+    try:
+        status_code = response.get_status()
+        if status_code in error_status:
+            return HttpStatusError(request, status_code)
+    except BaseException, error:
+        #should not happen as handle should be still opened
+        print_err_trace('Handle closed?')
+        return HandleError(request, error)

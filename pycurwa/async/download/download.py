@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from httpy.client import cookie_jar
 from httpy.error import HttpError
-from ..request import AsyncCallback
+from ..request import AsyncGet
 from ...download.files.download import ChunkCreationError
 
 from .requests import AsyncFuture, AsyncRequest
@@ -60,10 +60,12 @@ class AsyncChunksDownloads(ChunksDownloads):
         self._request_chunks()
 
     def _request_chunks(self):
-        outcome = AsyncCallback(completed=self._create_chunks,
-                                failed=lambda request, error: self._download_failed(error))
+        outcome = AsyncGet()
         self._request_head(outcome.completed, outcome.failed)
-        outcome.wait()
+        try:
+            self._create_chunks(outcome.get())
+        except BaseException, error:
+            self._download_failed(error)
 
     def _request_head(self, completed, failed):
         AsyncHead(self._requests, self._request, completed, failed, cookies=self._cookies)

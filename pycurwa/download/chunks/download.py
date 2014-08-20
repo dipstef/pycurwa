@@ -1,13 +1,13 @@
 import os
 
 from httpy.error import HttpError
-from httpy.http.headers.content import disposition_file_name, accepts_ranges
+from httpy.http.headers.content import disposition_file_name, accepts_ranges, content_length
 
 from .request import HttpChunk, HttpChunkCompleted
 
 from .requests import ChunksDownload
 from ..error import ChunksDownloadMismatch
-from ..files.download import get_chunks_file
+from ..files.download import create_chunks_file, load_existing_chunks, ChunkCreationError
 from ..files.util import join_encoded
 from ... import pycurwa
 from ...error import DownloadedContentMismatch
@@ -31,7 +31,17 @@ class HttpChunks(ChunksDownload):
 
         chunks_number = self.chunks_requested if accepts_ranges(response.headers) else 1
 
-        self._create_downloads(get_chunks_file(self._request, chunks_number, response.headers))
+        chunks_file = self._create_chunk_file(chunks_number, content_length(response.headers))
+        self._create_downloads(chunks_file)
+
+    def _create_chunk_file(self, chunks_number, size):
+        try:
+            chunks_file = load_existing_chunks(self.path, self._request)
+            if not chunks_file:
+                chunks_file = create_chunks_file(self._request, chunks_number, size)
+            return chunks_file
+        except Exception, e:
+            raise ChunkCreationError(self._request, self.path, e)
 
     def _create_downloads(self, chunks_file):
         self._chunks_file = chunks_file

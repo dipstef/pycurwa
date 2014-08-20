@@ -1,4 +1,3 @@
-from Queue import Queue
 from abc import abstractmethod
 from threading import Event
 
@@ -21,7 +20,7 @@ class AsyncRequestBase(CurlRequestBase):
         raise NotImplementedError
 
     def _create_response(self):
-        return CurlBodyResponse(self, self._cookies, self._bucket)
+        return CurlBodyResponse(self._curl, self, self._cookies, self._bucket)
 
 
 class AsyncRequest(AsyncRequestBase):
@@ -49,13 +48,13 @@ class CurlRequestFuture(AsyncRequest):
         return self._outcome.get()
 
     def _create_response(self):
-        return CurlResponseFuture(self, self._outcome, self._cookies, self._bucket)
+        return CurlResponseFuture(self._curl, self, self._outcome, self._cookies, self._bucket)
 
 
 class CurlResponseFuture(CurlBodyResponse):
 
-    def __init__(self, request, outcome, cookies, bucket=None):
-        super(CurlResponseFuture, self).__init__(request, cookies, bucket)
+    def __init__(self, curl, request, outcome, cookies, bucket=None):
+        super(CurlResponseFuture, self).__init__(curl, request, cookies, bucket)
         self._outcome = outcome
         self._completed = Event()
         self._completion = None
@@ -86,25 +85,6 @@ class CurlResponseFuture(CurlBodyResponse):
         finally:
             if not self._closed.is_set():
                 self.close()
-
-
-class AsyncCallback(object):
-
-    def __init__(self, completed, failed):
-        self._processed = Event()
-        self._completed = completed
-        self._failed = failed
-
-    def completed(self, response):
-        self._completed(response)
-        self._processed.set()
-
-    def failed(self, request, error):
-        self._failed(request, error)
-        self._processed.set()
-
-    def wait(self):
-        self._processed.wait()
 
 
 class AsyncGet(object):

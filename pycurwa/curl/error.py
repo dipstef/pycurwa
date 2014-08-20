@@ -72,6 +72,17 @@ class HttpCurlError(PyCurlError):
         return CurlHttpError(request, error)
 
 
-class MissingHandle(Exception):
-    def __init__(self, handle):
-        super(MissingHandle, self).__init__('Handle not Found', handle)
+class HandleUnknownError(HttpError):
+    def __init__(self, request, error):
+        super(HandleUnknownError, self).__init__(request, error)
+        self.message += ' : %s, %s' % (error.__class__.__name__, str(error))
+
+
+class HandleError(HttpError):
+    def __new__(cls, request, error):
+        if isinstance(error, CurlError):
+            try:
+                return PyCurlError(*error.args)
+            except:
+                return HandleUnknownError(request, error)
+        return HandleUnknownError(request, error)

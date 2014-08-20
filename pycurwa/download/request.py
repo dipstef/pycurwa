@@ -20,7 +20,7 @@ class HttpDownloadBase(CurlRequest):
         return self._response.size
 
     def _create_response(self):
-        return CurlDownloadResponse(self, self._cookies, self._bucket)
+        return CurlDownloadResponse(self._curl, self, self._cookies, self._bucket)
 
 
 class HttpDownloadRequest(HttpDownloadBase):
@@ -43,7 +43,7 @@ class HttpDownloadRange(HttpDownloadBase):
             self._curl.set_range(start, self.range.end)
 
     def _create_response(self):
-        return CurlRangeDownload(self, self._cookies, self._bucket)
+        return CurlRangeDownload(self._curl, self, self._cookies, self._bucket)
 
 
 class DownloadRequest(HttpyRequest):

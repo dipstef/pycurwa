@@ -1,11 +1,11 @@
-from Queue import Queue
 from abc import abstractmethod
-from threading import Event
+
 from httpy.client import cookie_jar
+
 from .requests import DownloadRequests, AsyncRequest
 from .download import AsyncDownloadRequests, AsyncChunksDownloads, AsyncHead
 from .group import DownloadGroups
-from ..request import AsyncCallback, AsyncGet
+from ..request import AsyncGet
 
 
 class AsyncDownloadsBase(AsyncDownloadRequests):
