@@ -1,5 +1,10 @@
 from httpy.connection.error import NotConnected
+from httpy.error import HttpError
 from ..error import DownloadedContentMismatch, FailedStatus
+
+
+class MissingContentLength(HttpError):
+    pass
 
 
 class ChunksDownloadMismatch(DownloadedContentMismatch):

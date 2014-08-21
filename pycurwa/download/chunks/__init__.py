@@ -6,7 +6,7 @@ from procol.console import print_err
 from .download import HttpChunks
 from .request import HttpChunk
 from ..error import FailedChunks
-from ..files.download import OneChunk
+from ..files.download import create_chunks_file
 
 
 class RetryChunks(HttpChunks):
@@ -64,10 +64,7 @@ class ChunksDownloads(RetryChunks):
 
     def _revert_to_one_chunk(self):
         print_err('fallback to single connection')
-        self._retry_chunks(self._create_one_chunk_file())
-
-    def _create_one_chunk_file(self):
         for chunk in self._chunks_file.chunks[1:]:
             self._chunks_file.remove(chunk)
 
-        return OneChunk(self._chunks_file.request, self._chunks_file.size, resume=self._chunks_file.resume)
+        self._retry_chunks(create_chunks_file(self._request, chunks_number=1, size=self.size, resume=self.resume))

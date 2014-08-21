@@ -1,20 +1,30 @@
 import codecs
 import json
 import os
-from httpy.error import HttpError
+from procol.console import print_err_trace
+from unicoder import to_unicode
+
 from . import DownloadChunkFiles, chunks_file_path
-from unicoder import encoded
 from .chunk import ChunkFile
+from .error import ChunksAlreadyExisting, ChunkCreationException
 
 
-class ExistingDownload(DownloadChunkFiles):
+def load_existing_chunks(download_path, request):
+    chunk_file_path = chunks_file_path(download_path)
+    if os.path.exists(chunk_file_path):
+        try:
+            json_dict = _load_json(chunk_file_path)
+            if request.url != json_dict['url']:
+                raise ChunksAlreadyExisting(request, request.path, chunk_file_path, json_dict['url'])
 
-    def __init__(self, request, json_dict):
-        assert request.url == json_dict['url']
+            chunks = _chunks(json_dict['chunks'], json_dict['number'], request.resume)
 
-        chunks = _chunks(json_dict['chunks'], json_dict['number'], request.resume)
-
-        super(ExistingDownload, self).__init__(request, request.path, json_dict['size'], chunks, request.resume)
+            return DownloadChunkFiles(request, request.path, json_dict['size'], chunks, request.resume)
+        except EnvironmentError:
+            os.remove(chunk_file_path)
+        except BaseException, error:
+            print_err_trace('Error Loading Chunks: ', error)
+            os.remove(chunk_file_path)
 
 
 def _load_json(file_path):
@@ -28,47 +38,30 @@ def _chunks(chunks, total, resume):
     return [ChunkFile(chunk['number'], total, chunk['path'], chunk['range'], resume) for chunk in chunks]
 
 
-class NewDownload(DownloadChunkFiles):
+def create_chunks_file(request, chunks_number, size, resume=False):
+    try:
+        chunks = []
+        path = to_unicode(request.path)
+        for number, chunk_range in _iterate_ranges(chunks_number, size):
+            path = u'%s.chunk%s' % (path, number)
+            chunks.append(ChunkFile(number + 1, chunks_number, path, chunk_range))
 
-    def __init__(self, request, download_size, chunks, resume):
-        super(NewDownload, self).__init__(request, request.path, download_size, chunks=[], resume=resume)
-        self._create_chunks(chunks)
-        self.save()
+        chunks_file = DownloadChunkFiles(request, request.path, size, chunks, resume)
+        chunks_file.save()
 
-    def _create_chunks(self, chunks_number):
-        chunk_size = self.size / chunks_number
-        total = chunks_number - 1
-
-        current = 0
-        for number in range(chunks_number):
-            end = self.size - 1 if number == total else current + chunk_size
-
-            path = '%s.chunk%s' % (self.file_path, number)
-            self._chunks.append(ChunkFile(number+1, chunks_number, path, (current, end)))
-
-            current += chunk_size + 1
+        return chunks_file
+    except BaseException, e:
+        raise ChunkCreationException(request, request.path, e)
 
 
-class OneChunk(NewDownload):
-    def __init__(self, request, expected_size, resume=False):
-        super(OneChunk, self).__init__(request, expected_size, chunks=1, resume=resume)
+def _iterate_ranges(chunks_number, size):
+    chunk_size = size / chunks_number
+    total = chunks_number - 1
 
+    current = 0
+    for number in range(chunks_number):
+        end = size - 1 if number == total else current + chunk_size
 
-def load_existing_chunks(download_path, request):
-    chunk_file_path = chunks_file_path(download_path)
-    if os.path.exists(chunk_file_path):
-        try:
-            return ExistingDownload(request, _load_json(chunk_file_path))
-        except:
-            os.remove(chunk_file_path)
+        yield number, (current, end)
+        current += chunk_size + 1
 
-
-def create_chunks_file(request, chunks_number, size):
-    return NewDownload(request, size, chunks_number, resume=request.resume)
-
-
-class ChunkCreationError(HttpError):
-    def __init__(self, request, path, error):
-        super(ChunkCreationError, self).__init__(request, path, error)
-        self.message = 'Error :%s creating chunks file for download %s, %s' % (str(error), encoded(path), str(request))
-        self.error = error
