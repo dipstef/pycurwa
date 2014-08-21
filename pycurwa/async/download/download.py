@@ -57,11 +57,11 @@ class AsyncChunksDownloads(ChunksDownloads):
         super(AsyncChunksDownloads, self).__init__(request, cookies, bucket)
         self._requests = requests
 
-        self._request_chunks()
+        self._create_chunks()
 
-    def _request_chunks(self):
+    def _create_chunks(self):
         try:
-            super(AsyncChunksDownloads, self)._request_chunks()
+            super(AsyncChunksDownloads, self)._create_chunks()
             self._submit()
         except BaseException, error:
             self._download_failed(error)

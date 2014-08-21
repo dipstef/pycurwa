@@ -20,7 +20,7 @@ class HttpChunks(ChunksDownload):
         self._bucket = bucket
         self._completed = False
 
-    def _request_chunks(self):
+    def _create_chunks(self):
         response = self._get_head_response()
         if os.path.isdir(self.path):
             self.path = join_encoded(self.path, self._response_file_name(response))

@@ -42,7 +42,7 @@ class DownloadChunks(ChunksDownloads):
         self._requests = RequestsRefresh(refresh=0.5)
 
     def perform(self):
-        self._request_chunks()
+        self._create_chunks()
         self._submit()
 
         for status in self._requests.iterate_statuses():
