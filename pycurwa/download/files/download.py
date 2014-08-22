@@ -11,27 +11,25 @@ from .error import ChunksAlreadyExisting, ChunkCreationException
 
 def load_existing_chunks(download_path, request):
     chunk_file_path = chunks_file_path(download_path)
-    if os.path.exists(chunk_file_path):
+
+    json_dict = _load_json_chunks(chunk_file_path)
+    if json_dict:
+        if request.url != json_dict['url']:
+            raise ChunksAlreadyExisting(request, request.path, chunk_file_path, json_dict['url'])
+
+        chunks = _chunks(json_dict['chunks'], json_dict['number'], request.resume)
+
+        return DownloadChunkFiles(request, request.path, json_dict['size'], chunks, request.resume)
+
+
+def _load_json_chunks(path):
+    if os.path.exists(path):
         try:
-            json_dict = _load_json(chunk_file_path)
-            if request.url != json_dict['url']:
-                raise ChunksAlreadyExisting(request, request.path, chunk_file_path, json_dict['url'])
-
-            chunks = _chunks(json_dict['chunks'], json_dict['number'], request.resume)
-
-            return DownloadChunkFiles(request, request.path, json_dict['size'], chunks, request.resume)
+            with codecs.open(path, 'r', 'utf-8') as fh:
+                json_dict = json.load(fh)
+            return json_dict
         except EnvironmentError:
-            os.remove(chunk_file_path)
-        except BaseException, error:
-            print_err_trace('Error Loading Chunks: ', error)
-            os.remove(chunk_file_path)
-
-
-def _load_json(file_path):
-    with codecs.open(file_path, 'r', 'utf-8') as fh:
-        json_dict = json.load(fh)
-
-    return json_dict
+            os.remove(path)
 
 
 def _chunks(chunks, total, resume):
