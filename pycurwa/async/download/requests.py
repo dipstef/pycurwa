@@ -127,7 +127,7 @@ class DownloadRequests(RequestsUpdates):
                 requests.update(requests_status)
             except:
                 #Should have been handled by the requests class
-                print_err_trace()
+                print_err_trace('Error while downloading: ')
                 self.close(requests)
 
     def close(self, requests):
