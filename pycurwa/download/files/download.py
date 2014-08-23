@@ -1,12 +1,12 @@
-import codecs
 import json
 import os
-from procol.console import print_err_trace
+
 from unicoder import to_unicode
 
 from . import DownloadChunkFiles, chunks_file_path
 from .chunk import ChunkFile
 from .error import ChunksAlreadyExisting, ChunkCreationException
+from .util import open_locked
 
 
 def load_existing_chunks(download_path, request):
@@ -25,10 +25,10 @@ def load_existing_chunks(download_path, request):
 def _load_json_chunks(path):
     if os.path.exists(path):
         try:
-            with codecs.open(path, 'r', 'utf-8') as fh:
+            with open_locked(path, 'r', 'utf-8') as fh:
                 json_dict = json.load(fh)
             return json_dict
-        except EnvironmentError:
+        except StandardError, e:
             os.remove(path)
 
 
@@ -39,10 +39,10 @@ def _chunks(chunks, total, resume):
 def create_chunks_file(request, chunks_number, size, resume=False):
     try:
         chunks = []
-        path = to_unicode(request.path)
+        file_path = to_unicode(request.path)
         for number, chunk_range in _iterate_ranges(chunks_number, size):
-            path = u'%s.chunk%s' % (path, number)
-            chunks.append(ChunkFile(number + 1, chunks_number, path, chunk_range))
+            chunk_path = u'%s.chunk%s' % (file_path, number)
+            chunks.append(ChunkFile(number + 1, chunks_number, chunk_path, chunk_range))
 
         chunks_file = DownloadChunkFiles(request, request.path, size, chunks, resume)
         chunks_file.save()

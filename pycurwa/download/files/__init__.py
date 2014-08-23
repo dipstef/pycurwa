@@ -1,14 +1,12 @@
-import codecs
 from collections import OrderedDict
 import json
 import os
 import shutil
-
 from unicoder import to_unicode, encoded
 
 from .error import UnexpectedCopyChunk
 from ...error import UnexpectedContent
-from ..files.util import fs_encode
+from ..files.util import fs_encode, open_locked
 
 
 class Chunks(object):
@@ -87,7 +85,7 @@ class ChunksFile(Chunks):
         return fs_encode(self.path)
 
     def save(self):
-        with codecs.open(self.path_encoded, 'w', 'utf-8') as chunks_file:
+        with open_locked(self.path_encoded, 'w', 'utf-8') as chunks_file:
             return json.dump(self._json_dict(), chunks_file, indent=4, encoding='utf-8')
 
     def remove(self, all=True):
@@ -193,7 +191,7 @@ class DownloadChunkFiles(DownloadFile):
 
 
 def _copy_chunk(chunk, first_chunk, buf_size=32 * 1024):
-    with open(chunk.path, 'rb') as fi:
+    with open_locked(chunk.path, 'rb') as fi:
         while True:
             data = fi.read(buf_size)
             if not data:

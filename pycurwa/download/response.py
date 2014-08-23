@@ -4,6 +4,7 @@ from httpy import HttpHeaders
 from httpy.http.headers.content import disposition_file_name, content_length
 
 from .error import AboveRange
+from .files.util import open_locked
 from ..response import CurlResponse
 
 
@@ -27,7 +28,8 @@ class CurlDownloadResponse(CurlResponse):
     def __init__(self, curl, request, cookies=None, bucket=None):
         self.path = request.path
 
-        self._fp = open(self.path, 'ab' if request.resume else 'wb')
+        #make sure is only one thread writing the file, will raise an exception otherwise
+        self._fp = open_locked(self.path, 'ab' if request.resume else 'wb', blocking=False)
 
         super(CurlDownloadResponse, self).__init__(curl, request, self._fp.write, cookies, bucket)
 
