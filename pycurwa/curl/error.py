@@ -1,8 +1,7 @@
 import pycurl
 from httpy.connection import is_disconnected
-
 from httpy.connection.error import ConnectionRefused, SocketError, ConnectionTimeout, UnresolvableHost, NotConnected
-from httpy.error import HttpServerSocketError, HttpError, InvalidRangeRequest, IncompleteRead
+from httpy.error import HttpServerSocketError, HttpError, InvalidRangeRequest, IncompleteRead, HttpResponseError
 
 
 CurlError = pycurl.error
@@ -119,3 +118,10 @@ class HandleError(HttpError):
             except:
                 return HandleUnknownError(request, error)
         return HandleUnknownError(request, error)
+
+
+class FailedStatus(HttpResponseError):
+    def __init__(self, request, status, *args, **kwargs):
+        super(FailedStatus, self).__init__(request, status, *args, **kwargs)
+        self.status = status
+        self.failed = status.failed

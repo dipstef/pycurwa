@@ -1,7 +1,7 @@
+from .error import FailedChunks
 from .status import ChunksCompletion, DownloadStats, ChunksProgress
 from ..request import ChunksDownloadRequest
-from ..error import FailedChunks
-from ...error import DownloadedContentMismatch
+from ..error import DownloadedContentMismatch
 
 
 class ChunkRequests(ChunksDownloadRequest):

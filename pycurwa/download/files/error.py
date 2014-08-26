@@ -1,5 +1,6 @@
 from httpy.error import HttpError
-from ...error import DownloadedContentMismatch
+
+from ..error import DownloadedContentMismatch
 
 
 class UnexpectedCopyChunk(DownloadedContentMismatch):

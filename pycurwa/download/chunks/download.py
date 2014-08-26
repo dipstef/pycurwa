@@ -2,14 +2,15 @@ import os
 
 from httpy.error import HttpError
 from httpy.http.headers.content import disposition_file_name, accepts_ranges, content_length
+from pycurwa.download.chunks.error import ChunksDownloadMismatch
+from pycurwa.download.error import DownloadedContentMismatch
 
 from .request import HttpChunk, HttpChunkCompleted
 from .requests import ChunksDownload
-from ..error import ChunksDownloadMismatch, MissingContentLength
+from ..error import MissingContentLength
 from ..files.download import create_chunks_file, load_existing_chunks
 from ..files.util import join_encoded
 from ... import pycurwa
-from ...error import DownloadedContentMismatch
 
 
 class HttpChunks(ChunksDownload):

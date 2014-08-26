@@ -1,8 +1,9 @@
 from httpy.client import HttpClient
 from httpy.client.requests import cookie_jar
-from .cookies import CurlCookies
-from pycurwa.bucket import TransferLimit
+
 from .request import CurlRequest
+from .curl.cookies import CurlCookies
+from .curl.bucket import TransferLimit
 
 
 class PyCurwa(HttpClient):

@@ -1,39 +1,22 @@
-from httpy.connection.error import NotConnected
 from httpy.error import HttpError
-from ..error import DownloadedContentMismatch, FailedStatus
 
 
 class MissingContentLength(HttpError):
     pass
 
 
-class ChunksDownloadMismatch(DownloadedContentMismatch):
-    def __init__(self, request, chunks):
-        super(ChunksDownloadMismatch, self).__init__(request, request.path, chunks.received, chunks.size)
-
-
-class FailedChunks(FailedStatus):
-    def __init__(self, request, status, *args, **kwargs):
-        super(FailedChunks, self).__init__(request, status, *args, **kwargs)
-        self.message = '\n'.join('%s: %s' % (chunk.id, chunk.error) for chunk in status.failed)
-
-    @property
-    def available(self):
-        return [request for request in self.failed if not (request.is_write_error() or request.is_not_found())]
-
-    def disconnected(self):
-        return any((isinstance(request.error, NotConnected) for request in self.failed))
-
-    def __str__(self):
-        return self.message
-
-
-class FallbackToSingleConnection(FailedChunks):
-    def __init__(self, request, status, *args, **kwargs):
-        super(FallbackToSingleConnection, self).__init__(request, status, *args, **kwargs)
-        errors = super(FallbackToSingleConnection, self).message
-        self.message = 'Download chunks failed, fallback to single connection | %s' % errors
+class DownloadedContentMismatch(UnexpectedContent):
+    def __init__(self, request, path, actual, expected):
+        super(DownloadedContentMismatch, self).__init__(request, path, actual, expected)
+        self.message = 'Content size mismatch% s: received: %d, expected: %d' % (path, actual, expected)
 
 
 class AboveRange(DownloadedContentMismatch):
     pass
+
+
+class UnexpectedContent(HttpError):
+    def __init__(self, request, path, actual, expected):
+        super(UnexpectedContent, self).__init__(request, path, path, actual, expected)
+        message = '%s content %d different than expected %d. Try to reduce download connections.'
+        self.message = message % (path, actual, expected)
