@@ -1,4 +1,5 @@
 from httpy.connection.error import NotConnected
+from httpy.error import IncompleteRead
 from ...curl.error import FailedStatus
 from ..error import DownloadedContentMismatch
 
@@ -20,6 +21,9 @@ class FailedChunks(FailedStatus):
     def disconnected(self):
         return any((isinstance(request.error, NotConnected) for request in self.failed))
 
+    def incomplete_read(self):
+        return any((isinstance(request.error, IncompleteRead) for request in self.failed))
+
     def __str__(self):
         return self.message
 
@@ -29,3 +33,7 @@ class FallbackToSingleConnection(FailedChunks):
         super(FallbackToSingleConnection, self).__init__(request, status, *args, **kwargs)
         errors = super(FallbackToSingleConnection, self).message
         self.message = 'Download chunks failed, fallback to single connection | %s' % errors
+
+
+class MaxAttemptsReached(FailedStatus):
+    pass

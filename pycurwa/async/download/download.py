@@ -53,8 +53,8 @@ class AsyncHeadFuture(AsyncFuture):
 
 class AsyncChunksDownloads(ChunksDownloads):
 
-    def __init__(self, requests, request, cookies=None, bucket=None):
-        super(AsyncChunksDownloads, self).__init__(request, cookies, bucket)
+    def __init__(self, requests, request, cookies=None, bucket=None, max_attempts=5):
+        super(AsyncChunksDownloads, self).__init__(request, cookies, bucket, max_attempts)
         self._requests = requests
 
         self._create_chunks()

@@ -4,12 +4,17 @@ from httpy.error import InvalidRangeRequest
 from procol.console import print_err
 
 from .download import HttpChunks
-from .error import FailedChunks
+from .error import FailedChunks, MaxAttemptsReached
 from .request import HttpChunk
 from ..files.download import create_chunks_file
 
 
 class RetryChunks(HttpChunks):
+
+    def __init__(self, request, cookies=None, bucket=None, max_attempts=5):
+        super(RetryChunks, self).__init__(request, cookies, bucket)
+        self._max_attempts = max_attempts
+        self._attempts = 0
 
     def _update(self, status):
         try:
@@ -19,6 +24,13 @@ class RetryChunks(HttpChunks):
                 self._no_resume_download()
             else:
                 raise
+        except FailedChunks, e:
+            if not e.disconnected():
+                self._attempts += 1
+
+            if self._attempts < self._max_attempts:
+                raise
+            raise MaxAttemptsReached(e.request, e.status)
 
     def _no_resume_download(self):
         self.resume = False
@@ -55,6 +67,9 @@ class ChunksDownloads(RetryChunks):
             if e.disconnected():
                 print_err('Disconnected: while downloading, retrying %s' % self._request)
                 self._retry_chunks(self._chunks_file)
+            elif e.incomplete_read():
+                print_err('Incomplete read: retrying %s %d time' % (self._request, self._attempts))
+                self._retry_chunks(self._chunks_file)
             elif len(self._chunks_file) == 1 or not e.available:
                 raise
             else:
@@ -68,3 +83,6 @@ class ChunksDownloads(RetryChunks):
             self._chunks_file.remove(chunk)
 
         self._retry_chunks(create_chunks_file(self._request, chunks_number=1, size=self.size, resume=self.resume))
+
+    def _max_attempts_reached(self):
+        pass

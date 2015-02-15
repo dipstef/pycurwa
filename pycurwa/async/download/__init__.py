@@ -32,10 +32,10 @@ class AsyncDownloads(AsyncDownloadsBase):
 
 class AsyncChunks(AsyncChunksDownloads):
 
-    def __init__(self, requests, request, on_completion=None, on_err=None, cookies=None, bucket=None):
+    def __init__(self, requests, request, on_completion=None, on_err=None, cookies=None, bucket=None, max_attempts=5):
         self._on_completion = on_completion
         self._on_err = on_err
-        super(AsyncChunks, self).__init__(requests, request, cookies, bucket)
+        super(AsyncChunks, self).__init__(requests, request, cookies, bucket, max_attempts)
 
     def _download_failed(self, error):
         if self._on_err:
@@ -60,10 +60,10 @@ class AsyncDownloadFutures(AsyncDownloadsBase):
 
 class AsyncChunksFutures(AsyncChunks):
 
-    def __init__(self, requests, request, cookies=None, bucket=None):
+    def __init__(self, requests, request, cookies=None, bucket=None, max_attempts=5):
         self._outcome = AsyncGet()
         super(AsyncChunksFutures, self).__init__(requests, request, self._outcome.completed, self._outcome.failed,
-                                                 cookies, bucket)
+                                                 cookies, bucket, max_attempts)
 
     def perform(self):
         if self._chunks:
