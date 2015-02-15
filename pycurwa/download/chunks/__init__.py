@@ -67,6 +67,9 @@ class ChunksDownloads(RetryChunks):
             if e.disconnected():
                 print_err('Disconnected: while downloading, retrying %s' % self._request)
                 self._retry_chunks(self._chunks_file)
+            elif e.connection_timeout() and self._chunks.chunks_received.sum() > 0:
+                print_err('Connection timeout: retrying %s %d time' % (self._request, self._attempts))
+                self._retry_chunks(self._chunks_file)
             elif e.incomplete_read():
                 print_err('Incomplete read: retrying %s %d time' % (self._request, self._attempts))
                 self._retry_chunks(self._chunks_file)
@@ -84,5 +87,5 @@ class ChunksDownloads(RetryChunks):
 
         self._retry_chunks(create_chunks_file(self._request, chunks_number=1, size=self.size, resume=self.resume))
 
-    def _max_attempts_reached(self):
-        pass
+    def _has_downloaded(self):
+        self._chunks

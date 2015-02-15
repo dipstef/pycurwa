@@ -1,4 +1,4 @@
-from httpy.connection.error import NotConnected
+from httpy.connection.error import NotConnected, ConnectionTimeout
 from httpy.error import IncompleteRead
 from ...curl.error import FailedStatus
 from ..error import DownloadedContentMismatch
@@ -23,6 +23,9 @@ class FailedChunks(FailedStatus):
 
     def incomplete_read(self):
         return any((isinstance(request.error, IncompleteRead) for request in self.failed))
+
+    def connection_timeout(self):
+        return any((isinstance(request.error, ConnectionTimeout) for request in self.failed))
 
     def __str__(self):
         return self.message

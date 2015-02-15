@@ -79,7 +79,7 @@ class ChunksProgress(ChunksCompletion):
     def chunks_speeds(self):
         return OrderedDict(((chunk.id, chunk.get_response().speed())for chunk in self.remaining))
 
-    #current speed
+    # current speed
     @property
     def speed(self):
         return sum(self.chunks_speeds.values())
